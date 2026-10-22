@@ -1,0 +1,20 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://assets/asset.gd" id="1_5n81h"]
+[ext_resource type="PackedScene" path="res://assets/_sources/kenney-city-kit-industrial/shipping-container-a.glb" id="2_wdd1v"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_dseel"]
+size = Vector3(2.7449024, 2.564265, 6.06)
+
+[node name="prop_shipping_container" type="Node3D" unique_id=2106059859]
+script = ExtResource("1_5n81h")
+asset_id = "prop_shipping_container"
+
+[node name="Model" type="Node3D" parent="." unique_id=834949060 instance=ExtResource("2_wdd1v")]
+transform = Transform3D(7.3668847, 0, 0, 0, 7.3668847, 0, 0, 0, 7.3668847, 1.2075265e-06, -5.051697e-09, 0)
+
+[node name="Collision" type="StaticBody3D" parent="." unique_id=1834452836]
+
+[node name="Shape" type="CollisionShape3D" parent="Collision" unique_id=1958575369]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2821325, 0)
+shape = SubResource("BoxShape3D_dseel")

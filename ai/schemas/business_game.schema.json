@@ -1,0 +1,313 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gmix.local/schemas/business_game/v1",
+  "title": "Business game G-mix (spec v1)",
+  "description": "Contrat entre le générateur IA, le backend (validation, moteur de simulation) et Godot (rendu du lobby). Généré par étapes : outline -> phase_detail (une par phase) -> npcs_block -> world (asset_selection), puis assemblé, validé par ce schéma et par gmix.game.coherence. Identifiants snake_case uniques dans toute la spec.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["spec_version", "meta", "learning_objectives", "context", "roles", "kpis", "phases", "npcs", "world", "debrief", "sources"],
+  "properties": {
+    "spec_version": { "const": 1 },
+    "meta": { "$ref": "#/$defs/meta" },
+    "learning_objectives": { "$ref": "#/$defs/learning_objectives" },
+    "context": { "$ref": "#/$defs/context" },
+    "roles": { "$ref": "#/$defs/roles" },
+    "kpis": { "$ref": "#/$defs/kpis" },
+    "phases": { "type": "array", "minItems": 2, "maxItems": 6, "items": { "$ref": "#/$defs/phase" } },
+    "npcs": { "type": "array", "minItems": 1, "maxItems": 8, "items": { "$ref": "#/$defs/npc" } },
+    "world": { "$ref": "#/$defs/world" },
+    "debrief": { "$ref": "#/$defs/debrief" },
+    "sources": { "type": "array", "items": { "$ref": "#/$defs/source" } }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+    "text": { "type": "string", "minLength": 1 },
+
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title", "domain", "level", "duration_minutes", "players", "language", "pitch"],
+      "properties": {
+        "title": { "type": "string", "minLength": 5 },
+        "domain": { "type": "string", "description": "slug de ai/domains.yaml" },
+        "level": { "enum": ["debutant", "intermediaire", "avance"] },
+        "duration_minutes": { "type": "integer", "minimum": 15, "maximum": 480 },
+        "players": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["min", "max"],
+          "properties": {
+            "min": { "type": "integer", "minimum": 1 },
+            "max": { "type": "integer", "minimum": 1, "maximum": 60 }
+          }
+        },
+        "language": { "const": "fr" },
+        "pitch": { "$ref": "#/$defs/text" }
+      }
+    },
+
+    "learning_objectives": { "type": "array", "minItems": 2, "maxItems": 6, "items": { "$ref": "#/$defs/learning_objective" } },
+    "learning_objective": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "statement", "bloom_level", "assessed_by"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "statement": { "type": "string", "minLength": 10, "description": "Verbe d'action observable + savoir précis" },
+        "bloom_level": { "enum": ["se_souvenir", "comprendre", "appliquer", "analyser", "evaluer", "creer"] },
+        "assessed_by": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/id" },
+          "description": "ids de KPI, de décisions ou de questions de débrief qui prouvent l'acquisition"
+        }
+      }
+    },
+
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["company", "situation", "constraints"],
+      "properties": {
+        "company": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "sector", "size", "description"],
+          "properties": {
+            "name": { "$ref": "#/$defs/text" },
+            "sector": { "$ref": "#/$defs/text" },
+            "size": { "enum": ["tpe", "pme", "eti", "grande_entreprise"] },
+            "description": { "$ref": "#/$defs/text" }
+          }
+        },
+        "situation": { "type": "string", "minLength": 20, "description": "Situation initiale et problème à résoudre" },
+        "constraints": { "type": "array", "maxItems": 6, "items": { "$ref": "#/$defs/text" } }
+      }
+    },
+
+    "roles": { "type": "array", "minItems": 1, "maxItems": 6, "items": { "$ref": "#/$defs/role" } },
+    "role": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "mission"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "title": { "$ref": "#/$defs/text" },
+        "mission": { "$ref": "#/$defs/text" }
+      }
+    },
+
+    "kpis": { "type": "array", "minItems": 3, "maxItems": 8, "items": { "$ref": "#/$defs/kpi" } },
+    "kpi": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "unit", "initial", "target", "direction", "definition"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "name": { "$ref": "#/$defs/text" },
+        "unit": { "type": "string", "description": "k€, %, jours, points…" },
+        "initial": { "type": "number" },
+        "target": { "type": "number" },
+        "direction": { "enum": ["higher_is_better", "lower_is_better"] },
+        "definition": { "type": "string", "minLength": 10, "description": "Définition métier exacte ou formule usuelle" },
+        "formula": {
+          "type": "string",
+          "description": "KPI dérivé : expression arithmétique sur d'autres ids de KPI (ex. « dso + dio - dpo »). Les effets ne le modifient jamais directement."
+        }
+      }
+    },
+
+    "effect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kpi", "operation", "value"],
+      "properties": {
+        "kpi": { "$ref": "#/$defs/id" },
+        "operation": { "enum": ["add", "multiply", "set"] },
+        "value": { "type": "number" },
+        "delay_phases": { "type": "integer", "minimum": 0, "maximum": 3, "description": "0 ou absent : immédiat" }
+      }
+    },
+    "option": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label", "effects", "rationale"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "label": { "$ref": "#/$defs/text" },
+        "effects": { "type": "array", "maxItems": 5, "items": { "$ref": "#/$defs/effect" } },
+        "triggers_events": { "type": "array", "items": { "$ref": "#/$defs/id" }, "description": "événements (trigger on_option) déclenchés par ce choix" },
+        "rationale": { "type": "string", "minLength": 20, "description": "Explication pédagogique révélée au débrief : la notion en jeu et le calcul des effets" },
+        "source_refs": { "type": "array", "items": { "$ref": "#/$defs/id" }, "description": "ids de `sources` qui fondent les effets ou l'explication" }
+      }
+    },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "role", "prompt", "options"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "role": { "$ref": "#/$defs/id" },
+        "prompt": { "type": "string", "minLength": 10 },
+        "options": { "type": "array", "minItems": 2, "maxItems": 4, "items": { "$ref": "#/$defs/option" } },
+        "advisor_npc": { "$ref": "#/$defs/id" }
+      }
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "description", "effects"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "title": { "$ref": "#/$defs/text" },
+        "description": { "type": "string", "minLength": 10 },
+        "effects": { "type": "array", "maxItems": 5, "items": { "$ref": "#/$defs/effect" } },
+        "trigger": {
+          "enum": ["phase_start", "on_option"],
+          "description": "phase_start (défaut) : survient au début de la phase ; on_option : seulement si une option le déclenche"
+        }
+      }
+    },
+
+    "phase_outline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "duration_minutes", "goal"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "title": { "$ref": "#/$defs/text" },
+        "duration_minutes": { "type": "integer", "minimum": 5, "maximum": 120 },
+        "goal": { "type": "string", "minLength": 10 }
+      }
+    },
+    "phase_detail": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["decisions", "events"],
+      "properties": {
+        "decisions": { "type": "array", "maxItems": 4, "items": { "$ref": "#/$defs/decision" } },
+        "events": { "type": "array", "maxItems": 3, "items": { "$ref": "#/$defs/event" } }
+      }
+    },
+    "phase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "duration_minutes", "goal", "decisions", "events"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "title": { "$ref": "#/$defs/text" },
+        "duration_minutes": { "type": "integer", "minimum": 5, "maximum": 120 },
+        "goal": { "type": "string", "minLength": 10 },
+        "decisions": { "type": "array", "maxItems": 4, "items": { "$ref": "#/$defs/decision" } },
+        "events": { "type": "array", "maxItems": 3, "items": { "$ref": "#/$defs/event" } }
+      }
+    },
+    "outline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["meta", "learning_objectives", "context", "roles", "kpis", "phases"],
+      "properties": {
+        "meta": { "$ref": "#/$defs/meta" },
+        "learning_objectives": { "$ref": "#/$defs/learning_objectives" },
+        "context": { "$ref": "#/$defs/context" },
+        "roles": { "$ref": "#/$defs/roles" },
+        "kpis": { "$ref": "#/$defs/kpis" },
+        "phases": { "type": "array", "minItems": 2, "maxItems": 6, "items": { "$ref": "#/$defs/phase_outline" } }
+      }
+    },
+
+    "npc": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "job", "personality", "expertise", "dialogue_goals", "zone"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "name": { "$ref": "#/$defs/text" },
+        "job": { "$ref": "#/$defs/text" },
+        "personality": { "type": "string", "minLength": 10 },
+        "expertise": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 5,
+          "items": { "$ref": "#/$defs/text" },
+          "description": "Notions sur lesquelles le PNJ est fiable (bornage du prompt et du RAG)"
+        },
+        "dialogue_goals": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4,
+          "items": { "$ref": "#/$defs/text" },
+          "description": "Ce que le PNJ doit faire comprendre au joueur"
+        },
+        "zone": { "$ref": "#/$defs/id" }
+      }
+    },
+    "npcs_block": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["npcs"],
+      "properties": { "npcs": { "type": "array", "minItems": 1, "maxItems": 8, "items": { "$ref": "#/$defs/npc" } } }
+    },
+
+    "zone": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "purpose", "asset_ids"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "name": { "$ref": "#/$defs/text" },
+        "purpose": { "$ref": "#/$defs/text" },
+        "asset_ids": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 12,
+          "items": { "type": "string" },
+          "description": "ids du catalogue d'assets (ai/assets.yaml / table assets)"
+        }
+      }
+    },
+    "world": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["template", "zones"],
+      "properties": {
+        "template": { "type": "string", "description": "id du gabarit de carte Godot (emplacements typés où poser les assets)" },
+        "zones": { "type": "array", "minItems": 1, "maxItems": 8, "items": { "$ref": "#/$defs/zone" } }
+      }
+    },
+
+    "debrief": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key_takeaways", "questions"],
+      "properties": {
+        "key_takeaways": { "type": "array", "minItems": 2, "maxItems": 6, "items": { "type": "string", "minLength": 10 } },
+        "questions": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 6,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "question", "expected_points"],
+            "properties": {
+              "id": { "$ref": "#/$defs/id" },
+              "question": { "type": "string", "minLength": 10 },
+              "expected_points": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/text" } }
+            }
+          }
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "citation"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "citation": { "type": "string", "minLength": 5, "description": "Référence lisible : article de loi, norme, ouvrage, document du corpus" },
+        "chunk_id": { "type": "integer", "description": "knowledge_chunks.id si la source vient du RAG" }
+      }
+    }
+  }
+}

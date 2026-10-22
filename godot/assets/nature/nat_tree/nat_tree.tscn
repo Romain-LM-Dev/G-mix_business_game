@@ -1,0 +1,20 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://assets/asset.gd" id="1_rmd4a"]
+[ext_resource type="PackedScene" path="res://assets/_sources/kenney-nature-kit/tree_default.glb" id="2_fspox"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_ylq41"]
+size = Vector3(2.6523998, 6, 2.2970448)
+
+[node name="nat_tree" type="Node3D" unique_id=1622671114]
+script = ExtResource("1_rmd4a")
+asset_id = "nat_tree"
+
+[node name="Model" type="Node3D" parent="." unique_id=1794158423 instance=ExtResource("2_fspox")]
+transform = Transform3D(3.513112, 0, 0, 0, 3.513112, 0, 0, 0, 3.513112, 0, 0.1756556, 0)
+
+[node name="Collision" type="StaticBody3D" parent="." unique_id=574245477]
+
+[node name="Shape" type="CollisionShape3D" parent="Collision" unique_id=1313832847]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 0)
+shape = SubResource("BoxShape3D_ylq41")

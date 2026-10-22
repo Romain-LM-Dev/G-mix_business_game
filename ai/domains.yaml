@@ -1,0 +1,238 @@
+# Domaines d'expertise proposés au formateur (menu de création de lobby).
+# Synchronisés en base par `python -m gmix.bootstrap`. Responsable du contenu : agent game-designer.
+#
+# Chaque domaine sert de cadrage à la génération (compétences visées, KPI réalistes, rôles) et de
+# check-list pour constituer le corpus RAG : les `references` sont les cadres que les documents
+# ingérés doivent couvrir. Une référence marquée « à vérifier » doit être confirmée avant usage.
+
+domains:
+  # Domaine prioritaire (décision du 2026-10-15) : premier du menu, corpus dans knowledge/supply-chain/.
+  - slug: supply-chain
+    name: Supply chain et logistique
+    description: Prévoir la demande, dimensionner les stocks et synchroniser les flux de la chaîne logistique.
+    competencies:
+      - Prévoir la demande et mesurer l'erreur de prévision
+      - Dimensionner les stocks (stock de sécurité, point de commande, quantité économique de Wilson)
+      - Planifier (PDP, MRP, S&OP)
+      - Comprendre et réduire l'effet coup de fouet (bullwhip)
+    kpis: [Taux de service, OTIF, Couverture de stock en jours, Rotation des stocks, Délai d'approvisionnement, Coût logistique en % du CA]
+    references:
+      - Modèle SCOR (ASCM)
+      - Formule de Wilson (quantité économique de commande)
+      - Beer Game (MIT) et effet bullwhip
+      - MRP II
+    roles: [Supply chain manager, Responsable des approvisionnements, Responsable d'entrepôt, Prévisionniste]
+
+  - slug: finance-entreprise
+    name: Finance d'entreprise et trésorerie
+    description: Piloter la trésorerie, le BFR, l'investissement et le financement d'une entreprise.
+    competencies:
+      - Lire un bilan et un compte de résultat
+      - Calculer et piloter le BFR et la trésorerie nette (FR - BFR)
+      - Évaluer un investissement (VAN, TRI, délai de récupération)
+      - Choisir un financement (emprunt, fonds propres, crédit-bail, affacturage, Dailly)
+    kpis: [Trésorerie nette, BFR en jours de CA, DSO / DPO / DIO, Capacité d'autofinancement, Excédent brut d'exploitation, Ratio d'endettement]
+    references:
+      - Plan comptable général (règlement ANC n° 2014-03)
+      - Code de commerce, art. L441-10 (plafond des délais de paiement entre entreprises)
+      - Actualisation des flux (VAN, TRI)
+    roles: [Directeur·rice administratif·ve et financier·ère, Trésorier·ère, Contrôleur·se de gestion, Chargé·e d'affaires bancaire]
+
+  - slug: controle-gestion
+    name: Contrôle de gestion
+    description: Calculer les coûts, budgéter, analyser les écarts et piloter par tableaux de bord.
+    competencies:
+      - Calculer des coûts complets et partiels, le seuil de rentabilité
+      - Construire un budget et analyser les écarts (prix, quantité)
+      - Concevoir un tableau de bord orienté décision
+      - Affecter les charges indirectes (centres d'analyse, méthode ABC)
+    kpis: [Marge sur coût variable, Seuil de rentabilité, Point mort en jours, Coût de revient unitaire, Écart sur budget]
+    references:
+      - Méthode des coûts complets (centres d'analyse) et du coût variable
+      - Activity-Based Costing (Kaplan & Cooper)
+      - Balanced Scorecard (Kaplan & Norton)
+    roles: [Contrôleur·se de gestion, Directeur·rice de site, Responsable commercial·e, Directeur·rice financier·ère]
+
+  - slug: marketing
+    name: Marketing stratégique et opérationnel
+    description: Segmenter, cibler, positionner une offre et construire son mix marketing.
+    competencies:
+      - Segmenter un marché et choisir une cible
+      - Définir un positionnement différenciant
+      - Construire un mix marketing (4P / 7P)
+      - Fixer un prix (coûts, concurrence, valeur perçue)
+    kpis: [Part de marché, Coût d'acquisition client (CAC), Valeur vie client (CLV), Taux de conversion, Notoriété, Marge par produit]
+    references:
+      - Démarche segmentation - ciblage - positionnement (STP)
+      - Marketing mix 4P (McCarthy) et 7P (Booms & Bitner)
+      - Cycle de vie du produit
+    roles: [Chef·fe de produit, Directeur·rice marketing, Responsable marketing digital, Chargé·e d'études]
+
+  - slug: vente-negociation
+    name: Vente et négociation commerciale
+    description: Préparer et conduire un entretien de vente ou une négociation, piloter un portefeuille.
+    competencies:
+      - Préparer une négociation (objectifs, marges de manœuvre, MESORE / BATNA)
+      - Conduire un entretien de découverte (questionnement SPIN, profils SONCAS)
+      - Traiter les objections et conclure
+      - Piloter un pipeline commercial
+    kpis: [Taux de transformation, Panier moyen, Durée du cycle de vente, Remise moyenne accordée, Chiffre d'affaires signé]
+    references:
+      - Négociation raisonnée (Fisher & Ury, Harvard Negotiation Project)
+      - SPIN Selling (Rackham)
+      - Grille SONCAS
+    roles: [Commercial·e, Acheteur·se client, Directeur·rice commercial·e, Key account manager]
+
+  - slug: production-lean
+    name: Production industrielle et Lean
+    description: "Améliorer la performance d'un atelier : flux, goulots, gaspillages, disponibilité des équipements."
+    competencies:
+      - Mesurer la performance d'un équipement (TRS)
+      - Identifier les gaspillages (muda) et cartographier un flux (VSM)
+      - Gérer un goulot d'étranglement (théorie des contraintes)
+      - Réduire les temps de changement de série (SMED) et tirer les flux (kanban)
+    kpis: [TRS, Temps de cycle, Takt time, Encours (WIP), Taux de rebut, Lead time de production]
+    references:
+      - Toyota Production System
+      - Théorie des contraintes (Goldratt, « Le But »)
+      - SMED (Shingo)
+      - 5S
+    roles: [Responsable de production, Ingénieur·e méthodes, Chef·fe d'équipe, Responsable maintenance]
+
+  - slug: qualite
+    name: Management de la qualité
+    description: Maîtriser les processus, traiter les non-conformités et améliorer en continu.
+    competencies:
+      - Conduire une amélioration avec le cycle PDCA
+      - Analyser les causes (Ishikawa, 5 pourquoi)
+      - Conduire une AMDEC
+      - Piloter un procédé par la maîtrise statistique (cartes de contrôle, capabilité)
+    kpis: [Taux de non-conformité (ppm), Coût de non-qualité, Capabilité Cpk, Taux de réclamations clients, Délai de traitement des non-conformités]
+    references:
+      - ISO 9001 (systèmes de management de la qualité ; version en vigueur à vérifier)
+      - AMDEC / FMEA (IEC 60812)
+      - Six Sigma DMAIC
+    roles: [Responsable qualité, Auditeur·rice, Technicien·ne contrôle, Directeur·rice d'usine]
+
+  - slug: gestion-projet
+    name: Gestion de projet
+    description: Cadrer, planifier, suivre et livrer un projet sous contraintes de coût, délai et qualité.
+    competencies:
+      - Structurer un projet (organigramme des tâches)
+      - Planifier et identifier le chemin critique (PERT, Gantt)
+      - Suivre coûts et délais par la valeur acquise
+      - Gérer les risques et les parties prenantes ; piloter en agile (Scrum)
+    kpis: [SPI (performance des délais), CPI (performance des coûts), Avancement, Exposition aux risques, Vélocité]
+    references:
+      - PMBOK Guide (PMI)
+      - ISO 21502 (management de projet)
+      - Scrum Guide (Schwaber & Sutherland)
+      - Méthode de la valeur acquise (EVM)
+    roles: [Chef·fe de projet, Sponsor, PMO, Product owner]
+
+  - slug: rh-management
+    name: Ressources humaines et management d'équipe
+    description: Recruter, développer les compétences, manager une équipe et préserver le climat social.
+    competencies:
+      - Recruter et intégrer un collaborateur
+      - Conduire un entretien professionnel
+      - Anticiper les compétences (GEPP)
+      - Prévenir les risques psychosociaux et dialoguer avec le CSE
+    kpis: [Taux de turnover, Taux d'absentéisme, Coût et délai de recrutement, Taux d'accès à la formation, Indice d'engagement]
+    references:
+      - Code du travail (France), dont l'entretien professionnel (art. L6315-1)
+      - Leadership situationnel (Hersey & Blanchard)
+      - Théorie bifactorielle de Herzberg
+    roles: [DRH, Manager d'équipe, Élu·e du CSE, Chargé·e de recrutement]
+
+  - slug: strategie
+    name: Stratégie d'entreprise
+    description: Analyser l'environnement et la concurrence pour choisir et déployer une stratégie.
+    competencies:
+      - Analyser l'environnement (PESTEL)
+      - Analyser l'intensité concurrentielle (5 forces de Porter)
+      - Synthétiser forces, faiblesses, opportunités et menaces (SWOT)
+      - Choisir une stratégie générique et arbitrer un portefeuille d'activités (BCG, Ansoff)
+    kpis: [Part de marché relative, Croissance du marché, ROCE, Marge opérationnelle, CA par domaine d'activité stratégique]
+    references:
+      - 5 forces et stratégies génériques (Porter)
+      - Matrice BCG
+      - Matrice d'Ansoff
+    roles: [Directeur·rice général·e, Directeur·rice de la stratégie, Analyste, Membre du comité de direction]
+
+  - slug: entrepreneuriat
+    name: Entrepreneuriat et création de startup
+    description: Valider un marché, construire un modèle économique et financer le démarrage.
+    competencies:
+      - Formaliser un modèle économique (Business Model Canvas)
+      - Valider un marché (entretiens clients, MVP)
+      - Construire un prévisionnel et estimer le besoin de financement
+      - Préparer une levée de fonds (valorisation pré / post-money, dilution)
+    kpis: [Burn rate, Runway en mois, CAC / LTV, Revenu récurrent mensuel (MRR), Taux de churn, Dilution des fondateurs]
+    references:
+      - Business Model Canvas (Osterwalder & Pigneur)
+      - Lean Startup (Ries)
+      - Customer Development (Blank)
+    roles: [Fondateur·rice CEO, CTO, Business angel, Premier·ère client·e]
+
+  - slug: rse-climat
+    name: RSE et transition bas-carbone
+    description: Mesurer et réduire l'empreinte environnementale, répondre aux obligations de durabilité.
+    competencies:
+      - Réaliser un bilan des émissions de gaz à effet de serre (scopes 1, 2, 3)
+      - Construire une trajectoire de réduction
+      - Raisonner en cycle de vie (ACV)
+      - Identifier les obligations de reporting de durabilité
+    kpis: [Émissions par scope (tCO2e), Intensité carbone (tCO2e / M€ de CA), Part d'énergie renouvelable, Taux de valorisation des déchets]
+    references:
+      - GHG Protocol
+      - Méthode Bilan Carbone (ADEME / Association pour la transition Bas Carbone)
+      - ISO 14040 / 14044 (ACV)
+      - Directive CSRD (UE) 2022/2464 et normes ESRS (périmètre modifié par l'Omnibus 2025 ; à vérifier)
+    roles: [Responsable RSE, Directeur·rice des achats, Directeur·rice d'usine, Investisseur·se ESG]
+
+  - slug: achats
+    name: Achats et relations fournisseurs
+    description: Segmenter les achats, négocier, raisonner en coût total et maîtriser le risque fournisseur.
+    competencies:
+      - Segmenter le portefeuille achats (matrice de Kraljic)
+      - Raisonner en coût total de possession (TCO)
+      - Conduire un appel d'offres
+      - Évaluer et réduire la dépendance et le risque fournisseur
+    kpis: [Gains achats, Coût total de possession, Taux de dépendance fournisseur, Taux de livraison à l'heure fournisseur, Délai de paiement fournisseurs (DPO)]
+    references:
+      - Matrice de Kraljic (1983)
+      - Code de commerce, art. L441-10 (délais de paiement)
+      - ISO 20400 (achats responsables)
+    roles: [Acheteur·se, Responsable achats, Fournisseur, Prescripteur·rice interne]
+
+  - slug: cyber-crise
+    name: Gestion de crise cyber
+    description: Gouverner le risque numérique et piloter une crise d'origine cyber (ex. rançongiciel).
+    competencies:
+      - Analyser les risques numériques (EBIOS Risk Manager)
+      - Prioriser la continuité d'activité pendant un incident (RTO / RPO)
+      - Communiquer en crise (interne, clients, autorités)
+      - "Respecter les obligations de notification (RGPD, art. 33 : 72 heures)"
+    kpis: [Durée d'indisponibilité, RTO / RPO, Systèmes compromis, Coût de l'incident, Délai de notification]
+    references:
+      - EBIOS Risk Manager (ANSSI)
+      - ISO/IEC 27001 (version 2022)
+      - RGPD, art. 33 (notification à l'autorité de contrôle)
+      - Guides ANSSI de gestion de crise d'origine cyber
+    roles: [RSSI, DSI, Directeur·rice de la communication, Délégué·e à la protection des données]
+
+  - slug: intelligence-economique
+    name: Intelligence économique
+    description: Organiser la veille, évaluer l'information, protéger le patrimoine informationnel.
+    competencies:
+      - Organiser une veille selon le cycle du renseignement
+      - Évaluer la fiabilité d'une source et d'une information
+      - Protéger les informations sensibles et le secret des affaires
+      - Conduire une démarche d'influence licite
+    kpis: [Signaux faibles détectés, Délai de diffusion de l'information, Fiabilité des sources, Incidents de fuite d'information]
+    references:
+      - Cycle du renseignement (orientation, collecte, analyse, diffusion)
+      - Échelle d'évaluation des sources de type « Admiralty » (A-F / 1-6)
+      - Loi n° 2018-670 relative à la protection du secret des affaires
+    roles: [Veilleur·se, Responsable intelligence économique, Directeur·rice général·e, Juriste]

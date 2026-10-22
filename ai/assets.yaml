@@ -1,0 +1,234 @@
+# Catalogue des assets 3D prédéfinis : source unique de vérité. Responsable : agent assets-3d.
+#
+# L'IA ne génère jamais de géométrie : elle choisit des ids de ce catalogue (tâche game.asset_mapping) et ne règle
+# que les `variants` déclarées (texte d'enseigne, niveau de remplissage…). La `description` est vectorisée pour
+# présélectionner les candidats d'une zone.
+#
+# footprint : taille réelle visée en mètres (w largeur X, d profondeur Z, h hauteur Y). Le modèle source est mis à
+#             l'échelle uniformément pour que sa dimension `fit` (h, w, d ou max = plus grande dimension au sol)
+#             égale celle de l'emprise ; les autres dimensions suivent ses proportions.
+# source    : pack + fichier GLB importé, ou pack `gmix` sans fichier = scène procédurale écrite à la main.
+# Scène Godot (convention) : res://assets/<category>/<id>/<id>.tscn
+#
+# Chaîne : python -m gmix.tools.assets import <dossier des zips extraits> ; python -m gmix.tools.assets export ;
+#          Godot --headless --script res://tools/build_asset_scenes.gd ; python -m gmix.tools.assets sync-db
+
+version: 2
+
+packs:
+  kenney-factory-kit: { title: "Kenney Factory Kit 3.0", url: "https://kenney.nl/assets/factory-kit", license: "CC0 1.0", download_dir: factory-kit, models_dir: "Models/GLB format" }
+  kenney-city-kit-industrial: { title: "Kenney City Kit (Industrial) 2.0", url: "https://kenney.nl/assets/city-kit-industrial", license: "CC0 1.0", download_dir: city-kit-industrial, models_dir: "Models/GLB format" }
+  kenney-city-kit-commercial: { title: "Kenney City Kit (Commercial) 2.1", url: "https://kenney.nl/assets/city-kit-commercial", license: "CC0 1.0", download_dir: city-kit-commercial, models_dir: "Models/GLB format" }
+  kenney-city-kit-roads: { title: "Kenney City Kit (Roads)", url: "https://kenney.nl/assets/city-kit-roads", license: "CC0 1.0", download_dir: city-kit-roads, models_dir: "Models/GLB format" }
+  kenney-car-kit: { title: "Kenney Car Kit", url: "https://kenney.nl/assets/car-kit", license: "CC0 1.0", download_dir: car-kit, models_dir: "Models/GLB format" }
+  kenney-furniture-kit: { title: "Kenney Furniture Kit", url: "https://kenney.nl/assets/furniture-kit", license: "CC0 1.0", download_dir: furniture-kit, models_dir: "Models/GLTF format" }
+  kenney-mini-characters: { title: "Kenney Mini Characters (animés)", url: "https://kenney.nl/assets/mini-characters", license: "CC0 1.0", download_dir: mini-characters, models_dir: "Models/GLB format" }
+  kenney-nature-kit: { title: "Kenney Nature Kit", url: "https://kenney.nl/assets/nature-kit", license: "CC0 1.0", download_dir: nature-kit, models_dir: "Models/GLTF format" }
+  gmix: { title: "Assets G-mix (scènes Godot procédurales)", url: "godot/assets/procedural", license: "propriété du projet" }
+
+assets:
+  # --- Bâtiments --------------------------------------------------------------------------------------
+  - { id: bld_warehouse, name: Entrepôt logistique, category: building, fit: w, footprint: { w: 24, d: 20, h: 10 }, variants: [enseigne],
+      tags: [entrepot, stockage, logistique, reception, expedition],
+      description: "Entrepôt à toit à deux pentes avec grandes portes de quai pour la réception et l'expédition des marchandises.",
+      source: { pack: kenney-city-kit-industrial, file: building-i.glb } }
+  - { id: bld_warehouse_hangar, name: Hangar de stockage, category: building, fit: w, footprint: { w: 22, d: 26, h: 11 }, variants: [enseigne],
+      tags: [hangar, stockage, entrepot, vrac],
+      description: "Hangar à toit arrondi pour le stockage de volumes importants ou de produits encombrants.",
+      source: { pack: kenney-city-kit-industrial, file: building-j.glb } }
+  - { id: bld_factory_workshop, name: Atelier de production, category: building, fit: w, footprint: { w: 26, d: 20, h: 10 }, variants: [enseigne],
+      tags: [usine, atelier, production, fabrication],
+      description: "Atelier de production à toit en sheds, où l'on fabrique et assemble les produits.",
+      source: { pack: kenney-city-kit-industrial, file: building-k.glb } }
+  - { id: bld_loading_dock, name: Plateforme de quais de chargement, category: building, fit: w, footprint: { w: 40, d: 16, h: 7 }, variants: [enseigne],
+      tags: [quai, messagerie, cross-dock, transport, expedition],
+      description: "Bâtiment long à nombreuses portes de quai : messagerie, cross-docking, chargement des camions.",
+      source: { pack: kenney-city-kit-industrial, file: building-s.glb } }
+  - { id: bld_factory_plant, name: Usine fournisseur, category: building, fit: w, footprint: { w: 28, d: 24, h: 18 }, variants: [enseigne],
+      tags: [usine, fournisseur, amont, production, cheminee],
+      description: "Usine avec cheminées, représentant un fournisseur ou un site de production en amont de la chaîne.",
+      source: { pack: kenney-city-kit-industrial, file: building-e.glb } }
+  - { id: bld_distribution_center, name: Centre de distribution, category: building, fit: h, footprint: { w: 16, d: 22, h: 16 }, variants: [enseigne],
+      tags: [plateforme, distribution, entrepot, aval, magasins],
+      description: "Grand bâtiment cubique de plateforme logistique qui approvisionne les points de vente.",
+      source: { pack: kenney-city-kit-industrial, file: building-o.glb } }
+  - { id: bld_startup_loft, name: Loft de startup, category: building, fit: w, footprint: { w: 20, d: 16, h: 8 }, variants: [enseigne],
+      tags: [startup, incubateur, innovation, bureaux],
+      description: "Bâtiment bas à verrières transformé en espace de startup ou d'incubateur.",
+      source: { pack: kenney-city-kit-industrial, file: building-q.glb } }
+  - { id: bld_office_small, name: Bureaux de l'entreprise, category: building, fit: w, footprint: { w: 22, d: 14, h: 10 }, variants: [enseigne],
+      tags: [bureau, siege, direction, administration],
+      description: "Bureaux de deux ailes avec auvent d'entrée : siège de l'entreprise, direction et services support.",
+      source: { pack: kenney-city-kit-commercial, file: building-e.glb } }
+  - { id: bld_office_hq, name: Grand immeuble de bureaux, category: building, fit: w, footprint: { w: 30, d: 14, h: 16 }, variants: [enseigne],
+      tags: [bureau, siege, groupe, client, donneur_ordre],
+      description: "Grand immeuble de bureaux, siège d'un groupe ou d'un client important.",
+      source: { pack: kenney-city-kit-commercial, file: building-k.glb } }
+  - { id: bld_shop_front, name: Commerce, category: building, fit: w, footprint: { w: 10, d: 10, h: 14 }, variants: [enseigne],
+      tags: [magasin, vente, client, point_de_vente],
+      description: "Immeuble avec boutique en rez-de-chaussée : point de vente approvisionné par la chaîne logistique.",
+      source: { pack: kenney-city-kit-commercial, file: building-g.glb } }
+  - { id: bld_bank_branch, name: Agence bancaire, category: building, fit: w, footprint: { w: 12, d: 12, h: 11 }, variants: [enseigne],
+      tags: [banque, finance, financement, credit],
+      description: "Petit immeuble accueillant une agence bancaire et ses conseillers entreprises.",
+      source: { pack: kenney-city-kit-commercial, file: building-c.glb } }
+
+  # --- Équipements industriels et logistiques ------------------------------------------------------------
+  - { id: prop_pallet, name: Palette Europe, category: industrial, footprint: { w: 1.2, d: 0.8, h: 1.14 }, variants: [chargee, hauteur_charge],
+      tags: [palette, stock, unite_de_charge, manutention],
+      description: "Palette Europe EPAL de 1 200 x 800 mm, vide ou chargée de colis filmés.",
+      source: { pack: gmix } }
+  - { id: prop_pallet_rack, name: Rayonnage à palettes, category: industrial, fit: w, footprint: { w: 5.4, d: 1.1, h: 5.1 }, variants: [niveau_remplissage, travees, niveaux],
+      tags: [rack, rayonnage, stockage, stock, emplacement],
+      description: "Rayonnage à palettes réglable dont le remplissage montre visuellement le niveau de stock.",
+      source: { pack: gmix } }
+  - { id: prop_pallet_stack, name: Stock de palettes au sol, category: industrial, footprint: { w: 3.6, d: 2.4, h: 2.3 }, variants: [nombre_palettes],
+      tags: [stock, palettes, gerbage, zone_de_stockage],
+      description: "Zone de stockage au sol de palettes chargées gerbées, dont le nombre montre le niveau de stock.",
+      source: { pack: gmix } }
+  - { id: prop_conveyor, name: Convoyeur, category: industrial, footprint: { w: 2, d: 1, h: 0.4 },
+      tags: [convoyeur, flux, preparation, tri],
+      description: "Module droit de convoyeur à bande pour les flux de colis et la préparation de commandes.",
+      source: { pack: kenney-factory-kit, file: conveyor-long.glb } }
+  - { id: prop_conveyor_corner, name: Convoyeur d'angle, category: industrial, footprint: { w: 1, d: 1, h: 0.4 },
+      tags: [convoyeur, flux, tri],
+      description: "Module d'angle de convoyeur à bande.",
+      source: { pack: kenney-factory-kit, file: conveyor-corner.glb } }
+  - { id: prop_box_large, name: Grand carton, category: industrial, footprint: { w: 0.8, d: 0.6, h: 0.6 },
+      tags: [colis, carton, commande, expedition],
+      description: "Grand colis en carton prêt à être expédié.",
+      source: { pack: kenney-factory-kit, file: box-large.glb } }
+  - { id: prop_box_small, name: Petit carton, category: industrial, footprint: { w: 0.4, d: 0.3, h: 0.3 },
+      tags: [colis, carton, commande, picking],
+      description: "Petit colis en carton issu de la préparation de commandes.",
+      source: { pack: kenney-factory-kit, file: box-small.glb } }
+  - { id: prop_cnc_machine, name: Machine de production, category: industrial, footprint: { w: 3, d: 2.5, h: 2.5 },
+      tags: [machine, production, usinage, capacite, goulot],
+      description: "Machine de production capotée : capacité de l'atelier, goulot d'étranglement possible.",
+      source: { pack: kenney-factory-kit, file: machine.glb } }
+  - { id: prop_robot_arm, name: Robot de palettisation, category: industrial, fit: h, footprint: { w: 1.5, d: 1.5, h: 2.4 },
+      tags: [robot, automatisation, palettisation, productivite],
+      description: "Bras robotisé de manutention et de palettisation automatique.",
+      source: { pack: kenney-factory-kit, file: robot-arm-a.glb } }
+  - { id: prop_scanner_gate, name: Portique de contrôle, category: industrial, fit: h, footprint: { w: 2, d: 1, h: 2.6 },
+      tags: [controle, qualite, scan, tracabilite, reception],
+      description: "Portique de scan et de contrôle des colis en réception ou en expédition (traçabilité, qualité).",
+      source: { pack: kenney-factory-kit, file: scanner-high.glb } }
+  - { id: prop_andon_light, name: Colonne lumineuse andon, category: industrial, fit: h, footprint: { w: 0.3, d: 0.3, h: 1.8 },
+      tags: [andon, alerte, lean, incident, signal],
+      description: "Colonne lumineuse andon qui signale un incident ou un arrêt sur une ligne (lean).",
+      source: { pack: kenney-factory-kit, file: warning-traffic.glb } }
+  - { id: prop_hopper, name: Trémie, category: industrial, fit: h, footprint: { w: 2, d: 2, h: 2.2 },
+      tags: [vrac, matiere_premiere, alimentation, production],
+      description: "Trémie d'alimentation en matière première d'une ligne de production.",
+      source: { pack: kenney-factory-kit, file: hopper-square.glb } }
+  - { id: prop_shipping_container, name: Conteneur maritime 20 pieds (orange), category: industrial, footprint: { w: 2.44, d: 6.06, h: 2.59 },
+      tags: [conteneur, import, maritime, transport, international],
+      description: "Conteneur maritime ISO de 20 pieds : import, transport international, délais longs.",
+      source: { pack: kenney-city-kit-industrial, file: shipping-container-a.glb } }
+  - { id: prop_shipping_container_blue, name: Conteneur maritime 20 pieds (bleu), category: industrial, footprint: { w: 2.44, d: 6.06, h: 2.59 },
+      tags: [conteneur, export, maritime, transport],
+      description: "Conteneur maritime ISO de 20 pieds, variante bleue.",
+      source: { pack: kenney-city-kit-industrial, file: shipping-container-b.glb } }
+  - { id: prop_storage_tank, name: Citerne de stockage, category: industrial, fit: h, footprint: { w: 5, d: 5, h: 6 },
+      tags: [citerne, liquide, stockage, vrac],
+      description: "Citerne de stockage de liquides en vrac.",
+      source: { pack: kenney-city-kit-industrial, file: detail-tank-large.glb } }
+
+  # --- Équipements interactifs --------------------------------------------------------------------------
+  - { id: prop_kpi_screen, name: Écran des KPI, category: interactive, fit: w, footprint: { w: 3.1, d: 0.6, h: 3.2 }, variants: [titre, indicateurs],
+      tags: [kpi, tableau_de_bord, indicateurs, score],
+      description: "Grand écran sur pieds qui affiche en direct les indicateurs de la partie.",
+      source: { pack: gmix } }
+
+  # --- Véhicules ----------------------------------------------------------------------------------------
+  - { id: veh_forklift, name: Chariot élévateur, category: vehicle, footprint: { w: 1.15, d: 3.6, h: 2.6 }, variants: [hauteur_fourches],
+      tags: [chariot, cariste, manutention, palette, entrepot],
+      description: "Chariot élévateur frontal à fourches pour déplacer et ranger les palettes.",
+      source: { pack: gmix } }
+  - { id: veh_box_truck, name: Camion porteur, category: vehicle, footprint: { w: 2.5, d: 8, h: 3.6 },
+      tags: [camion, livraison, transport, client, fournisseur],
+      description: "Camion porteur fourgon pour les livraisons régionales aux clients et depuis les fournisseurs.",
+      source: { pack: kenney-car-kit, file: delivery.glb } }
+  - { id: veh_flatbed_truck, name: Camion plateau, category: vehicle, footprint: { w: 2.5, d: 8, h: 3 },
+      tags: [camion, plateau, transport, materiaux],
+      description: "Camion à plateau pour les charges longues ou volumineuses.",
+      source: { pack: kenney-car-kit, file: delivery-flat.glb } }
+  - { id: veh_van, name: Utilitaire de livraison, category: vehicle, footprint: { w: 2, d: 5.5, h: 2.5 },
+      tags: [utilitaire, livraison, dernier_kilometre, urgence],
+      description: "Véhicule utilitaire léger pour les livraisons urgentes et le dernier kilomètre.",
+      source: { pack: kenney-car-kit, file: van.glb } }
+
+  # --- Mobilier ---------------------------------------------------------------------------------------
+  - { id: furn_desk, name: Bureau, category: furniture, footprint: { w: 1.4, d: 0.7, h: 0.75 },
+      tags: [bureau, poste, travail], description: "Bureau de travail.", source: { pack: kenney-furniture-kit, file: desk.glb } }
+  - { id: furn_office_chair, name: Fauteuil de bureau, category: furniture, fit: h, footprint: { w: 0.6, d: 0.6, h: 1.0 },
+      tags: [chaise, bureau], description: "Fauteuil de bureau à roulettes.", source: { pack: kenney-furniture-kit, file: chairDesk.glb } }
+  - { id: furn_computer_screen, name: Écran d'ordinateur, category: furniture, footprint: { w: 0.6, d: 0.2, h: 0.45 },
+      tags: [ordinateur, ecran, informatique], description: "Écran d'ordinateur sur pied.", source: { pack: kenney-furniture-kit, file: computerScreen.glb } }
+  - { id: furn_table, name: Table de réunion, category: furniture, footprint: { w: 2.4, d: 1.2, h: 0.75 },
+      tags: [table, reunion], description: "Table de réunion rectangulaire.", source: { pack: kenney-furniture-kit, file: table.glb } }
+  - { id: furn_chair, name: Chaise, category: furniture, fit: h, footprint: { w: 0.5, d: 0.5, h: 0.9 },
+      tags: [chaise, reunion], description: "Chaise de réunion.", source: { pack: kenney-furniture-kit, file: chair.glb } }
+  - { id: furn_bookcase, name: Armoire de rangement, category: furniture, fit: h, footprint: { w: 1.2, d: 0.4, h: 2.0 },
+      tags: [armoire, archives, rangement], description: "Armoire fermée pour les dossiers et archives.", source: { pack: kenney-furniture-kit, file: bookcaseClosedWide.glb } }
+  - { id: furn_plant, name: Plante en pot, category: furniture, fit: h, footprint: { w: 0.5, d: 0.5, h: 1.2 },
+      tags: [plante, decoration], description: "Plante verte en pot.", source: { pack: kenney-furniture-kit, file: pottedPlant.glb } }
+  - { id: prop_desk_computer, name: Poste de travail, category: furniture, footprint: { w: 1.4, d: 1.3, h: 1.2 },
+      tags: [bureau, poste, conseiller, informatique],
+      description: "Poste de travail complet (bureau, fauteuil, écran) utilisé par les PNJ conseillers.",
+      source: { pack: gmix } }
+  - { id: prop_meeting_table, name: Table de réunion équipée, category: furniture, footprint: { w: 2.4, d: 2.6, h: 0.9 },
+      tags: [reunion, comite, decision, equipe],
+      description: "Table de réunion entourée de six chaises, point de rassemblement pour les décisions d'équipe.",
+      source: { pack: gmix } }
+
+  # --- Personnages (animations : idle, walk, sprint, sit, drive, pick-up, emote-yes…) ----------------------
+  - { id: char_manager_f, name: Manager (femme), category: character, fit: h, footprint: { w: 0.6, d: 0.5, h: 1.75 },
+      tags: [pnj, direction, manager, conseiller], description: "Personnage en tenue de bureau : directrice, responsable ou conseillère.",
+      source: { pack: kenney-mini-characters, file: character-female-d.glb } }
+  - { id: char_manager_m, name: Manager (homme), category: character, fit: h, footprint: { w: 0.6, d: 0.5, h: 1.8 },
+      tags: [pnj, direction, manager, conseiller], description: "Personnage en costume : directeur, responsable ou conseiller.",
+      source: { pack: kenney-mini-characters, file: character-male-d.glb } }
+  - { id: char_office_f, name: Employée de bureau, category: character, fit: h, footprint: { w: 0.6, d: 0.5, h: 1.7 },
+      tags: [pnj, administration, achats, service_client], description: "Personnage de bureau : achats, administration, service client.",
+      source: { pack: kenney-mini-characters, file: character-female-c.glb } }
+  - { id: char_worker_m, name: Préparateur (homme), category: character, fit: h, footprint: { w: 0.6, d: 0.5, h: 1.8 },
+      tags: [pnj, entrepot, preparateur, cariste, atelier], description: "Personnage en tenue de travail : préparateur, cariste, opérateur d'atelier.",
+      source: { pack: kenney-mini-characters, file: character-male-e.glb } }
+  - { id: char_worker_f, name: Préparatrice (femme), category: character, fit: h, footprint: { w: 0.6, d: 0.5, h: 1.7 },
+      tags: [pnj, entrepot, preparatrice, atelier], description: "Personnage en tenue de travail : préparatrice, opératrice, cheffe d'équipe.",
+      source: { pack: kenney-mini-characters, file: character-female-f.glb } }
+  - { id: char_driver_m, name: Chauffeur, category: character, fit: h, footprint: { w: 0.6, d: 0.5, h: 1.8 },
+      tags: [pnj, chauffeur, transport, livraison], description: "Personnage à casquette : chauffeur routier ou livreur.",
+      source: { pack: kenney-mini-characters, file: character-male-c.glb } }
+
+  # --- Nature -----------------------------------------------------------------------------------------
+  - { id: nat_tree, name: Arbre, category: nature, fit: h, footprint: { w: 4, d: 4, h: 6 },
+      tags: [arbre, paysage], description: "Arbre feuillu pour paysager les abords d'un site.", source: { pack: kenney-nature-kit, file: tree_default.glb } }
+  - { id: nat_tree_oak, name: Chêne, category: nature, fit: h, footprint: { w: 6, d: 6, h: 8 },
+      tags: [arbre, paysage], description: "Grand chêne pour les espaces verts et les abords des bâtiments.", source: { pack: kenney-nature-kit, file: tree_oak.glb } }
+  - { id: nat_tree_pine, name: Pin, category: nature, fit: h, footprint: { w: 3, d: 3, h: 9 },
+      tags: [arbre, paysage], description: "Pin pour border une route, un parking ou une limite de site.", source: { pack: kenney-nature-kit, file: tree_pineRoundA.glb } }
+  - { id: nat_bush, name: Buisson, category: nature, fit: h, footprint: { w: 1.6, d: 1.6, h: 1.2 },
+      tags: [buisson, paysage], description: "Buisson pour délimiter des espaces verts ou des allées.", source: { pack: kenney-nature-kit, file: plant_bushLarge.glb } }
+  - { id: nat_rock, name: Rocher, category: nature, fit: h, footprint: { w: 2, d: 2, h: 1.5 },
+      tags: [rocher, paysage], description: "Rocher décoratif pour les espaces naturels.", source: { pack: kenney-nature-kit, file: rock_largeA.glb } }
+
+  # --- Routes et mobilier urbain (tuiles de 10 m) --------------------------------------------------------
+  - { id: road_straight, name: Route droite, category: road, footprint: { w: 10, d: 10, h: 0.2 },
+      tags: [route, voirie], description: "Tronçon de route droit.", source: { pack: kenney-city-kit-roads, file: road-straight.glb } }
+  - { id: road_bend, name: Virage, category: road, footprint: { w: 10, d: 10, h: 0.2 },
+      tags: [route, voirie], description: "Virage à angle droit.", source: { pack: kenney-city-kit-roads, file: road-bend.glb } }
+  - { id: road_crossroad, name: Carrefour, category: road, footprint: { w: 10, d: 10, h: 0.2 },
+      tags: [route, voirie, carrefour], description: "Carrefour à quatre branches.", source: { pack: kenney-city-kit-roads, file: road-crossroad.glb } }
+  - { id: road_t_junction, name: Intersection en T, category: road, footprint: { w: 10, d: 10, h: 0.2 },
+      tags: [route, voirie], description: "Intersection en T.", source: { pack: kenney-city-kit-roads, file: road-intersection.glb } }
+  - { id: road_end, name: Fin de route, category: road, footprint: { w: 10, d: 10, h: 0.2 },
+      tags: [route, voirie], description: "Extrémité de route.", source: { pack: kenney-city-kit-roads, file: road-end.glb } }
+  - { id: road_driveway, name: Entrée de site, category: road, footprint: { w: 10, d: 10, h: 0.2 },
+      tags: [route, acces, site], description: "Route avec accès vers un site.", source: { pack: kenney-city-kit-roads, file: road-driveway-single.glb } }
+  - { id: prop_street_light, name: Lampadaire, category: road, fit: h, footprint: { w: 1, d: 2, h: 6 },
+      tags: [eclairage, voirie], description: "Lampadaire de voirie.", source: { pack: kenney-city-kit-roads, file: light-square.glb } }
+  - { id: prop_traffic_cone, name: Cône de signalisation, category: road, fit: h, footprint: { w: 0.4, d: 0.4, h: 0.5 },
+      tags: [chantier, balisage, securite], description: "Cône de balisage.", source: { pack: kenney-city-kit-roads, file: construction-cone.glb } }

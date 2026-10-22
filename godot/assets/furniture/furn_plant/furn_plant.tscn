@@ -1,0 +1,20 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://assets/asset.gd" id="1_bdfbc"]
+[ext_resource type="PackedScene" path="res://assets/_sources/kenney-furniture-kit/pottedPlant.glb" id="2_mll7j"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_6a7p4"]
+size = Vector3(0.38908958, 1.2, 0.44303808)
+
+[node name="furn_plant" type="Node3D" unique_id=2046015868]
+script = ExtResource("1_bdfbc")
+asset_id = "furn_plant"
+
+[node name="Model" type="Node3D" parent="." unique_id=1452459924 instance=ExtResource("2_mll7j")]
+transform = Transform3D(1.8348153, 0, 0, 0, 1.8348153, 0, 0, 0, 1.8348153, 0, 0, 0)
+
+[node name="Collision" type="StaticBody3D" parent="." unique_id=500209681]
+
+[node name="Shape" type="CollisionShape3D" parent="Collision" unique_id=1681894890]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0)
+shape = SubResource("BoxShape3D_6a7p4")

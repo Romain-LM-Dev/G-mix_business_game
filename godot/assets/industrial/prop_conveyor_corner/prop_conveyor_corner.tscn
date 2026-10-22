@@ -1,0 +1,20 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://assets/asset.gd" id="1_vvfan"]
+[ext_resource type="PackedScene" path="res://assets/_sources/kenney-factory-kit/conveyor-corner.glb" id="2_4b31h"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_qi7ei"]
+size = Vector3(1, 0.44999978, 0.99999976)
+
+[node name="prop_conveyor_corner" type="Node3D" unique_id=1162878000]
+script = ExtResource("1_vvfan")
+asset_id = "prop_conveyor_corner"
+
+[node name="Model" type="Node3D" parent="." unique_id=1107968661 instance=ExtResource("2_4b31h")]
+transform = Transform3D(0.9999995, 0, 0, 0, 0.9999995, 0, 0, 0, 0.9999995, 0, 8.468251e-14, -1.4901154e-07)
+
+[node name="Collision" type="StaticBody3D" parent="." unique_id=1263191463]
+
+[node name="Shape" type="CollisionShape3D" parent="Collision" unique_id=1757115885]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.22499989, 0)
+shape = SubResource("BoxShape3D_qi7ei")

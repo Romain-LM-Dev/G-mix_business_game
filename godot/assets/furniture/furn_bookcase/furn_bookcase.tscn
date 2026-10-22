@@ -1,0 +1,20 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://assets/asset.gd" id="1_6id4s"]
+[ext_resource type="PackedScene" path="res://assets/_sources/kenney-furniture-kit/bookcaseClosedWide.glb" id="2_5f6wp"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_houui"]
+size = Vector3(2.0253167, 2, 0.63291144)
+
+[node name="furn_bookcase" type="Node3D" unique_id=346775750]
+script = ExtResource("1_6id4s")
+asset_id = "furn_bookcase"
+
+[node name="Model" type="Node3D" parent="." unique_id=259402498 instance=ExtResource("2_5f6wp")]
+transform = Transform3D(2.5316458, 0, 0, 0, 2.5316458, 0, 0, 0, 2.5316458, -1.0126584, 0, 0.31645572)
+
+[node name="Collision" type="StaticBody3D" parent="." unique_id=497379696]
+
+[node name="Shape" type="CollisionShape3D" parent="Collision" unique_id=1403332307]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+shape = SubResource("BoxShape3D_houui")

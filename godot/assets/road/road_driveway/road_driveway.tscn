@@ -1,0 +1,20 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://assets/asset.gd" id="1_101ma"]
+[ext_resource type="PackedScene" path="res://assets/_sources/kenney-city-kit-roads/road-driveway-single.glb" id="2_qvce1"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_ylkmw"]
+size = Vector3(10, 0.19999999, 10)
+
+[node name="road_driveway" type="Node3D" unique_id=429441973]
+script = ExtResource("1_101ma")
+asset_id = "road_driveway"
+
+[node name="Model" type="Node3D" parent="." unique_id=1882953947 instance=ExtResource("2_qvce1")]
+transform = Transform3D(10, 0, 0, 0, 10, 0, 0, 0, 10, 0, 0, 0)
+
+[node name="Collision" type="StaticBody3D" parent="." unique_id=1634938744]
+
+[node name="Shape" type="CollisionShape3D" parent="Collision" unique_id=1217510440]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.099999994, 0)
+shape = SubResource("BoxShape3D_ylkmw")

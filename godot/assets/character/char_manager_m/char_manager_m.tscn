@@ -1,0 +1,11 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://assets/character.gd" id="1_rf77w"]
+[ext_resource type="PackedScene" path="res://assets/_sources/kenney-mini-characters/character-male-d.glb" id="2_cohkj"]
+
+[node name="char_manager_m" type="Node3D" unique_id=570985231]
+script = ExtResource("1_rf77w")
+asset_id = "char_manager_m"
+
+[node name="Model" type="Node3D" parent="." unique_id=1213451717 instance=ExtResource("2_cohkj")]
+transform = Transform3D(2.4938989, 0, 0, 0, 2.4938989, 0, 0, 0, 2.4938989, 0, -2.6013393e-07, 0.0058886516)

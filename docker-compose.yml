@@ -1,0 +1,171 @@
+# G-mix Open World : infrastructure de développement locale.
+#
+#   scripts\infra.ps1 up        démarre le socle (Kafka, PostgreSQL+pgvector, stockage objet) puis bootstrap
+#   docker compose --profile tools up -d   ajoute la console Kafka (http://localhost:8085)
+#   docker compose --profile app up -d     lance aussi l'API et les workers en conteneurs
+#
+# Ollama et Godot tournent nativement sur Windows (accès GPU direct), pas dans Docker.
+# Ports hôte : 9092 Kafka | 5433 PostgreSQL (5432 = PostgreSQL 18 local déjà installé) |
+#              9000 S3 | 9001 console stockage | 8085 console Kafka | 8000 API
+# Sécurité (jeu en réseau local / à distance) : Kafka, PostgreSQL et les consoles n'écoutent que sur 127.0.0.1.
+# Seuls l'API et, si besoin, l'API S3 (téléchargement d'assets) s'ouvrent au réseau (S3_BIND_ADDRESS, API_BIND_ADDRESS).
+
+name: gmix
+
+x-app-env: &app-env
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: "5432"
+  KAFKA_BOOTSTRAP: kafka:29092
+  S3_ENDPOINT: http://storage:9000
+  OLLAMA_BASE_URL: http://host.docker.internal:11434
+  GMIX_AI_DIR: /app/ai
+
+services:
+  kafka:
+    image: apache/kafka:4.3.1
+    container_name: gmix-kafka
+    hostname: kafka
+    restart: unless-stopped
+    mem_limit: 1g
+    ports:
+      - "127.0.0.1:${KAFKA_PORT:-9092}:9092"
+    environment:
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: INTERNAL://:29092,EXTERNAL://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,EXTERNAL://localhost:${KAFKA_PORT:-9092}
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_SHARE_COORDINATOR_STATE_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_SHARE_COORDINATOR_STATE_TOPIC_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      # Les topics sont créés explicitement par `python -m gmix.bootstrap` (source unique : gmix/messaging/topics.py)
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_HEAP_OPTS: -Xms256m -Xmx512m
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
+  postgres:
+    image: pgvector/pgvector:0.8.7-pg18
+    container_name: gmix-postgres
+    restart: unless-stopped
+    mem_limit: 768m
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-gmix}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gmix_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-gmix}
+    volumes:
+      # PostgreSQL 18 : le volume se monte sur /var/lib/postgresql (et non plus .../data)
+      - pg_data:/var/lib/postgresql
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # Stockage objet S3 : RustFS (MinIO communautaire est archivé depuis avril 2026).
+  # Le code n'utilise que l'API S3 : RustFS est remplaçable par SeaweedFS/Garage sans toucher au backend.
+  storage-perms:
+    image: alpine:3.24
+    volumes:
+      - storage_data:/data
+    command: ["sh", "-c", "chown -R 10001:10001 /data"]
+    restart: "no"
+
+  storage:
+    image: rustfs/rustfs:1.0.1
+    container_name: gmix-storage
+    restart: unless-stopped
+    mem_limit: 512m
+    depends_on:
+      storage-perms:
+        condition: service_completed_successfully
+    ports:
+      - "${S3_BIND_ADDRESS:-127.0.0.1}:${S3_PORT:-9000}:9000"
+      - "127.0.0.1:${S3_CONSOLE_PORT:-9001}:9001"
+    environment:
+      RUSTFS_VOLUMES: /data
+      RUSTFS_ADDRESS: 0.0.0.0:9000
+      RUSTFS_CONSOLE_ADDRESS: 0.0.0.0:9001
+      RUSTFS_CONSOLE_ENABLE: "true"
+      RUSTFS_ACCESS_KEY: ${S3_ACCESS_KEY:-gmixadmin}
+      RUSTFS_SECRET_KEY: ${S3_SECRET_KEY:-gmix-dev-secret}
+    volumes:
+      - storage_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:9000/health >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  kafka-console:
+    image: redpandadata/console:v3.12.0
+    container_name: gmix-kafka-console
+    profiles: ["tools"]
+    mem_limit: 256m
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8085:8080"
+    environment:
+      KAFKA_BROKERS: kafka:29092
+
+  api:
+    build: ./backend
+    image: gmix-backend:dev
+    container_name: gmix-api
+    profiles: ["app"]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      <<: *app-env
+    volumes:
+      - ./ai:/app/ai:ro
+    ports:
+      - "${API_BIND_ADDRESS:-127.0.0.1}:8000:8000"
+    command: ["uvicorn", "gmix.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    depends_on: &infra-ready
+      kafka:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      storage:
+        condition: service_healthy
+
+  worker-system:
+    image: gmix-backend:dev
+    container_name: gmix-worker-system
+    profiles: ["app"]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      <<: *app-env
+    volumes:
+      - ./ai:/app/ai:ro
+    command: ["python", "-m", "gmix.workers.system_ping"]
+    depends_on: *infra-ready
+
+volumes:
+  kafka_data:
+  pg_data:
+  storage_data:

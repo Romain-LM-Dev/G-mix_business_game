@@ -1,0 +1,20 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://assets/asset.gd" id="1_utloq"]
+[ext_resource type="PackedScene" path="res://assets/_sources/kenney-nature-kit/plant_bushLarge.glb" id="2_syi0i"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_qptbx"]
+size = Vector3(1.8489541, 1.2, 1.6581746)
+
+[node name="nat_bush" type="Node3D" unique_id=458165728]
+script = ExtResource("1_utloq")
+asset_id = "nat_bush"
+
+[node name="Model" type="Node3D" parent="." unique_id=1624915656 instance=ExtResource("2_syi0i")]
+transform = Transform3D(4.9396334, 0, 0, 0, 4.9396334, 0, 0, 0, 4.9396334, 0, 0.24698167, 0)
+
+[node name="Collision" type="StaticBody3D" parent="." unique_id=2103960723]
+
+[node name="Shape" type="CollisionShape3D" parent="Collision" unique_id=287770695]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0)
+shape = SubResource("BoxShape3D_qptbx")

@@ -1,0 +1,11 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://assets/character.gd" id="1_t28ae"]
+[ext_resource type="PackedScene" path="res://assets/_sources/kenney-mini-characters/character-female-f.glb" id="2_yjur0"]
+
+[node name="char_worker_f" type="Node3D" unique_id=1648002333]
+script = ExtResource("1_t28ae")
+asset_id = "char_worker_f"
+
+[node name="Model" type="Node3D" parent="." unique_id=1852823278 instance=ExtResource("2_yjur0")]
+transform = Transform3D(2.5323057, 0, 0, 0, 2.5323057, 0, 0, 0, 2.5323057, 0, -2.6414006e-07, 0.032710426)

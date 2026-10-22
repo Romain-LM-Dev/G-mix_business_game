@@ -1,0 +1,28 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://assets/asset.gd" id="1_le2tc"]
+[ext_resource type="PackedScene" path="res://assets/_sources/kenney-city-kit-commercial/building-c.glb" id="2_3bocs"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_geg14"]
+size = Vector3(12, 12.127826, 14.803283)
+
+[node name="bld_bank_branch" type="Node3D" unique_id=284297204]
+script = ExtResource("1_le2tc")
+asset_id = "bld_bank_branch"
+
+[node name="Model" type="Node3D" parent="." unique_id=190376069 instance=ExtResource("2_3bocs")]
+transform = Transform3D(13.580992, 0, 0, 0, 13.580992, 0, 0, 0, 13.580992, -4.047451e-07, 0, -8.094902e-07)
+
+[node name="Collision" type="StaticBody3D" parent="." unique_id=2039146263]
+
+[node name="Shape" type="CollisionShape3D" parent="Collision" unique_id=624647833]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 6.063913, 0)
+shape = SubResource("BoxShape3D_geg14")
+
+[node name="Sign" type="Label3D" parent="." unique_id=1646336585]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 9.459704, 7.4816413)
+visible = false
+pixel_size = 0.008
+outline_modulate = Color(0.08, 0.1, 0.16, 1)
+font_size = 96
+outline_size = 16

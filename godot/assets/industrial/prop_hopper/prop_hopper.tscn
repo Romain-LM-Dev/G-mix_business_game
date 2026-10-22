@@ -1,0 +1,20 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://assets/asset.gd" id="1_53lap"]
+[ext_resource type="PackedScene" path="res://assets/_sources/kenney-factory-kit/hopper-square.glb" id="2_ytffb"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_1lbrs"]
+size = Vector3(2.4578402, 2.2, 2.4578402)
+
+[node name="prop_hopper" type="Node3D" unique_id=894924001]
+script = ExtResource("1_53lap")
+asset_id = "prop_hopper"
+
+[node name="Model" type="Node3D" parent="." unique_id=357789055 instance=ExtResource("2_ytffb")]
+transform = Transform3D(2.2, 0, 0, 0, 2.2, 0, 0, 0, 2.2, 0, 0, 0)
+
+[node name="Collision" type="StaticBody3D" parent="." unique_id=190346424]
+
+[node name="Shape" type="CollisionShape3D" parent="Collision" unique_id=1490479257]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1, 0)
+shape = SubResource("BoxShape3D_1lbrs")

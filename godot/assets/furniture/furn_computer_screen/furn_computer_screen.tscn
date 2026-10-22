@@ -1,0 +1,20 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://assets/asset.gd" id="1_5ms2m"]
+[ext_resource type="PackedScene" path="res://assets/_sources/kenney-furniture-kit/computerScreen.glb" id="2_0gaai"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_ajnet"]
+size = Vector3(0.59999996, 0.44964734, 0.15891087)
+
+[node name="furn_computer_screen" type="Node3D" unique_id=1115272300]
+script = ExtResource("1_5ms2m")
+asset_id = "furn_computer_screen"
+
+[node name="Model" type="Node3D" parent="." unique_id=1188469525 instance=ExtResource("2_0gaai")]
+transform = Transform3D(1.5279305, 0, 0, 0, 1.5279305, 0, 0, 0, 1.5279305, -0.29999998, 1.2246098e-31, 0.079455435)
+
+[node name="Collision" type="StaticBody3D" parent="." unique_id=1377961608]
+
+[node name="Shape" type="CollisionShape3D" parent="Collision" unique_id=817541256]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.22482367, 0)
+shape = SubResource("BoxShape3D_ajnet")

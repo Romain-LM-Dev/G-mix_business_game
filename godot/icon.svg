@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <rect x="4" y="4" width="120" height="120" rx="24" fill="#1f3a5f"/>
+  <path d="M28 92 L52 60 L68 76 L88 44 L104 92 Z" fill="#4fb3a5"/>
+  <circle cx="92" cy="36" r="10" fill="#f2c14e"/>
+  <text x="64" y="118" font-family="Arial, sans-serif" font-size="22" font-weight="bold" fill="#ffffff" text-anchor="middle">G-mix</text>
+</svg>

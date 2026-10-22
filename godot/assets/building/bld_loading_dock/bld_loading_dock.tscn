@@ -1,0 +1,28 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://assets/asset.gd" id="1_mk2ql"]
+[ext_resource type="PackedScene" path="res://assets/_sources/kenney-city-kit-industrial/building-s.glb" id="2_jhgt0"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_kbf6y"]
+size = Vector3(40, 15.788509, 17.288214)
+
+[node name="bld_loading_dock" type="Node3D" unique_id=1206704089]
+script = ExtResource("1_mk2ql")
+asset_id = "bld_loading_dock"
+
+[node name="Model" type="Node3D" parent="." unique_id=683336937 instance=ExtResource("2_jhgt0")]
+transform = Transform3D(18.867924, 0, 0, 0, 18.867924, 0, 0, 0, 18.867924, 0.18867905, 0, 0)
+
+[node name="Collision" type="StaticBody3D" parent="." unique_id=634663330]
+
+[node name="Shape" type="CollisionShape3D" parent="Collision" unique_id=1656203888]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 7.8942547, 0)
+shape = SubResource("BoxShape3D_kbf6y")
+
+[node name="Sign" type="Label3D" parent="." unique_id=105793944]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 12.315038, 8.724107)
+visible = false
+pixel_size = 0.026666667
+outline_modulate = Color(0.08, 0.1, 0.16, 1)
+font_size = 96
+outline_size = 16

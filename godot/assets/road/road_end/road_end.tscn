@@ -1,0 +1,20 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://assets/asset.gd" id="1_e8otl"]
+[ext_resource type="PackedScene" path="res://assets/_sources/kenney-city-kit-roads/road-end.glb" id="2_oxd8c"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_dbbdk"]
+size = Vector3(10, 0.19999999, 10)
+
+[node name="road_end" type="Node3D" unique_id=1855699550]
+script = ExtResource("1_e8otl")
+asset_id = "road_end"
+
+[node name="Model" type="Node3D" parent="." unique_id=1813618647 instance=ExtResource("2_oxd8c")]
+transform = Transform3D(10, 0, 0, 0, 10, 0, 0, 0, 10, 0, 0, 0)
+
+[node name="Collision" type="StaticBody3D" parent="." unique_id=292915786]
+
+[node name="Shape" type="CollisionShape3D" parent="Collision" unique_id=612204047]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.099999994, 0)
+shape = SubResource("BoxShape3D_dbbdk")

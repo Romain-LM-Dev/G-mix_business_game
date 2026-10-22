@@ -1,0 +1,20 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://assets/asset.gd" id="1_g7lvn"]
+[ext_resource type="PackedScene" path="res://assets/_sources/kenney-nature-kit/tree_oak.glb" id="2_hfkcr"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_g4i6y"]
+size = Vector3(4.17898, 8, 4.82547)
+
+[node name="nat_tree_oak" type="Node3D" unique_id=1721467878]
+script = ExtResource("1_g7lvn")
+asset_id = "nat_tree_oak"
+
+[node name="Model" type="Node3D" parent="." unique_id=680223116 instance=ExtResource("2_hfkcr")]
+transform = Transform3D(6.5240088, 0, 0, 0, 6.5240088, 0, 0, 0, 6.5240088, 3.8886122e-07, 0.32620046, 0)
+
+[node name="Collision" type="StaticBody3D" parent="." unique_id=2089984527]
+
+[node name="Shape" type="CollisionShape3D" parent="Collision" unique_id=426595536]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4, 0)
+shape = SubResource("BoxShape3D_g4i6y")

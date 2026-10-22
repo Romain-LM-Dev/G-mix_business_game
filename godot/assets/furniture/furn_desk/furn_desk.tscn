@@ -1,0 +1,20 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://assets/asset.gd" id="1_ftmfy"]
+[ext_resource type="PackedScene" path="res://assets/_sources/kenney-furniture-kit/desk.glb" id="2_lgmq2"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_k4roi"]
+size = Vector3(1.4, 0.7327278, 0.7477718)
+
+[node name="furn_desk" type="Node3D" unique_id=855172705]
+script = ExtResource("1_ftmfy")
+asset_id = "furn_desk"
+
+[node name="Model" type="Node3D" parent="." unique_id=1862480905 instance=ExtResource("2_lgmq2")]
+transform = Transform3D(1.9061223, 0, 0, 0, 1.9061223, 0, 0, 0, 1.9061223, -0.6809388, 0, 0.35044056)
+
+[node name="Collision" type="StaticBody3D" parent="." unique_id=1023440752]
+
+[node name="Shape" type="CollisionShape3D" parent="Collision" unique_id=1847794239]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.3663639, 0)
+shape = SubResource("BoxShape3D_k4roi")

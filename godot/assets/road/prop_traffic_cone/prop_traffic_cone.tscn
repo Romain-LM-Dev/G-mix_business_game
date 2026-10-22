@@ -1,0 +1,20 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://assets/asset.gd" id="1_5wil6"]
+[ext_resource type="PackedScene" path="res://assets/_sources/kenney-city-kit-roads/construction-cone.glb" id="2_5ogib"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_db4kp"]
+size = Vector3(0.40000004, 0.5, 0.40000004)
+
+[node name="prop_traffic_cone" type="Node3D" unique_id=1944182525]
+script = ExtResource("1_5wil6")
+asset_id = "prop_traffic_cone"
+
+[node name="Model" type="Node3D" parent="." unique_id=393359773 instance=ExtResource("2_5ogib")]
+transform = Transform3D(5.3333335, 0, 0, 0, 5.3333335, 0, 0, 0, 5.3333335, 0, 0, 0)
+
+[node name="Collision" type="StaticBody3D" parent="." unique_id=72467571]
+
+[node name="Shape" type="CollisionShape3D" parent="Collision" unique_id=1232635102]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.25, 0)
+shape = SubResource("BoxShape3D_db4kp")

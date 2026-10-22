@@ -1,0 +1,20 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://assets/asset.gd" id="1_y4sm7"]
+[ext_resource type="PackedScene" path="res://assets/_sources/kenney-factory-kit/box-large.glb" id="2_1ye8t"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_xd1rx"]
+size = Vector3(0.79999995, 0.39999998, 0.7272727)
+
+[node name="prop_box_large" type="Node3D" unique_id=1615460162]
+script = ExtResource("1_y4sm7")
+asset_id = "prop_box_large"
+
+[node name="Model" type="Node3D" parent="." unique_id=1787507822 instance=ExtResource("2_1ye8t")]
+transform = Transform3D(0.7272727, 0, 0, 0, 0.7272727, 0, 0, 0, 0.7272727, 0, 0, 0)
+
+[node name="Collision" type="StaticBody3D" parent="." unique_id=220611465]
+
+[node name="Shape" type="CollisionShape3D" parent="Collision" unique_id=1721521763]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.19999999, 0)
+shape = SubResource("BoxShape3D_xd1rx")

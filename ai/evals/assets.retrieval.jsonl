@@ -1,0 +1,12 @@
+{"need": "zone de stockage des palettes dans l'entrepôt", "expected": ["prop_pallet_rack", "prop_pallet_stack"]}
+{"need": "afficher les indicateurs de la partie aux joueurs", "expected": ["prop_kpi_screen"]}
+{"need": "livrer les commandes aux magasins", "expected": ["veh_box_truck", "veh_van"]}
+{"need": "responsable des achats qui travaille au bureau", "expected": ["char_office_f", "char_manager_f", "char_manager_m"]}
+{"need": "poste de travail du conseiller bancaire", "expected": ["prop_desk_computer"]}
+{"need": "réunion du comité de direction", "expected": ["prop_meeting_table"]}
+{"need": "déplacer les palettes entre les quais et les racks", "expected": ["veh_forklift"]}
+{"need": "importer des marchandises par voie maritime", "expected": ["prop_shipping_container", "prop_shipping_container_blue"]}
+{"need": "signaler un arrêt de la ligne de production", "expected": ["prop_andon_light"]}
+{"need": "contrôler les colis à la réception", "expected": ["prop_scanner_gate"]}
+{"need": "chauffeur qui livre le client", "expected": ["char_driver_m"]}
+{"need": "fournisseur de matières premières en amont", "expected": ["bld_factory_plant"]}

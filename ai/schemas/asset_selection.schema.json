@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gmix.local/schemas/asset_selection/v1",
+  "title": "Sélection d'assets par zone",
+  "description": "Sortie de la tâche game.asset_mapping. À l'exécution, asset_ids.items reçoit un `enum` limité aux ids candidats (pré-filtrés par similarité vectorielle sur assets.embedding) : le modèle ne peut pas inventer d'asset.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["zones"],
+  "properties": {
+    "zones": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["zone_id", "asset_ids"],
+        "properties": {
+          "zone_id": { "type": "string" },
+          "asset_ids": { "type": "array", "minItems": 1, "maxItems": 12, "items": { "type": "string" } }
+        }
+      }
+    }
+  }
+}

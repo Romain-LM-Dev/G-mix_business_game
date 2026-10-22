@@ -1,0 +1,20 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://assets/asset.gd" id="1_3xve3"]
+[ext_resource type="PackedScene" path="res://assets/_sources/kenney-nature-kit/tree_pineRoundA.glb" id="2_ibsal"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_7nalh"]
+size = Vector3(4.063977, 9, 4.6926765)
+
+[node name="nat_tree_pine" type="Node3D" unique_id=459039497]
+script = ExtResource("1_3xve3")
+asset_id = "nat_tree_pine"
+
+[node name="Model" type="Node3D" parent="." unique_id=1224807707 instance=ExtResource("2_ibsal")]
+transform = Transform3D(6.5864716, 0, 0, 0, 6.5864716, 0, 0, 0, 6.5864716, 0, 0.3293236, 0)
+
+[node name="Collision" type="StaticBody3D" parent="." unique_id=1776915255]
+
+[node name="Shape" type="CollisionShape3D" parent="Collision" unique_id=371075062]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.5, 0)
+shape = SubResource("BoxShape3D_7nalh")

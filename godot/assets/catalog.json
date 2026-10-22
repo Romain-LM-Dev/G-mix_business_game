@@ -1,0 +1,1318 @@
+{
+  "version": 2,
+  "generated_from": "ai/assets.yaml (python -m gmix.tools.assets export)",
+  "assets": [
+    {
+      "id": "bld_warehouse",
+      "name": "Entrepôt logistique",
+      "category": "building",
+      "tags": [
+        "entrepot",
+        "stockage",
+        "logistique",
+        "reception",
+        "expedition"
+      ],
+      "footprint": {
+        "w": 24.0,
+        "d": 20.0,
+        "h": 10.0
+      },
+      "fit": "w",
+      "variants": [
+        "enseigne"
+      ],
+      "scene": "res://assets/building/bld_warehouse/bld_warehouse.tscn",
+      "source_path": "res://assets/_sources/kenney-city-kit-industrial/building-i.glb",
+      "sign": true,
+      "license": "CC0 1.0"
+    },
+    {
+      "id": "bld_warehouse_hangar",
+      "name": "Hangar de stockage",
+      "category": "building",
+      "tags": [
+        "hangar",
+        "stockage",
+        "entrepot",
+        "vrac"
+      ],
+      "footprint": {
+        "w": 22.0,
+        "d": 26.0,
+        "h": 11.0
+      },
+      "fit": "w",
+      "variants": [
+        "enseigne"
+      ],
+      "scene": "res://assets/building/bld_warehouse_hangar/bld_warehouse_hangar.tscn",
+      "source_path": "res://assets/_sources/kenney-city-kit-industrial/building-j.glb",
+      "sign": true,
+      "license": "CC0 1.0"
+    },
+    {
+      "id": "bld_factory_workshop",
+      "name": "Atelier de production",
+      "category": "building",
+      "tags": [
+        "usine",
+        "atelier",
+        "production",
+        "fabrication"
+      ],
+      "footprint": {
+        "w": 26.0,
+        "d": 20.0,
+        "h": 10.0
+      },
+      "fit": "w",
+      "variants": [
+        "enseigne"
+      ],
+      "scene": "res://assets/building/bld_factory_workshop/bld_factory_workshop.tscn",
+      "source_path": "res://assets/_sources/kenney-city-kit-industrial/building-k.glb",
+      "sign": true,
+      "license": "CC0 1.0"
+    },
+    {
+      "id": "bld_loading_dock",
+      "name": "Plateforme de quais de chargement",
+      "category": "building",
+      "tags": [
+        "quai",
+        "messagerie",
+        "cross-dock",
+        "transport",
+        "expedition"
+      ],
+      "footprint": {
+        "w": 40.0,
+        "d": 16.0,
+        "h": 7.0
+      },
+      "fit": "w",
+      "variants": [
+        "enseigne"
+      ],
+      "scene": "res://assets/building/bld_loading_dock/bld_loading_dock.tscn",
+      "source_path": "res://assets/_sources/kenney-city-kit-industrial/building-s.glb",
+      "sign": true,
+      "license": "CC0 1.0"
+    },
+    {
+      "id": "bld_factory_plant",
+      "name": "Usine fournisseur",
+      "category": "building",
+      "tags": [
+        "usine",
+        "fournisseur",
+        "amont",
+        "production",
+        "cheminee"
+      ],
+      "footprint": {
+        "w": 28.0,
+        "d": 24.0,
+        "h": 18.0
+      },
+      "fit": "w",
+      "variants": [
+        "enseigne"
+      ],
+      "scene": "res://assets/building/bld_factory_plant/bld_factory_plant.tscn",
+      "source_path": "res://assets/_sources/kenney-city-kit-industrial/building-e.glb",
+      "sign": true,
+      "license": "CC0 1.0"
+    },
+    {
+      "id": "bld_distribution_center",
+      "name": "Centre de distribution",
+      "category": "building",
+      "tags": [
+        "plateforme",
+        "distribution",
+        "entrepot",
+        "aval",
+        "magasins"
+      ],
+      "footprint": {
+        "w": 16.0,
+        "d": 22.0,
+        "h": 16.0
+      },
+      "fit": "h",
+      "variants": [
+        "enseigne"
+      ],
+      "scene": "res://assets/building/bld_distribution_center/bld_distribution_center.tscn",
+      "source_path": "res://assets/_sources/kenney-city-kit-industrial/building-o.glb",
+      "sign": true,
+      "license": "CC0 1.0"
+    },
+    {
+      "id": "bld_startup_loft",
+      "name": "Loft de startup",
+      "category": "building",
+      "tags": [
+        "startup",
+        "incubateur",
+        "innovation",
+        "bureaux"
+      ],
+      "footprint": {
+        "w": 20.0,
+        "d": 16.0,
+        "h": 8.0
+      },
+      "fit": "w",
+      "variants": [
+        "enseigne"
+      ],
+      "scene": "res://assets/building/bld_startup_loft/bld_startup_loft.tscn",
+      "source_path": "res://assets/_sources/kenney-city-kit-industrial/building-q.glb",
+      "sign": true,
+      "license": "CC0 1.0"
+    },
+    {
+      "id": "bld_office_small",
+      "name": "Bureaux de l'entreprise",
+      "category": "building",
+      "tags": [
+        "bureau",
+        "siege",
+        "direction",
+        "administration"
+      ],
+      "footprint": {
+        "w": 22.0,
+        "d": 14.0,
+        "h": 10.0
+      },
+      "fit": "w",
+      "variants": [
+        "enseigne"
+      ],
+      "scene": "res://assets/building/bld_office_small/bld_office_small.tscn",
+      "source_path": "res://assets/_sources/kenney-city-kit-commercial/building-e.glb",
+      "sign": true,
+      "license": "CC0 1.0"
+    },
+    {
+      "id": "bld_office_hq",
+      "name": "Grand immeuble de bureaux",
+      "category": "building",
+      "tags": [
+        "bureau",
+        "siege",
+        "groupe",
+        "client",
+        "donneur_ordre"
+      ],
+      "footprint": {
+        "w": 30.0,
+        "d": 14.0,
+        "h": 16.0
+      },
+      "fit": "w",
+      "variants": [
+        "enseigne"
+      ],
+      "scene": "res://assets/building/bld_office_hq/bld_office_hq.tscn",
+      "source_path": "res://assets/_sources/kenney-city-kit-commercial/building-k.glb",
+      "sign": true,
+      "license": "CC0 1.0"
+    },
+    {
+      "id": "bld_shop_front",
+      "name": "Commerce",
+      "category": "building",
+      "tags": [
+        "magasin",
+        "vente",
+        "client",
+        "point_de_vente"
+      ],
+      "footprint": {
+        "w": 10.0,
+        "d": 10.0,
+        "h": 14.0
+      },
+      "fit": "w",
+      "variants": [
+        "enseigne"
+      ],
+      "scene": "res://assets/building/bld_shop_front/bld_shop_front.tscn",
+      "source_path": "res://assets/_sources/kenney-city-kit-commercial/building-g.glb",
+      "sign": true,
+      "license": "CC0 1.0"
+    },
+    {
+      "id": "bld_bank_branch",
+      "name": "Agence bancaire",
+      "category": "building",
+      "tags": [
+        "banque",
+        "finance",
+        "financement",
+        "credit"
+      ],
+      "footprint": {
+        "w": 12.0,
+        "d": 12.0,
+        "h": 11.0
+      },
+      "fit": "w",
+      "variants": [
+        "enseigne"
+      ],
+      "scene": "res://assets/building/bld_bank_branch/bld_bank_branch.tscn",
+      "source_path": "res://assets/_sources/kenney-city-kit-commercial/building-c.glb",
+      "sign": true,
+      "license": "CC0 1.0"
+    },
+    {
+      "id": "prop_pallet",
+      "name": "Palette Europe",
+      "category": "industrial",
+      "tags": [
+        "palette",
+        "stock",
+        "unite_de_charge",
+        "manutention"
+      ],
+      "footprint": {
+        "w": 1.2,
+        "d": 0.8,
+        "h": 1.14
+      },
+      "fit": "max",
+      "variants": [
+        "chargee",
+        "hauteur_charge"
+      ],
+      "scene": "res://assets/industrial/prop_pallet/prop_pallet.tscn",
+      "source_path": null,
+      "sign": false,
+      "license": "propriété du projet"
+    },
+    {
+      "id": "prop_pallet_rack",
+      "name": "Rayonnage à palettes",
+      "category": "industrial",
+      "tags": [
+        "rack",
+        "rayonnage",
+        "stockage",
+        "stock",
+        "emplacement"
+      ],
+      "footprint": {
+        "w": 5.4,
+        "d": 1.1,
+        "h": 5.1
+      },
+      "fit": "w",
+      "variants": [
+        "niveau_remplissage",
+        "travees",
+        "niveaux"
+      ],
+      "scene": "res://assets/industrial/prop_pallet_rack/prop_pallet_rack.tscn",
+      "source_path": null,
+      "sign": false,
+      "license": "propriété du projet"
+    },
+    {
+      "id": "prop_pallet_stack",
+      "name": "Stock de palettes au sol",
+      "category": "industrial",
+      "tags": [
+        "stock",
+        "palettes",
+        "gerbage",
+        "zone_de_stockage"
+      ],
+      "footprint": {
+        "w": 3.6,
+        "d": 2.4,
+        "h": 2.3
+      },
+      "fit": "max",
+      "variants": [
+        "nombre_palettes"
+      ],
+      "scene": "res://assets/industrial/prop_pallet_stack/prop_pallet_stack.tscn",
+      "source_path": null,
+      "sign": false,
+      "license": "propriété du projet"
+    },
+    {
+      "id": "prop_conveyor",
+      "name": "Convoyeur",
+      "category": "industrial",
+      "tags": [
+        "convoyeur",
+        "flux",
+        "preparation",
+        "tri"
+      ],
+      "footprint": {
+        "w": 2.0,
+        "d": 1.0,
+        "h": 0.4
+      },
+      "fit": "max",
+      "variants": [],
+      "scene": "res://assets/industrial/prop_conveyor/prop_conveyor.tscn",
+      "source_path": "res://assets/_sources/kenney-factory-kit/conveyor-long.glb",
+      "sign": false,
+      "license": "CC0 1.0"
+    },
+    {
+      "id": "prop_conveyor_corner",
+      "name": "Convoyeur d'angle",
+      "category": "industrial",
+      "tags": [
+        "convoyeur",
+        "flux",
+        "tri"
+      ],
+      "footprint": {
+        "w": 1.0,
+        "d": 1.0,
+        "h": 0.4
+      },
+      "fit": "max",
+      "variants": [],
+      "scene": "res://assets/industrial/prop_conveyor_corner/prop_conveyor_corner.tscn",
+      "source_path": "res://assets/_sources/kenney-factory-kit/conveyor-corner.glb",
+      "sign": false,
+      "license": "CC0 1.0"
+    },
+    {
+      "id": "prop_box_large",
+      "name": "Grand carton",
+      "category": "industrial",
+      "tags": [
+        "colis",
+        "carton",
+        "commande",
+        "expedition"
+      ],
+      "footprint": {
+        "w": 0.8,
+        "d": 0.6,
+        "h": 0.6
+      },
+      "fit": "max",
+      "variants": [],
+      "scene": "res://assets/industrial/prop_box_large/prop_box_large.tscn",
+      "source_path": "res://assets/_sources/kenney-factory-kit/box-large.glb",
+      "sign": false,
+      "license": "CC0 1.0"
+    },
+    {
+      "id": "prop_box_small",
+      "name": "Petit carton",
+      "category": "industrial",
+      "tags": [
+        "colis",
+        "carton",
+        "commande",
+        "picking"
+      ],
+      "footprint": {
+        "w": 0.4,
+        "d": 0.3,
+        "h": 0.3
+      },
+      "fit": "max",
+      "variants": [],
+      "scene": "res://assets/industrial/prop_box_small/prop_box_small.tscn",
+      "source_path": "res://assets/_sources/kenney-factory-kit/box-small.glb",
+      "sign": false,
+      "license": "CC0 1.0"
+    },
+    {
+      "id": "prop_cnc_machine",
+      "name": "Machine de production",
+      "category": "industrial",
+      "tags": [
+        "machine",
+        "production",
+        "usinage",
+        "capacite",
+        "goulot"
+      ],
+      "footprint": {
+        "w": 3.0,
+        "d": 2.5,
+        "h": 2.5
+      },
+      "fit": "max",
+      "variants": [],
+      "scene": "res://assets/industrial/prop_cnc_machine/prop_cnc_machine.tscn",
+      "source_path": "res://assets/_sources/kenney-factory-kit/machine.glb",
+      "sign": false,
+      "license": "CC0 1.0"
+    },
+    {
+      "id": "prop_robot_arm",
+      "name": "Robot de palettisation",
+      "category": "industrial",
+      "tags": [
+        "robot",
+        "automatisation",
+        "palettisation",
+        "productivite"
+      ],
+      "footprint": {
+        "w": 1.5,
+        "d": 1.5,
+        "h": 2.4
+      },
+      "fit": "h",
+      "variants": [],
+      "scene": "res://assets/industrial/prop_robot_arm/prop_robot_arm.tscn",
+      "source_path": "res://assets/_sources/kenney-factory-kit/robot-arm-a.glb",
+      "sign": false,
+      "license": "CC0 1.0"
+    },
+    {
+      "id": "prop_scanner_gate",
+      "name": "Portique de contrôle",
+      "category": "industrial",
+      "tags": [
+        "controle",
+        "qualite",
+        "scan",
+        "tracabilite",
+        "reception"
+      ],
+      "footprint": {
+        "w": 2.0,
+        "d": 1.0,
+        "h": 2.6
+      },
+      "fit": "h",
+      "variants": [],
+      "scene": "res://assets/industrial/prop_scanner_gate/prop_scanner_gate.tscn",
+      "source_path": "res://assets/_sources/kenney-factory-kit/scanner-high.glb",
+      "sign": false,
+      "license": "CC0 1.0"
+    },
+    {
+      "id": "prop_andon_light",
+      "name": "Colonne lumineuse andon",
+      "category": "industrial",
+      "tags": [
+        "andon",
+        "alerte",
+        "lean",
+        "incident",
+        "signal"
+      ],
+      "footprint": {
+        "w": 0.3,
+        "d": 0.3,
+        "h": 1.8
+      },
+      "fit": "h",
+      "variants": [],
+      "scene": "res://assets/industrial/prop_andon_light/prop_andon_light.tscn",
+      "source_path": "res://assets/_sources/kenney-factory-kit/warning-traffic.glb",
+      "sign": false,
+      "license": "CC0 1.0"
+    },
+    {
+      "id": "prop_hopper",
+      "name": "Trémie",
+      "category": "industrial",
+      "tags": [
+        "vrac",
+        "matiere_premiere",
+        "alimentation",
+        "production"
+      ],
+      "footprint": {
+        "w": 2.0,
+        "d": 2.0,
+        "h": 2.2
+      },
+      "fit": "h",
+      "variants": [],
+      "scene": "res://assets/industrial/prop_hopper/prop_hopper.tscn",
+      "source_path": "res://assets/_sources/kenney-factory-kit/hopper-square.glb",
+      "sign": false,
+      "license": "CC0 1.0"
+    },
+    {
+      "id": "prop_shipping_container",
+      "name": "Conteneur maritime 20 pieds (orange)",
+      "category": "industrial",
+      "tags": [
+        "conteneur",
+        "import",
+        "maritime",
+        "transport",
+        "international"
+      ],
+      "footprint": {
+        "w": 2.44,
+        "d": 6.06,
+        "h": 2.59
+      },
+      "fit": "max",
+      "variants": [],
+      "scene": "res://assets/industrial/prop_shipping_container/prop_shipping_container.tscn",
+      "source_path": "res://assets/_sources/kenney-city-kit-industrial/shipping-container-a.glb",
+      "sign": false,
+      "license": "CC0 1.0"
+    },
+    {
+      "id": "prop_shipping_container_blue",
+      "name": "Conteneur maritime 20 pieds (bleu)",
+      "category": "industrial",
+      "tags": [
+        "conteneur",
+        "export",
+        "maritime",
+        "transport"
+      ],
+      "footprint": {
+        "w": 2.44,
+        "d": 6.06,
+        "h": 2.59
+      },
+      "fit": "max",
+      "variants": [],
+      "scene": "res://assets/industrial/prop_shipping_container_blue/prop_shipping_container_blue.tscn",
+      "source_path": "res://assets/_sources/kenney-city-kit-industrial/shipping-container-b.glb",
+      "sign": false,
+      "license": "CC0 1.0"
+    },
+    {
+      "id": "prop_storage_tank",
+      "name": "Citerne de stockage",
+      "category": "industrial",
+      "tags": [
+        "citerne",
+        "liquide",
+        "stockage",
+        "vrac"
+      ],
+      "footprint": {
+        "w": 5.0,
+        "d": 5.0,
+        "h": 6.0
+      },
+      "fit": "h",
+      "variants": [],
+      "scene": "res://assets/industrial/prop_storage_tank/prop_storage_tank.tscn",
+      "source_path": "res://assets/_sources/kenney-city-kit-industrial/detail-tank-large.glb",
+      "sign": false,
+      "license": "CC0 1.0"
+    },
+    {
+      "id": "prop_kpi_screen",
+      "name": "Écran des KPI",
+      "category": "interactive",
+      "tags": [
+        "kpi",
+        "tableau_de_bord",
+        "indicateurs",
+        "score"
+      ],
+      "footprint": {
+        "w": 3.1,
+        "d": 0.6,
+        "h": 3.2
+      },
+      "fit": "w",
+      "variants": [
+        "titre",
+        "indicateurs"
+      ],
+      "scene": "res://assets/interactive/prop_kpi_screen/prop_kpi_screen.tscn",
+      "source_path": null,
+      "sign": false,
+      "license": "propriété du projet"
+    },
+    {
+      "id": "veh_forklift",
+      "name": "Chariot élévateur",
+      "category": "vehicle",
+      "tags": [
+        "chariot",
+        "cariste",
+        "manutention",
+        "palette",
+        "entrepot"
+      ],
+      "footprint": {
+        "w": 1.15,
+        "d": 3.6,
+        "h": 2.6
+      },
+      "fit": "max",
+      "variants": [
+        "hauteur_fourches"
+      ],
+      "scene": "res://assets/vehicle/veh_forklift/veh_forklift.tscn",
+      "source_path": null,
+      "sign": false,
+      "license": "propriété du projet"
+    },
+    {
+      "id": "veh_box_truck",
+      "name": "Camion porteur",
+      "category": "vehicle",
+      "tags": [
+        "camion",
+        "livraison",
+        "transport",
+        "client",
+        "fournisseur"
+      ],
+      "footprint": {
+        "w": 2.5,
+        "d": 8.0,
+        "h": 3.6
+      },
+      "fit": "max",
+      "variants": [],
+      "scene": "res://assets/vehicle/veh_box_truck/veh_box_truck.tscn",
+      "source_path": "res://assets/_sources/kenney-car-kit/delivery.glb",
+      "sign": false,
+      "license": "CC0 1.0"
+    },
+    {
+      "id": "veh_flatbed_truck",
+      "name": "Camion plateau",
+      "category": "vehicle",
+      "tags": [
+        "camion",
+        "plateau",
+        "transport",
+        "materiaux"
+      ],
+      "footprint": {
+        "w": 2.5,
+        "d": 8.0,
+        "h": 3.0
+      },
+      "fit": "max",
+      "variants": [],
+      "scene": "res://assets/vehicle/veh_flatbed_truck/veh_flatbed_truck.tscn",
+      "source_path": "res://assets/_sources/kenney-car-kit/delivery-flat.glb",
+      "sign": false,
+      "license": "CC0 1.0"
+    },
+    {
+      "id": "veh_van",
+      "name": "Utilitaire de livraison",
+      "category": "vehicle",
+      "tags": [
+        "utilitaire",
+        "livraison",
+        "dernier_kilometre",
+        "urgence"
+      ],
+      "footprint": {
+        "w": 2.0,
+        "d": 5.5,
+        "h": 2.5
+      },
+      "fit": "max",
+      "variants": [],
+      "scene": "res://assets/vehicle/veh_van/veh_van.tscn",
+      "source_path": "res://assets/_sources/kenney-car-kit/van.glb",
+      "sign": false,
+      "license": "CC0 1.0"
+    },
+    {
+      "id": "furn_desk",
+      "name": "Bureau",
+      "category": "furniture",
+      "tags": [
+        "bureau",
+        "poste",
+        "travail"
+      ],
+      "footprint": {
+        "w": 1.4,
+        "d": 0.7,
+        "h": 0.75
+      },
+      "fit": "max",
+      "variants": [],
+      "scene": "res://assets/furniture/furn_desk/furn_desk.tscn",
+      "source_path": "res://assets/_sources/kenney-furniture-kit/desk.glb",
+      "sign": false,
+      "license": "CC0 1.0"
+    },
+    {
+      "id": "furn_office_chair",
+      "name": "Fauteuil de bureau",
+      "category": "furniture",
+      "tags": [
+        "chaise",
+        "bureau"
+      ],
+      "footprint": {
+        "w": 0.6,
+        "d": 0.6,
+        "h": 1.0
+      },
+      "fit": "h",
+      "variants": [],
+      "scene": "res://assets/furniture/furn_office_chair/furn_office_chair.tscn",
+      "source_path": "res://assets/_sources/kenney-furniture-kit/chairDesk.glb",
+      "sign": false,
+      "license": "CC0 1.0"
+    },
+    {
+      "id": "furn_computer_screen",
+      "name": "Écran d'ordinateur",
+      "category": "furniture",
+      "tags": [
+        "ordinateur",
+        "ecran",
+        "informatique"
+      ],
+      "footprint": {
+        "w": 0.6,
+        "d": 0.2,
+        "h": 0.45
+      },
+      "fit": "max",
+      "variants": [],
+      "scene": "res://assets/furniture/furn_computer_screen/furn_computer_screen.tscn",
+      "source_path": "res://assets/_sources/kenney-furniture-kit/computerScreen.glb",
+      "sign": false,
+      "license": "CC0 1.0"
+    },
+    {
+      "id": "furn_table",
+      "name": "Table de réunion",
+      "category": "furniture",
+      "tags": [
+        "table",
+        "reunion"
+      ],
+      "footprint": {
+        "w": 2.4,
+        "d": 1.2,
+        "h": 0.75
+      },
+      "fit": "max",
+      "variants": [],
+      "scene": "res://assets/furniture/furn_table/furn_table.tscn",
+      "source_path": "res://assets/_sources/kenney-furniture-kit/table.glb",
+      "sign": false,
+      "license": "CC0 1.0"
+    },
+    {
+      "id": "furn_chair",
+      "name": "Chaise",
+      "category": "furniture",
+      "tags": [
+        "chaise",
+        "reunion"
+      ],
+      "footprint": {
+        "w": 0.5,
+        "d": 0.5,
+        "h": 0.9
+      },
+      "fit": "h",
+      "variants": [],
+      "scene": "res://assets/furniture/furn_chair/furn_chair.tscn",
+      "source_path": "res://assets/_sources/kenney-furniture-kit/chair.glb",
+      "sign": false,
+      "license": "CC0 1.0"
+    },
+    {
+      "id": "furn_bookcase",
+      "name": "Armoire de rangement",
+      "category": "furniture",
+      "tags": [
+        "armoire",
+        "archives",
+        "rangement"
+      ],
+      "footprint": {
+        "w": 1.2,
+        "d": 0.4,
+        "h": 2.0
+      },
+      "fit": "h",
+      "variants": [],
+      "scene": "res://assets/furniture/furn_bookcase/furn_bookcase.tscn",
+      "source_path": "res://assets/_sources/kenney-furniture-kit/bookcaseClosedWide.glb",
+      "sign": false,
+      "license": "CC0 1.0"
+    },
+    {
+      "id": "furn_plant",
+      "name": "Plante en pot",
+      "category": "furniture",
+      "tags": [
+        "plante",
+        "decoration"
+      ],
+      "footprint": {
+        "w": 0.5,
+        "d": 0.5,
+        "h": 1.2
+      },
+      "fit": "h",
+      "variants": [],
+      "scene": "res://assets/furniture/furn_plant/furn_plant.tscn",
+      "source_path": "res://assets/_sources/kenney-furniture-kit/pottedPlant.glb",
+      "sign": false,
+      "license": "CC0 1.0"
+    },
+    {
+      "id": "prop_desk_computer",
+      "name": "Poste de travail",
+      "category": "furniture",
+      "tags": [
+        "bureau",
+        "poste",
+        "conseiller",
+        "informatique"
+      ],
+      "footprint": {
+        "w": 1.4,
+        "d": 1.3,
+        "h": 1.2
+      },
+      "fit": "max",
+      "variants": [],
+      "scene": "res://assets/furniture/prop_desk_computer/prop_desk_computer.tscn",
+      "source_path": null,
+      "sign": false,
+      "license": "propriété du projet"
+    },
+    {
+      "id": "prop_meeting_table",
+      "name": "Table de réunion équipée",
+      "category": "furniture",
+      "tags": [
+        "reunion",
+        "comite",
+        "decision",
+        "equipe"
+      ],
+      "footprint": {
+        "w": 2.4,
+        "d": 2.6,
+        "h": 0.9
+      },
+      "fit": "max",
+      "variants": [],
+      "scene": "res://assets/furniture/prop_meeting_table/prop_meeting_table.tscn",
+      "source_path": null,
+      "sign": false,
+      "license": "propriété du projet"
+    },
+    {
+      "id": "char_manager_f",
+      "name": "Manager (femme)",
+      "category": "character",
+      "tags": [
+        "pnj",
+        "direction",
+        "manager",
+        "conseiller"
+      ],
+      "footprint": {
+        "w": 0.6,
+        "d": 0.5,
+        "h": 1.75
+      },
+      "fit": "h",
+      "variants": [],
+      "scene": "res://assets/character/char_manager_f/char_manager_f.tscn",
+      "source_path": "res://assets/_sources/kenney-mini-characters/character-female-d.glb",
+      "sign": false,
+      "license": "CC0 1.0"
+    },
+    {
+      "id": "char_manager_m",
+      "name": "Manager (homme)",
+      "category": "character",
+      "tags": [
+        "pnj",
+        "direction",
+        "manager",
+        "conseiller"
+      ],
+      "footprint": {
+        "w": 0.6,
+        "d": 0.5,
+        "h": 1.8
+      },
+      "fit": "h",
+      "variants": [],
+      "scene": "res://assets/character/char_manager_m/char_manager_m.tscn",
+      "source_path": "res://assets/_sources/kenney-mini-characters/character-male-d.glb",
+      "sign": false,
+      "license": "CC0 1.0"
+    },
+    {
+      "id": "char_office_f",
+      "name": "Employée de bureau",
+      "category": "character",
+      "tags": [
+        "pnj",
+        "administration",
+        "achats",
+        "service_client"
+      ],
+      "footprint": {
+        "w": 0.6,
+        "d": 0.5,
+        "h": 1.7
+      },
+      "fit": "h",
+      "variants": [],
+      "scene": "res://assets/character/char_office_f/char_office_f.tscn",
+      "source_path": "res://assets/_sources/kenney-mini-characters/character-female-c.glb",
+      "sign": false,
+      "license": "CC0 1.0"
+    },
+    {
+      "id": "char_worker_m",
+      "name": "Préparateur (homme)",
+      "category": "character",
+      "tags": [
+        "pnj",
+        "entrepot",
+        "preparateur",
+        "cariste",
+        "atelier"
+      ],
+      "footprint": {
+        "w": 0.6,
+        "d": 0.5,
+        "h": 1.8
+      },
+      "fit": "h",
+      "variants": [],
+      "scene": "res://assets/character/char_worker_m/char_worker_m.tscn",
+      "source_path": "res://assets/_sources/kenney-mini-characters/character-male-e.glb",
+      "sign": false,
+      "license": "CC0 1.0"
+    },
+    {
+      "id": "char_worker_f",
+      "name": "Préparatrice (femme)",
+      "category": "character",
+      "tags": [
+        "pnj",
+        "entrepot",
+        "preparatrice",
+        "atelier"
+      ],
+      "footprint": {
+        "w": 0.6,
+        "d": 0.5,
+        "h": 1.7
+      },
+      "fit": "h",
+      "variants": [],
+      "scene": "res://assets/character/char_worker_f/char_worker_f.tscn",
+      "source_path": "res://assets/_sources/kenney-mini-characters/character-female-f.glb",
+      "sign": false,
+      "license": "CC0 1.0"
+    },
+    {
+      "id": "char_driver_m",
+      "name": "Chauffeur",
+      "category": "character",
+      "tags": [
+        "pnj",
+        "chauffeur",
+        "transport",
+        "livraison"
+      ],
+      "footprint": {
+        "w": 0.6,
+        "d": 0.5,
+        "h": 1.8
+      },
+      "fit": "h",
+      "variants": [],
+      "scene": "res://assets/character/char_driver_m/char_driver_m.tscn",
+      "source_path": "res://assets/_sources/kenney-mini-characters/character-male-c.glb",
+      "sign": false,
+      "license": "CC0 1.0"
+    },
+    {
+      "id": "nat_tree",
+      "name": "Arbre",
+      "category": "nature",
+      "tags": [
+        "arbre",
+        "paysage"
+      ],
+      "footprint": {
+        "w": 4.0,
+        "d": 4.0,
+        "h": 6.0
+      },
+      "fit": "h",
+      "variants": [],
+      "scene": "res://assets/nature/nat_tree/nat_tree.tscn",
+      "source_path": "res://assets/_sources/kenney-nature-kit/tree_default.glb",
+      "sign": false,
+      "license": "CC0 1.0"
+    },
+    {
+      "id": "nat_tree_oak",
+      "name": "Chêne",
+      "category": "nature",
+      "tags": [
+        "arbre",
+        "paysage"
+      ],
+      "footprint": {
+        "w": 6.0,
+        "d": 6.0,
+        "h": 8.0
+      },
+      "fit": "h",
+      "variants": [],
+      "scene": "res://assets/nature/nat_tree_oak/nat_tree_oak.tscn",
+      "source_path": "res://assets/_sources/kenney-nature-kit/tree_oak.glb",
+      "sign": false,
+      "license": "CC0 1.0"
+    },
+    {
+      "id": "nat_tree_pine",
+      "name": "Pin",
+      "category": "nature",
+      "tags": [
+        "arbre",
+        "paysage"
+      ],
+      "footprint": {
+        "w": 3.0,
+        "d": 3.0,
+        "h": 9.0
+      },
+      "fit": "h",
+      "variants": [],
+      "scene": "res://assets/nature/nat_tree_pine/nat_tree_pine.tscn",
+      "source_path": "res://assets/_sources/kenney-nature-kit/tree_pineRoundA.glb",
+      "sign": false,
+      "license": "CC0 1.0"
+    },
+    {
+      "id": "nat_bush",
+      "name": "Buisson",
+      "category": "nature",
+      "tags": [
+        "buisson",
+        "paysage"
+      ],
+      "footprint": {
+        "w": 1.6,
+        "d": 1.6,
+        "h": 1.2
+      },
+      "fit": "h",
+      "variants": [],
+      "scene": "res://assets/nature/nat_bush/nat_bush.tscn",
+      "source_path": "res://assets/_sources/kenney-nature-kit/plant_bushLarge.glb",
+      "sign": false,
+      "license": "CC0 1.0"
+    },
+    {
+      "id": "nat_rock",
+      "name": "Rocher",
+      "category": "nature",
+      "tags": [
+        "rocher",
+        "paysage"
+      ],
+      "footprint": {
+        "w": 2.0,
+        "d": 2.0,
+        "h": 1.5
+      },
+      "fit": "h",
+      "variants": [],
+      "scene": "res://assets/nature/nat_rock/nat_rock.tscn",
+      "source_path": "res://assets/_sources/kenney-nature-kit/rock_largeA.glb",
+      "sign": false,
+      "license": "CC0 1.0"
+    },
+    {
+      "id": "road_straight",
+      "name": "Route droite",
+      "category": "road",
+      "tags": [
+        "route",
+        "voirie"
+      ],
+      "footprint": {
+        "w": 10.0,
+        "d": 10.0,
+        "h": 0.2
+      },
+      "fit": "max",
+      "variants": [],
+      "scene": "res://assets/road/road_straight/road_straight.tscn",
+      "source_path": "res://assets/_sources/kenney-city-kit-roads/road-straight.glb",
+      "sign": false,
+      "license": "CC0 1.0"
+    },
+    {
+      "id": "road_bend",
+      "name": "Virage",
+      "category": "road",
+      "tags": [
+        "route",
+        "voirie"
+      ],
+      "footprint": {
+        "w": 10.0,
+        "d": 10.0,
+        "h": 0.2
+      },
+      "fit": "max",
+      "variants": [],
+      "scene": "res://assets/road/road_bend/road_bend.tscn",
+      "source_path": "res://assets/_sources/kenney-city-kit-roads/road-bend.glb",
+      "sign": false,
+      "license": "CC0 1.0"
+    },
+    {
+      "id": "road_crossroad",
+      "name": "Carrefour",
+      "category": "road",
+      "tags": [
+        "route",
+        "voirie",
+        "carrefour"
+      ],
+      "footprint": {
+        "w": 10.0,
+        "d": 10.0,
+        "h": 0.2
+      },
+      "fit": "max",
+      "variants": [],
+      "scene": "res://assets/road/road_crossroad/road_crossroad.tscn",
+      "source_path": "res://assets/_sources/kenney-city-kit-roads/road-crossroad.glb",
+      "sign": false,
+      "license": "CC0 1.0"
+    },
+    {
+      "id": "road_t_junction",
+      "name": "Intersection en T",
+      "category": "road",
+      "tags": [
+        "route",
+        "voirie"
+      ],
+      "footprint": {
+        "w": 10.0,
+        "d": 10.0,
+        "h": 0.2
+      },
+      "fit": "max",
+      "variants": [],
+      "scene": "res://assets/road/road_t_junction/road_t_junction.tscn",
+      "source_path": "res://assets/_sources/kenney-city-kit-roads/road-intersection.glb",
+      "sign": false,
+      "license": "CC0 1.0"
+    },
+    {
+      "id": "road_end",
+      "name": "Fin de route",
+      "category": "road",
+      "tags": [
+        "route",
+        "voirie"
+      ],
+      "footprint": {
+        "w": 10.0,
+        "d": 10.0,
+        "h": 0.2
+      },
+      "fit": "max",
+      "variants": [],
+      "scene": "res://assets/road/road_end/road_end.tscn",
+      "source_path": "res://assets/_sources/kenney-city-kit-roads/road-end.glb",
+      "sign": false,
+      "license": "CC0 1.0"
+    },
+    {
+      "id": "road_driveway",
+      "name": "Entrée de site",
+      "category": "road",
+      "tags": [
+        "route",
+        "acces",
+        "site"
+      ],
+      "footprint": {
+        "w": 10.0,
+        "d": 10.0,
+        "h": 0.2
+      },
+      "fit": "max",
+      "variants": [],
+      "scene": "res://assets/road/road_driveway/road_driveway.tscn",
+      "source_path": "res://assets/_sources/kenney-city-kit-roads/road-driveway-single.glb",
+      "sign": false,
+      "license": "CC0 1.0"
+    },
+    {
+      "id": "prop_street_light",
+      "name": "Lampadaire",
+      "category": "road",
+      "tags": [
+        "eclairage",
+        "voirie"
+      ],
+      "footprint": {
+        "w": 1.0,
+        "d": 2.0,
+        "h": 6.0
+      },
+      "fit": "h",
+      "variants": [],
+      "scene": "res://assets/road/prop_street_light/prop_street_light.tscn",
+      "source_path": "res://assets/_sources/kenney-city-kit-roads/light-square.glb",
+      "sign": false,
+      "license": "CC0 1.0"
+    },
+    {
+      "id": "prop_traffic_cone",
+      "name": "Cône de signalisation",
+      "category": "road",
+      "tags": [
+        "chantier",
+        "balisage",
+        "securite"
+      ],
+      "footprint": {
+        "w": 0.4,
+        "d": 0.4,
+        "h": 0.5
+      },
+      "fit": "h",
+      "variants": [],
+      "scene": "res://assets/road/prop_traffic_cone/prop_traffic_cone.tscn",
+      "source_path": "res://assets/_sources/kenney-city-kit-roads/construction-cone.glb",
+      "sign": false,
+      "license": "CC0 1.0"
+    }
+  ]
+}

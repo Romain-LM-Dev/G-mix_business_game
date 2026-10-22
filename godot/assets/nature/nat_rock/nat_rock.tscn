@@ -1,0 +1,20 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://assets/asset.gd" id="1_kxryb"]
+[ext_resource type="PackedScene" path="res://assets/_sources/kenney-nature-kit/rock_largeA.glb" id="2_cciv4"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_1md44"]
+size = Vector3(4.532038, 1.5, 5.8632574)
+
+[node name="nat_rock" type="Node3D" unique_id=307101399]
+script = ExtResource("1_kxryb")
+asset_id = "nat_rock"
+
+[node name="Model" type="Node3D" parent="." unique_id=974856746 instance=ExtResource("2_cciv4")]
+transform = Transform3D(5.7739835, 0, 0, 0, 5.7739835, 0, 0, 0, 5.7739835, 0, 0.28869918, 0)
+
+[node name="Collision" type="StaticBody3D" parent="." unique_id=412259562]
+
+[node name="Shape" type="CollisionShape3D" parent="Collision" unique_id=1144012870]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
+shape = SubResource("BoxShape3D_1md44")

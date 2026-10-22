@@ -1,0 +1,7 @@
+# Optionnel : limite la mémoire de la VM WSL 2 utilisée par Docker Desktop (16 Go de RAM sur ce poste).
+# Copier dans %USERPROFILE%\.wslconfig, puis exécuter `wsl --shutdown` (Docker Desktop redémarre la VM).
+# Attention : la limite s'applique aussi aux autres distributions WSL (Ubuntu).
+[wsl2]
+memory=6GB
+processors=6
+swap=4GB

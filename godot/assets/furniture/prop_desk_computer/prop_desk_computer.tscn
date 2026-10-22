@@ -1,0 +1,8 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://assets/procedural/assembly.gd" id="1_script"]
+
+[node name="prop_desk_computer" type="Node3D"]
+script = ExtResource("1_script")
+asset_id = "prop_desk_computer"
+parts = [["res://assets/furniture/furn_desk/furn_desk.tscn", Vector3(0, 0, 0), 0.0], ["res://assets/furniture/furn_office_chair/furn_office_chair.tscn", Vector3(0, 0, 0.6), 180.0], ["res://assets/furniture/furn_computer_screen/furn_computer_screen.tscn", Vector3(0, 0.75, -0.15), 0.0]]

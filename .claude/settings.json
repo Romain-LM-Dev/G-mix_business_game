@@ -1,0 +1,36 @@
+{
+  "env": {
+    "PYTHONUTF8": "1"
+  },
+  "permissions": {
+    "allow": [
+      "PowerShell(.\\scripts\\check-env.ps1 *)",
+      "PowerShell(.\\scripts\\test.ps1 *)",
+      "PowerShell(.\\scripts\\smoke.ps1 *)",
+      "PowerShell(.\\scripts\\godot.ps1 -Check *)",
+      "PowerShell(.\\scripts\\godot.ps1 -Smoke *)",
+      "PowerShell(.\\scripts\\infra.ps1 up *)",
+      "PowerShell(.\\scripts\\infra.ps1 status *)",
+      "PowerShell(.\\scripts\\infra.ps1 logs *)",
+      "PowerShell(docker compose ps *)",
+      "PowerShell(docker compose logs *)",
+      "PowerShell(docker compose config *)",
+      "PowerShell(.\\backend\\.venv\\Scripts\\python.exe -m pytest *)",
+      "PowerShell(.\\backend\\.venv\\Scripts\\python.exe -m gmix.tools.doctor *)",
+      "PowerShell(.\\backend\\.venv\\Scripts\\ruff.exe *)",
+      "Bash(docker compose ps *)",
+      "Bash(docker compose logs *)",
+      "Bash(docker compose config *)",
+      "Bash(backend/.venv/Scripts/python.exe -m pytest *)",
+      "Bash(backend/.venv/Scripts/ruff.exe *)",
+      "Bash(curl -s http://127.0.0.1:8000/health *)"
+    ],
+    "ask": [
+      "PowerShell(.\\scripts\\infra.ps1 reset *)",
+      "PowerShell(docker compose down -v *)",
+      "PowerShell(docker volume rm *)",
+      "Bash(docker compose down -v *)",
+      "Bash(docker volume rm *)"
+    ]
+  }
+}

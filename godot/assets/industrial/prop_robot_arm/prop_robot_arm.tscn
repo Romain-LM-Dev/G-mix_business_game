@@ -1,0 +1,20 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://assets/asset.gd" id="1_254ns"]
+[ext_resource type="PackedScene" path="res://assets/_sources/kenney-factory-kit/robot-arm-a.glb" id="2_13l8y"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_fueof"]
+size = Vector3(0.74999994, 2.4, 0.74999994)
+
+[node name="prop_robot_arm" type="Node3D" unique_id=1703390485]
+script = ExtResource("1_254ns")
+asset_id = "prop_robot_arm"
+
+[node name="Model" type="Node3D" parent="." unique_id=1488374430 instance=ExtResource("2_13l8y")]
+transform = Transform3D(0.74999994, 0, 0, 0, 0.74999994, 0, 0, 0, 0.74999994, 0, 0, 0)
+
+[node name="Collision" type="StaticBody3D" parent="." unique_id=1599242122]
+
+[node name="Shape" type="CollisionShape3D" parent="Collision" unique_id=129220935]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, 0)
+shape = SubResource("BoxShape3D_fueof")

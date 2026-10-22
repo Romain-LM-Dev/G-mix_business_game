@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gmix"
+version = "0.1.0"
+description = "G-mix Open World : API FastAPI, workers Kafka, RAG pgvector, agents IA Ollama"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.32",
+  "pydantic>=2.10",
+  "pydantic-settings>=2.6",
+  "sqlalchemy[asyncio]>=2.0.36",
+  "asyncpg>=0.30",
+  "alembic>=1.14",
+  "pgvector>=0.3.6",
+  "aiokafka>=0.12",
+  "httpx>=0.28",
+  "boto3>=1.35",
+  "pyyaml>=6.0",
+  "jsonschema>=4.23",
+  "pypdf>=5.1",
+  "pyjwt>=2.10",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.3", "pytest-asyncio>=0.24", "ruff>=0.8", "websockets>=14"]
+
+[tool.setuptools.packages.find]
+include = ["gmix*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+markers = ["integration: nécessite l'infra Docker + Ollama démarrés (scripts\\infra.ps1 up)"]
+addopts = "-m \"not integration\""
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC"]
+
+[tool.ruff.lint.isort]
+# Le dossier backend/alembic (migrations) ne doit pas faire passer le paquet alembic pour un module local
+known-third-party = ["alembic"]

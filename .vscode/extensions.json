@@ -1,0 +1,10 @@
+{
+  "recommendations": [
+    "ms-python.python",
+    "charliermarsh.ruff",
+    "geequlim.godot-tools",
+    "redhat.vscode-yaml",
+    "ms-azuretools.vscode-docker",
+    "bierner.markdown-mermaid"
+  ]
+}

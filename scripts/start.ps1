@@ -1,10 +1,10 @@
 ﻿<#
 .SYNOPSIS
-  Démarrage rapide d'une séance : Docker, infrastructure, Ollama, API, worker de génération, puis le jeu.
+  Démarrage rapide d'une séance : Docker, infrastructure, Ollama, API, puis le jeu.
   Premier lancement : crée le compte « admin » avec un mot de passe provisoire affiché ici (changé à la connexion).
     -Lan     API ouverte au réseau de la salle (les joueurs saisissent http://<IP-hôte>:8000 à la connexion)
     -NoGame  ne lance pas le client Godot
-  Arrêt : fermer les fenêtres de l'API et du worker ; conteneurs : .\scripts\infra.ps1 down
+  Arrêt : stop.cmd (ou .\scripts\stop.ps1)
 #>
 param([switch]$Lan, [switch]$NoGame)
 . "$PSScriptRoot\_common.ps1"
@@ -45,14 +45,17 @@ Write-Ok "Ollama ($ollamaUrl)"
 
 Write-Step 'Compte administrateur'
 $created = & $VenvPython -m gmix.tools.create_user --username admin --role admin --provisional 2>$null
-if ($LASTEXITCODE -eq 0) {
+$adminCode = $LASTEXITCODE
+if ($adminCode -eq 0) {
     $created | ForEach-Object { Write-Host "  $_" -ForegroundColor Yellow }
     Write-Warn 'Notez ce mot de passe provisoire : il ne sera plus affiché.'
-} else {
+} elseif ($adminCode -eq 3) {  # code 3 de create_user : l'identifiant admin existe déjà
     Write-Ok 'Compte admin déjà présent'
+} else {
+    throw "Création du compte admin en échec (code $adminCode) : lancer backend\.venv\Scripts\python -m gmix.tools.create_user --username admin --role admin pour voir l'erreur"
 }
 
-Write-Step 'API et worker de génération (fenêtres séparées)'
+Write-Step 'API (fenêtre séparée)'
 $api = Get-ApiUrl
 if (Test-Url "$api/docs") { Write-Ok "API déjà lancée ($api)" }  # /health interroge tous les services : lent
 else {
@@ -62,12 +65,10 @@ else {
     Wait-Until { Test-Url "$api/docs" } 90 'API'
     Write-Ok "API prête : $api/docs"
 }
-$worker = Get-CimInstance Win32_Process -Filter "Name = 'python.exe'" | Where-Object { $_.CommandLine -match 'gmix\.workers\.generation' }
-if ($worker) { Write-Ok 'Worker de génération déjà lancé' }
-else { Start-Window 'worker.ps1' @('generation'); Write-Ok 'Worker de génération lancé' }
 
 if (-not $NoGame) {
     Write-Step 'Client Godot'
     Start-Process -FilePath (Get-GodotExe) -ArgumentList @('--path', ('"' + $GodotDir + '"'))
     Write-Ok "Jeu lancé : serveur $api, identifiant admin"
 }
+exit 0  # sinon $LASTEXITCODE garde le code du dernier appel natif (create_user : 3 quand admin existe)

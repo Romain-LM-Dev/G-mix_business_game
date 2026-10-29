@@ -1,4 +1,5 @@
 {
+  "agent": "orchestrateur",
   "env": {
     "PYTHONUTF8": "1"
   },
@@ -31,6 +32,10 @@
       "PowerShell(docker volume rm *)",
       "Bash(docker compose down -v *)",
       "Bash(docker volume rm *)"
+    ],
+    "deny": [
+      "Agent(general-purpose)",
+      "Agent(claude)"
     ]
   }
 }

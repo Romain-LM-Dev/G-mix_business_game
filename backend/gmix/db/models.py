@@ -1,7 +1,7 @@
 """Schéma v0 de la base : source de vérité pour `alembic revision --autogenerate`.
 
-Conventions : UUID en clé primaire, horodatages UTC, JSONB pour les specs générées par l'IA
-(toujours validées contre ai/schemas/*.schema.json avant écriture).
+Conventions : UUID en clé primaire, horodatages UTC, JSONB pour les specs de business game
+(toujours validées par gmix.game.spec.SimSpec avant écriture).
 """
 
 import enum
@@ -19,6 +19,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    SmallInteger,
     String,
     Text,
     func,
@@ -126,7 +127,7 @@ class BusinessGame(Timestamped, Base):
     status: Mapped[GameStatus] = mapped_column(
         _pg_enum(GameStatus, "game_status"), server_default=GameStatus.DRAFT.value
     )
-    spec: Mapped[dict[str, Any] | None] = mapped_column(JSONB)  # ai/schemas/business_game.schema.json
+    spec: Mapped[dict[str, Any] | None] = mapped_column(JSONB)  # gmix.game.spec.SimSpec
     spec_version: Mapped[int] = mapped_column(Integer, server_default=text("0"))
     params: Mapped[dict[str, Any]] = _empty_json()  # demande du formateur : niveau, durée, joueurs, compétences
     review: Mapped[dict[str, Any]] = _empty_json()  # contrôles : {"warnings": [...], "repairs": [...]}
@@ -160,6 +161,35 @@ class LobbyMember(Base):
     team: Mapped[str | None] = mapped_column(String(64))
     game_role: Mapped[str | None] = mapped_column(String(64))  # rôle métier dans le business game
     joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class LobbyTimeline(Base):
+    """Chronologie d'un tour du pack « usine » (gmix.game.spec.Timeline), rejouée par Godot. Gardée hors de
+    lobbies.state, qu'elle alourdirait (docs/decisions/0007-annexe-contrat-usine.md, §3 et §4)."""
+
+    __tablename__ = "lobby_timelines"
+
+    lobby_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("lobbies.id", ondelete="CASCADE"), primary_key=True)
+    week: Mapped[int] = mapped_column(SmallInteger, primary_key=True, autoincrement=False)
+    timeline: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class NpcMemory(Base):
+    """Mémoire des agents PNJ : chaque échange d'un joueur avec un agent dans un lobby (docs/decisions/0006)."""
+
+    __tablename__ = "npc_memories"
+    __table_args__ = (Index("ix_npc_memories_lobby_npc", "lobby_id", "npc_id", "id"),)
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    lobby_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("lobbies.id", ondelete="CASCADE"))
+    npc_id: Mapped[str] = mapped_column(String(64))
+    user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    speaker: Mapped[str] = mapped_column(String(120))
+    message: Mapped[str] = mapped_column(Text)
+    reply: Mapped[str] = mapped_column(Text)
+    week: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class Asset(Timestamped, Base):

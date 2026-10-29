@@ -3,7 +3,6 @@
 Leviers d'économie de tokens appliqués ici :
 - routage par tâche vers le plus petit modèle suffisant (ai/models.yaml), repli si absent ;
 - budget d'entrée vérifié AVANT l'appel (Ollama tronquerait le prompt système sans prévenir) ;
-- sorties JSON par décodage contraint (schéma) : pas de prose, pas de re-génération pour un JSON cassé ;
 - questions fermées envoyées à un modèle de décision (tev1) plutôt qu'à un LLM génératif ;
 - cache exact des tâches déterministes (`cache: true`) ;
 - `think` désactivé par défaut sur les modèles qui raisonnent.
@@ -19,7 +18,6 @@ from sqlalchemy.dialects.postgresql import insert
 
 from gmix.db import get_sessionmaker
 from gmix.db.models import LLMCache
-from gmix.llm import schemas
 from gmix.llm.catalog import AICatalog, ModelSpec, TaskProfile, load_catalog
 from gmix.llm.ollama import ChatResult, OllamaClient, Usage
 from gmix.llm.tokens import estimate_messages
@@ -34,13 +32,6 @@ class ModelUnavailable(RuntimeError):
 
 class BudgetExceeded(ValueError):
     pass
-
-
-class InvalidOutput(ValueError):
-    def __init__(self, task: str, errors: list[str], raw: str) -> None:
-        super().__init__(f"Tâche {task} : sortie invalide ({len(errors)} erreur(s)) : {errors[:3]}")
-        self.errors = errors
-        self.raw = raw
 
 
 class LLMCacheStore:
@@ -127,39 +118,6 @@ class LLMService:
         if key:
             await self.cache.put(key, task_name, result.usage, {"content": result.content})  # type: ignore[union-attr]
         return result
-
-    async def json(
-        self, task_name: str, messages: list[dict[str, str]], *, schema: dict[str, Any] | None = None
-    ) -> tuple[dict[str, Any], ChatResult]:
-        """Sortie JSON contrainte par schéma puis validée. `schema` permet de restreindre dynamiquement
-        (ex. enum des ids d'assets candidats) le schéma déclaré dans le catalogue."""
-        task, model = await self.resolve(task_name)
-        if task.output != "json" or not task.schema_ref:
-            raise ValueError(f"Tâche {task_name} : output n'est pas json")
-        self._check_budget(task_name, task, model, messages)
-        fmt = schema or schemas.resolve(task.schema_ref)
-        key = self._cache_key(task_name, task, model, messages, extra=fmt)
-        if key and (hit := await self.cache.get(key)) is not None:  # type: ignore[union-attr]
-            log.info("tâche=%s cache=hit", task_name)
-            return hit, ChatResult(content=json.dumps(hit), usage=Usage(model=model.name), cached=True)
-        result = await self.client.chat(
-            model.name,
-            messages,
-            options=self._options(task, model),
-            fmt=fmt,
-            think=self._think(task, model),
-            keep_alive=self.catalog.keep_alive,
-        )
-        self._log(task_name, result)
-        try:
-            data = json.loads(result.content)
-        except json.JSONDecodeError as exc:
-            raise InvalidOutput(task_name, [f"JSON illisible : {exc}"], result.content) from exc
-        if errors := schemas.validation_errors(fmt, data):
-            raise InvalidOutput(task_name, errors, result.content)
-        if key:
-            await self.cache.put(key, task_name, result.usage, data)  # type: ignore[union-attr]
-        return data, result
 
     async def stream(self, task_name: str, messages: list[dict[str, str]]) -> AsyncIterator[str | Usage]:
         task, model = await self.resolve(task_name)

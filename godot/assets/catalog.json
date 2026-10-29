@@ -640,6 +640,58 @@
       "license": "propriété du projet"
     },
     {
+      "id": "prop_production_line",
+      "name": "Ligne de production",
+      "category": "industrial",
+      "tags": [
+        "ligne",
+        "production",
+        "machine",
+        "convoyeur",
+        "usine",
+        "atelier"
+      ],
+      "footprint": {
+        "w": 2.7,
+        "d": 2.7,
+        "h": 2.4
+      },
+      "fit": "w",
+      "variants": [
+        "titre",
+        "etat"
+      ],
+      "scene": "res://assets/industrial/prop_production_line/prop_production_line.tscn",
+      "source_path": null,
+      "sign": false,
+      "license": "propriété du projet"
+    },
+    {
+      "id": "prop_site_office",
+      "name": "Bureau d'atelier",
+      "category": "building",
+      "tags": [
+        "bureau",
+        "direction",
+        "atelier",
+        "planning",
+        "reunion"
+      ],
+      "footprint": {
+        "w": 3.5,
+        "d": 3.2,
+        "h": 2.9
+      },
+      "fit": "w",
+      "variants": [
+        "enseigne"
+      ],
+      "scene": "res://assets/building/prop_site_office/prop_site_office.tscn",
+      "source_path": null,
+      "sign": true,
+      "license": "propriété du projet"
+    },
+    {
       "id": "veh_forklift",
       "name": "Chariot élévateur",
       "category": "vehicle",
@@ -1313,6 +1365,305 @@
       "source_path": "res://assets/_sources/kenney-city-kit-roads/construction-cone.glb",
       "sign": false,
       "license": "CC0 1.0"
+    },
+    {
+      "id": "prop_machine",
+      "name": "Machine de ligne (poste d'opération)",
+      "category": "industrial",
+      "tags": [
+        "machine",
+        "poste",
+        "operation",
+        "ligne",
+        "serie",
+        "etat",
+        "panne",
+        "goulot",
+        "voyant",
+        "usine"
+      ],
+      "footprint": {
+        "w": 1.7,
+        "d": 2.1,
+        "h": 2.3
+      },
+      "fit": "d",
+      "variants": [
+        "titre",
+        "etat"
+      ],
+      "scene": "res://assets/industrial/prop_machine/prop_machine.tscn",
+      "source_path": null,
+      "sign": false,
+      "license": "propriété du projet"
+    },
+    {
+      "id": "prop_buffer_table",
+      "name": "Table d'attente (tampon)",
+      "category": "industrial",
+      "tags": [
+        "table_attente",
+        "tampon",
+        "encours",
+        "file_attente",
+        "entre_machines",
+        "stock_intermediaire",
+        "pieces"
+      ],
+      "footprint": {
+        "w": 1.6,
+        "d": 0.9,
+        "h": 0.65
+      },
+      "fit": "w",
+      "variants": [
+        "niveau_remplissage",
+        "capacite"
+      ],
+      "scene": "res://assets/industrial/prop_buffer_table/prop_buffer_table.tscn",
+      "source_path": null,
+      "sign": false,
+      "license": "propriété du projet"
+    },
+    {
+      "id": "prop_dock_door",
+      "name": "Porte de quai",
+      "category": "industrial",
+      "tags": [
+        "quai",
+        "porte",
+        "porte_sectionnelle",
+        "reception",
+        "expedition",
+        "camion",
+        "chargement",
+        "feu"
+      ],
+      "footprint": {
+        "w": 3.0,
+        "d": 0.5,
+        "h": 3.6
+      },
+      "fit": "w",
+      "variants": [
+        "etat"
+      ],
+      "scene": "res://assets/industrial/prop_dock_door/prop_dock_door.tscn",
+      "source_path": null,
+      "sign": false,
+      "license": "propriété du projet"
+    },
+    {
+      "id": "prop_floor_zone",
+      "name": "Marquage au sol de zone",
+      "category": "industrial",
+      "tags": [
+        "zone",
+        "marquage",
+        "sol",
+        "departement",
+        "depose",
+        "quarantaine",
+        "conforme",
+        "a_retoucher"
+      ],
+      "footprint": {
+        "w": 4.0,
+        "d": 3.0,
+        "h": 0.02
+      },
+      "fit": "max",
+      "variants": [
+        "titre",
+        "couleur",
+        "taille"
+      ],
+      "scene": "res://assets/industrial/prop_floor_zone/prop_floor_zone.tscn",
+      "source_path": null,
+      "sign": false,
+      "license": "propriété du projet"
+    },
+    {
+      "id": "veh_pallet_jack",
+      "name": "Transpalette manuel",
+      "category": "vehicle",
+      "tags": [
+        "transpalette",
+        "manutention",
+        "palette",
+        "quai",
+        "reception",
+        "deplacement",
+        "magasinier"
+      ],
+      "footprint": {
+        "w": 0.55,
+        "d": 1.55,
+        "h": 1.2
+      },
+      "fit": "d",
+      "variants": [
+        "chargee"
+      ],
+      "scene": "res://assets/vehicle/veh_pallet_jack/veh_pallet_jack.tscn",
+      "source_path": null,
+      "sign": false,
+      "license": "propriété du projet"
+    },
+    {
+      "id": "prop_inspection_table",
+      "name": "Table de contrôle qualité",
+      "category": "industrial",
+      "tags": [
+        "controle",
+        "qualite",
+        "table_de_controle",
+        "mesure",
+        "instruments",
+        "inspection",
+        "conforme",
+        "rebut"
+      ],
+      "footprint": {
+        "w": 1.8,
+        "d": 0.9,
+        "h": 1.4
+      },
+      "fit": "w",
+      "variants": [],
+      "scene": "res://assets/industrial/prop_inspection_table/prop_inspection_table.tscn",
+      "source_path": null,
+      "sign": false,
+      "license": "propriété du projet"
+    },
+    {
+      "id": "prop_scrap_bin",
+      "name": "Bac à rebut",
+      "category": "industrial",
+      "tags": [
+        "rebut",
+        "bac",
+        "non_conforme",
+        "dechets",
+        "qualite",
+        "quarantaine"
+      ],
+      "footprint": {
+        "w": 0.85,
+        "d": 0.65,
+        "h": 0.8
+      },
+      "fit": "w",
+      "variants": [
+        "niveau_remplissage"
+      ],
+      "scene": "res://assets/industrial/prop_scrap_bin/prop_scrap_bin.tscn",
+      "source_path": null,
+      "sign": false,
+      "license": "propriété du projet"
+    },
+    {
+      "id": "prop_packing_table",
+      "name": "Table d'emballage",
+      "category": "industrial",
+      "tags": [
+        "emballage",
+        "conditionnement",
+        "carton",
+        "ruban",
+        "balance",
+        "colisage",
+        "expedition"
+      ],
+      "footprint": {
+        "w": 2.0,
+        "d": 0.9,
+        "h": 1.25
+      },
+      "fit": "w",
+      "variants": [],
+      "scene": "res://assets/industrial/prop_packing_table/prop_packing_table.tscn",
+      "source_path": null,
+      "sign": false,
+      "license": "propriété du projet"
+    },
+    {
+      "id": "prop_pallet_wrapper",
+      "name": "Filmeuse de palettes",
+      "category": "industrial",
+      "tags": [
+        "filmeuse",
+        "palette",
+        "film_etirable",
+        "emballage",
+        "palettisation",
+        "expedition",
+        "mat"
+      ],
+      "footprint": {
+        "w": 1.9,
+        "d": 2.2,
+        "h": 2.4
+      },
+      "fit": "h",
+      "variants": [],
+      "scene": "res://assets/industrial/prop_pallet_wrapper/prop_pallet_wrapper.tscn",
+      "source_path": null,
+      "sign": false,
+      "license": "propriété du projet"
+    },
+    {
+      "id": "prop_workbench",
+      "name": "Établi et servante d'outils",
+      "category": "industrial",
+      "tags": [
+        "etabli",
+        "maintenance",
+        "outils",
+        "servante",
+        "reparation",
+        "technicien",
+        "depannage"
+      ],
+      "footprint": {
+        "w": 2.6,
+        "d": 0.8,
+        "h": 1.05
+      },
+      "fit": "w",
+      "variants": [],
+      "scene": "res://assets/industrial/prop_workbench/prop_workbench.tscn",
+      "source_path": null,
+      "sign": false,
+      "license": "propriété du projet"
+    },
+    {
+      "id": "prop_wall_board",
+      "name": "Tableau d'affichage",
+      "category": "interactive",
+      "tags": [
+        "tableau",
+        "affichage",
+        "planning",
+        "ordres_de_fabrication",
+        "interventions",
+        "suivi",
+        "ligne"
+      ],
+      "footprint": {
+        "w": 1.8,
+        "d": 0.5,
+        "h": 1.85
+      },
+      "fit": "w",
+      "variants": [
+        "titre",
+        "lignes"
+      ],
+      "scene": "res://assets/interactive/prop_wall_board/prop_wall_board.tscn",
+      "source_path": null,
+      "sign": false,
+      "license": "propriété du projet"
     }
   ]
 }

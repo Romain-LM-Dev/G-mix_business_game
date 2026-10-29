@@ -56,6 +56,14 @@ func _rebuild() -> void:
 				Mesher.box(self, Vector3(BAY_WIDTH - 0.08, 0.1, 0.06), Vector3(center_x, beam_y, z), beam)
 			for slot in range(3):
 				slots.append(Vector3(center_x + (slot - 1) * 0.86, beam_y + 0.05, 0))
+	var body := StaticBody3D.new()  # on ne traverse pas un rayonnage
+	var shape := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = Vector3(total_width + 0.1, height, DEPTH + 0.1)
+	shape.shape = box
+	shape.position.y = height / 2.0
+	body.add_child(shape)
+	Mesher.adopt(self, body)
 	var pallet_scene := load(PALLET_SCENE) as PackedScene
 	if pallet_scene == null:
 		return

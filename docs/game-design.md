@@ -1,41 +1,49 @@
 # Conception des business games
 
-## Ce qu'un business game généré doit garantir
+Modèle : simulation hebdomadaire d'une chaîne logistique, générée par paramètres (docs/decisions/0006).
+Contenu : `ai/simulation.yaml` ; règles chiffrées : `backend/gmix/game/engine.py`.
 
-1. **Vrai** : chaque chiffre, règle ou loi vient du corpus RAG du domaine ou d'une source citée
-   (`sources`, `source_refs`). Un PNJ ne cite rien hors de ses extraits.
-2. **Cohérent** : effets chiffrés compatibles entre eux et avec la taille de l'entreprise ; KPI dérivés
-   calculés par formule ; chaque rôle décide ; chaque événement déclenché existe (`gmix.game.coherence`).
-3. **Pédagogique** : objectifs observables (Bloom), chacun mesuré par un KPI, une décision ou une question
-   de débrief ; chaque option a une explication (`rationale`) révélée au débrief.
-4. **Jouable** : 60 à 180 minutes débrief compris, 2 à 4 phases, 2 à 4 options par décision, pas de
-   bonne réponse évidente, erreurs instructives sanctionnées par un événement réaliste.
+## Ce qu'un business game garantit
 
-Exemple de référence validé : ai/examples/tresorerie_sous_tension.json (finance, BFR, délais de paiement LME).
+1. **Vrai** : chaque notion transmise porte sa source (fiche du corpus ou norme citée) ; les agents ne disent
+   que les chiffres calculés par le moteur et, pour une question de fond, les extraits du corpus.
+2. **Cohérent** : capacités, stocks, commandes minimales et trésorerie sont calibrés sur la demande ; la spec
+   est validée (références croisées) puis jouée en pilote automatique avant d'être proposée.
+3. **Pédagogique** : quatre objectifs mesurés (OTIF, TRS, ruptures, trésorerie finale), un débrief avec
+   leçons tirées de la partie, aléas survenus, notions et sources, journal des décisions de l'équipe.
+4. **Jouable** : 4 à 12 semaines, 1 à 7 modules ; un joueur passif finit en rupture, le pilote automatique
+   gagne en difficulté « découverte » et peine en « expert ».
 
 ## Menu de création (formateur)
 
-1. Domaine (liste `GET /api/v1/domains`, avec la taille du corpus sourcé de chacun).
-2. Niveau (débutant, intermédiaire, avancé), durée, nombre de joueurs.
-3. Demande libre : contexte souhaité, secteur, contraintes, points à travailler.
-4. Génération avec progression étape par étape (WebSocket), 7 à 9 min sur le poste actuel.
-5. Relecture : résumé, KPI, décisions et effets, PNJ, sources, avertissements et réparations automatiques ;
-   modification hors ligne par export JSON puis « Remplacer par un fichier » (validée par le schéma).
-6. Publication : lobby et code d'accès ; le formateur lance la partie et passe les phases.
+Secteur (industrie, agroalimentaire, santé, automobile), modules joués, agents en plus (cliente, fournisseur,
+direction), caractère des agents, difficulté, aléas, semaines, produits, nom d'entreprise, joueurs. La
+relecture montre la partie de référence du pilote automatique ; la spec s'exporte, se modifie hors ligne et
+se réimporte (validée).
 
-Non fait en v1 : choix des compétences par cases à cocher (celles du domaine sont utilisées), équipes,
-régénération d'une seule section, éditeur visuel de la spec, rythme automatique des phases.
+## Modules, rôles et actions
 
-## Effets chiffrés des décisions générées
+| Module | Rôle | Action (poste de l'atelier) | Sans joueur |
+|---|---|---|---|
+| Approvisionnement | Acheteur·se | commander : offre (délai, fiabilité, prix, minimum) et quantité (quai de réception, rack composants) | point de commande, fournisseur standard |
+| Production | Responsable de production | planifier une ligne (ligne) | deux semaines de couverture |
+| Maintenance | Responsable maintenance | niveau d'entretien d'une ligne (ligne) | préventif |
+| Qualité | Responsable qualité | part des lots contrôlés (poste qualité) | un lot sur deux |
+| Commercial | Commercial·e | niveau de prix d'un produit (bureau) | prix catalogue |
+| Transport | Responsable transport | mode de livraison (quai d'expédition) | messagerie |
+| Finance | Contrôleur·se de gestion | découvert autorisé (bureau) | pas de contrainte |
 
-Le modèle choisit pour chaque effet un sens (la valeur du KPI monte ou baisse) et une ampleur (faible,
-moyenne, forte) ; le code en déduit le montant : 15, 30 ou 50 % de l'écart entre valeur initiale et cible.
-Quelques bons choix « moyens » atteignent donc la cible, aucune option ne règle tout seule le problème. Le sens
-de chaque effet est ensuite vérifié contre l'explication de l'option (tev1) et inversé s'il la contredit.
-Les montants restent indicatifs : un ordre de grandeur sectoriel exact demande un corpus chiffré.
+Le formateur clôt chaque semaine (« Simuler la semaine ») ; l'état public est diffusé à tout le lobby.
 
-## Ajouter un domaine
+## Agents PNJ
 
-Entrée dans ai/domains.yaml (compétences, KPI, références, rôles) par l'agent game-designer, puis corpus
-de documents sourcés dans knowledge/<domaine>/ ingéré par rag-knowledge. Sans corpus, la génération reste
-générale et le formateur doit en être averti.
+Un agent par module retenu, plus les agents choisis. Chacun a un rôle, des tâches, un caractère (préfixe et
+style) et une zone de patrouille. Le moteur lui donne ses faits de la semaine ; un fait urgent affiche « ! »
+au-dessus de sa tête et devient sa réplique quand un joueur approche. Le dialogue (`npc.dialogue`) répond en
+une ou deux phrases à partir de ces faits et se souvient des six derniers échanges du lobby avec lui.
+
+## Ajouter un secteur
+
+Entrée `themes` de ai/simulation.yaml : quatre produits (prix, coût, demande, ligne) avec leur composant et
+trois fournisseurs (rapide, standard, économique). Les tests vérifient chaque secteur dans les trois
+difficultés.

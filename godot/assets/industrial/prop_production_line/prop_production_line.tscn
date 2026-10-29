@@ -1,0 +1,7 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://assets/procedural/production_line.gd" id="1_script"]
+
+[node name="prop_production_line" type="Node3D"]
+script = ExtResource("1_script")
+asset_id = "prop_production_line"

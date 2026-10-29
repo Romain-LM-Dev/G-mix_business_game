@@ -35,7 +35,7 @@ def export_json() -> str:
 def export_credits() -> str:
     catalog = load_assets_catalog()
     used: dict[str, list[str]] = defaultdict(list)
-    for asset in catalog.assets:
+    for asset in catalog.shipped():
         used[asset.source.pack].append(asset.id)
     lines = [
         "# Crédits des assets 3D",
@@ -88,7 +88,7 @@ async def search(need: str, category: str | None) -> list[str]:
 def import_sources(downloads: Path) -> list[str]:
     catalog = load_assets_catalog()
     files_by_pack: dict[str, set[str]] = defaultdict(set)
-    for asset in catalog.assets:
+    for asset in catalog.shipped():
         if not asset.procedural:
             files_by_pack[asset.source.pack].add(asset.source.file)  # type: ignore[arg-type]
     report = []
@@ -112,13 +112,12 @@ def import_sources(downloads: Path) -> list[str]:
 
 async def sync_db() -> int:
     catalog = load_assets_catalog()
+    assets = catalog.shipped()
     llm = LLMService.from_settings(with_cache=False)
     try:
-        vectors = await llm.embed_documents(
-            [a.embedding_text() for a in catalog.assets], titles=[a.name for a in catalog.assets]
-        )
+        vectors = await llm.embed_documents([a.embedding_text() for a in assets], titles=[a.name for a in assets])
         async with get_sessionmaker()() as session:
-            for asset, vector in zip(catalog.assets, vectors, strict=True):
+            for asset, vector in zip(assets, vectors, strict=True):
                 values = {
                     "id": asset.id,
                     "name": asset.name,
@@ -142,7 +141,7 @@ async def sync_db() -> int:
     finally:
         await llm.aclose()
         await get_engine().dispose()
-    return len(catalog.assets)
+    return len(assets)
 
 
 def main() -> None:
@@ -165,7 +164,7 @@ def main() -> None:
         CATALOG_JSON.parent.mkdir(parents=True, exist_ok=True)
         CATALOG_JSON.write_text(export_json(), encoding="utf-8")
         (GODOT_ASSETS_DIR / "CREDITS.md").write_text(export_credits(), encoding="utf-8")
-        print(f"{CATALOG_JSON} : {len(load_assets_catalog().assets)} assets (+ CREDITS.md)")
+        print(f"{CATALOG_JSON} : {len(load_assets_catalog().shipped())} assets (+ CREDITS.md)")
     elif args.command == "search":
         for line in asyncio.run(search(args.need, args.category)):
             print(line)

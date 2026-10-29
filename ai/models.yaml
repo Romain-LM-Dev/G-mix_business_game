@@ -7,7 +7,7 @@
 # => un seul modèle "main" (~5 Go) tient en VRAM ; Godot en 3D consomme aussi de la VRAM.
 # => les petits modèles (nano, embed, decide-fast) peuvent cohabiter.
 #
-# Champs d'une tâche : model, fallback, output (text|json|decision|embedding), schema (ai/schemas),
+# Champs d'une tâche : model, fallback, output (text|decision|embedding),
 # options Ollama (num_predict, temperature…), max_input_tokens, rag, cache, stream, think.
 #
 # num_ctx est FIXÉ PAR MODÈLE, jamais par tâche : mesuré sur ce poste, alterner 512 / 4096 sur
@@ -27,6 +27,8 @@ models:
     notes: >-
       Mesuré en français (ai/evals/player.intent.jsonl) : intention 93 %, injections 5/6 au seuil 0,7,
       ~0,1 s/message, 0,8 Go de VRAM : tient en mémoire à côté du modèle de dialogue. Exige Ollama >= 0.40.4.
+      Jeu de réglage uniquement : sur des messages neufs (jeu de contrôle, 2026-10-28) il filtre peu d'injections
+      variées et presque aucun hors-sujet hors liste (ai/evals/README.md).
   decide:
     name: "tev1:4b"
     kind: decision
@@ -46,14 +48,15 @@ models:
     kind: chat
     vram_gb: 2.3
     num_ctx: 6144
-    notes: "Dialogues PNJ avec RAG, remplissage JSON d'une section. Candidat d'upgrade : qwen3.5:4b."
+    notes: "Dialogues des agents PNJ (faits du moteur, mémoire, RAG). Candidat d'upgrade : qwen3.5:4b."
   main:
     name: "qwen2.5:7b"
     kind: chat
     vram_gb: 4.9
     num_ctx: 6144
     notes: >-
-      Conception du scénario et débrief. Mesuré le 2026-10-22 (RTX 3060 6 Go, modèle seul en mémoire) :
+      Textes longs (débrief personnalisé). Les business games sont générés sans modèle depuis le
+      2026-10-22 (paramètres, ADR 0006). Mesuré le 2026-10-22 (RTX 3060 6 Go, modèle seul en mémoire) :
       num_ctx 8192 -> 21 % sur CPU, 16 tok/s ; 6144 -> 18 % sur CPU, 21,5 tok/s. Candidat : qwen3.5:9b
       (6,6 Go : déborde davantage, acceptable pour la génération asynchrone, à mesurer).
 
@@ -81,71 +84,6 @@ tasks:
     fallback: nano
     output: decision
 
-  # --- Génération d'un business game (pipeline formateur, asynchrone via Kafka) ---------------------
-  game.brief_check:
-    description: >-
-      Vérifie que la demande du formateur est exploitable et cohérente avec le domaine choisi,
-      AVANT de dépenser des milliers de tokens de génération.
-    model: decide-fast
-    fallback: nano
-    output: decision
-  game.outline:
-    description: >-
-      Plan du business game : objectifs pédagogiques, entreprise, rôles, KPI, phases.
-      Ancré sur le corpus RAG du domaine (sources citées).
-    model: main
-    output: json
-    schema: "business_game#/$defs/outline"
-    options: { num_predict: 2048, temperature: 0.4 }
-    max_input_tokens: 4000
-    rag: { top_k: 6, max_context_tokens: 2500 }
-  # Toutes les étapes génératives sur `main` : mesuré le 2026-10-22, qwen2.5:3b produisait des options vagues et
-  # répétées d'une phase à l'autre, sans arbitrage ; sur ce poste il n'était pas plus rapide (~20 tok/s) et chaque
-  # bascule 7b <-> 3b coûtait 17 à 32 s de rechargement. Génération complète : 6 à 9 min, asynchrone.
-  game.phase_detail:
-    description: "Décisions (options + effets chiffrés) et aléas d'UNE phase, à partir du plan validé."
-    model: main
-    fallback: small
-    output: json
-    schema: "business_game#/$defs/phase_detail"
-    options: { num_predict: 1536, temperature: 0.3 }
-    max_input_tokens: 4200
-    rag: { top_k: 4, max_context_tokens: 1500 }
-  game.npcs:
-    description: "PNJ experts (rôle, personnalité, périmètre de connaissance, objectifs de dialogue)."
-    model: main
-    fallback: small
-    output: json
-    schema: "business_game#/$defs/npcs_block"
-    options: { num_predict: 1024, temperature: 0.5 }
-    max_input_tokens: 2800
-  game.asset_mapping:
-    description: >-
-      Associe chaque zone du monde à des assets du catalogue. Le schéma est restreint à l'exécution
-      (enum des ids candidats pré-filtrés par similarité vectorielle) : impossible d'inventer un asset.
-    model: main
-    fallback: small
-    output: json
-    schema: "asset_selection"
-    cache: true
-    options: { num_predict: 600, temperature: 0 }
-    max_input_tokens: 3200
-  game.debrief:
-    description: "Enseignements clés et questions de débrief, à partir des objectifs, KPI et explications des options."
-    model: main
-    fallback: small
-    output: json
-    schema: "business_game#/$defs/debrief"
-    options: { num_predict: 1024, temperature: 0.3 }
-    max_input_tokens: 3500
-  game.coherence_review:
-    description: >-
-      Grille de contrôle qualité du scénario assemblé : cohérence des chiffres, réalisme métier,
-      alignement objectifs / KPI / décisions. Questions fermées notées (score), pas de prose.
-    model: decide
-    fallback: main
-    output: decision
-
   # --- Agents en jeu (côté joueurs, latence visible) ---------------------------------------------
   player.intent:
     description: "Route le message d'un joueur : question métier, décision, social, hors-sujet, tentative d'injection."
@@ -153,13 +91,14 @@ tasks:
     fallback: nano
     output: decision
   npc.dialogue:
-    description: "Réplique d'un PNJ expert, ancrée sur le RAG du domaine et l'état de la partie (streaming)."
+    description: >-
+      Réplique courte d'un agent PNJ (une ou deux phrases) : informations essentielles calculées par le moteur,
+      caractère de l'agent, mémoire des derniers échanges du lobby, extraits du corpus pour une question métier.
     model: small
     output: text
-    stream: true
-    options: { num_predict: 220, temperature: 0.6 }
+    options: { num_predict: 100, temperature: 0.6 }
     max_input_tokens: 3000
-    rag: { top_k: 3, max_context_tokens: 900 }
+    rag: { top_k: 2, max_context_tokens: 500 }
   npc.bark:
     description: "Phrase d'ambiance courte d'un PNJ, sans RAG."
     model: nano

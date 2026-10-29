@@ -2,6 +2,7 @@
 
 Pour chaque question : recherche hybride top-k, puis vérification qu'un passage retrouvé contient l'un des
 termes attendus (`must_contain_any`). Indicateur : rappel@k. Aucun token LLM consommé (embeddings seulement).
+Un cas peut aussi porter `expected_docs` (sous-chaînes de titres de documents) : mesure séparée « document attendu ».
 
 Usage : python -m gmix.tools.eval_rag supply-chain [--k 4]
 """
@@ -25,7 +26,7 @@ def load_cases(domain: str) -> list[dict]:
 async def evaluate(domain: str, k: int) -> float:
     cases = load_cases(domain)
     llm = LLMService.from_settings(with_cache=False)
-    hits = 0
+    hits = doc_hits = doc_cases = 0
     try:
         async with get_sessionmaker()() as session:
             for case in cases:
@@ -39,13 +40,22 @@ async def evaluate(domain: str, k: int) -> float:
                 text = " ".join(hit.content.lower() for hit in results)
                 found = any(term.lower() in text for term in case["must_contain_any"])
                 hits += found
+                # `expected_docs` (facultatif) : sous-chaînes de titres, garde-fou si le terme existe déjà ailleurs
+                doc_flag = ""
+                if case.get("expected_docs"):
+                    doc_found = any(d.lower() in hit.title.lower() for d in case["expected_docs"] for hit in results)
+                    doc_cases += 1
+                    doc_hits += doc_found
+                    doc_flag = f" doc:{'OK' if doc_found else 'KO'}"
                 titles = ", ".join(dict.fromkeys(hit.title for hit in results)) or "aucun passage"
-                print(f"[{'OK' if found else 'KO'}] {case['id']:<16} {titles}")
+                print(f"[{'OK' if found else 'KO'}]{doc_flag} {case['id']:<16} {titles}")
     finally:
         await llm.aclose()
         await get_engine().dispose()
     recall = hits / len(cases) if cases else 0.0
     print(f"Rappel@{k} : {hits}/{len(cases)} ({recall:.0%})")
+    if doc_cases:
+        print(f"Document attendu dans le top-{k} : {doc_hits}/{doc_cases} ({doc_hits / doc_cases:.0%})")
     return recall
 
 

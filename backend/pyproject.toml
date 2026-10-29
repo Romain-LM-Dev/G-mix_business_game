@@ -20,7 +20,6 @@ dependencies = [
   "httpx>=0.28",
   "boto3>=1.35",
   "pyyaml>=6.0",
-  "jsonschema>=4.23",
   "pypdf>=5.1",
   "pyjwt>=2.10",
 ]

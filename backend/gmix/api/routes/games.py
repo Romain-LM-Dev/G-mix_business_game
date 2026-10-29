@@ -1,54 +1,34 @@
-"""Business games : demande de génération (asynchrone, Kafka), suivi, relecture et modification de la spec.
-
-Un formateur ne voit que ses business games, l'admin les voit tous (docs/roles.md).
-"""
+"""Business games simulés : génération par paramètres (instantanée, sans modèle ni texte libre), relecture,
+import et export de la spec (docs/decisions/0006). Un formateur ne voit que ses business games, l'admin les voit
+tous (docs/roles.md)."""
 
 import uuid
 from datetime import datetime
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, HTTPException, Request, status
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, ValidationError
 from sqlalchemy import select
-from sqlalchemy.dialects.postgresql import distinct_on
 
 from gmix.api.auth import Session, Staff
 from gmix.api.deps import publish
-from gmix.db.models import Asset, BusinessGame, Domain, GameStatus, GenerationJob, JobStatus, User, UserRole
-from gmix.game.coherence import check_spec
-from gmix.game.world import load_world_templates
-from gmix.llm import schemas
+from gmix.db.models import BusinessGame, GameStatus, User, UserRole
+from gmix.game.generation import autopilot_check, generate
+from gmix.game.spec import GameParams, SimSpec, load_pack
 from gmix.messaging.envelope import Actor, Envelope
-from gmix.messaging.topics import AUDIT, GENERATION_COMMANDS
+from gmix.messaging.topics import AUDIT
+from gmix.settings import get_settings
 
 router = APIRouter(prefix="/api/v1/games", tags=["business games"])
-SpecBody = Annotated[dict[str, Any], Body(description="spec complète (ai/schemas/business_game.schema.json)")]
-
-
-class GameRequest(BaseModel):
-    domain: str = Field(min_length=1, max_length=64)
-    brief: str = Field(min_length=20, max_length=2000, description="besoin du formateur, en langage libre")
-    level: Literal["debutant", "intermediaire", "avance"] = "intermediaire"
-    duration_minutes: int = Field(default=90, ge=30, le=240)
-    players_min: int = Field(default=2, ge=1, le=60)
-    players_max: int = Field(default=6, ge=1, le=60)
-    competencies: list[str] = Field(default_factory=list, max_length=6)
-
-    @model_validator(mode="after")
-    def _players(self) -> "GameRequest":
-        if self.players_min > self.players_max:
-            raise ValueError("players_min doit être inférieur ou égal à players_max")
-        return self
-
-
-class JobOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: uuid.UUID
-    status: JobStatus
-    stage: str | None
-    progress: int
-    error: str | None
+# [min, max, défaut], comme `limits` d'un pack ; ai/simulation.yaml n'en déclare pas
+ATELIER_RANGES = {"weeks": [4, 12, 8], "products": [2, 4, 3]}
+ATELIER_INFO = {  # ai/simulation.yaml n'a pas ces clés ; un pack de ai/packs/ les déclare lui-même
+    "label": "Atelier de production",
+    "description": "Simulation hebdomadaire de chaîne logistique : achats, lignes agrégées, qualité, ventes.",
+    "domain": "supply-chain",
+    "engine": "weekly",
+}
+SpecBody = Annotated[dict[str, Any], Body(description="spec complète (gmix.game.spec.SimSpec)")]
 
 
 class GameSummary(BaseModel):
@@ -59,7 +39,6 @@ class GameSummary(BaseModel):
     domain_slug: str
     status: GameStatus
     created_at: datetime
-    job: JobOut | None = None
 
 
 class GameDetail(GameSummary):
@@ -70,10 +49,6 @@ class GameDetail(GameSummary):
     spec: dict[str, Any] | None
 
 
-def _actor(user: User) -> Actor:
-    return Actor(user_id=user.id, role=user.role.value)
-
-
 async def owned_game(session: Session, game_id: uuid.UUID, user: User) -> BusinessGame:
     game = await session.get(BusinessGame, game_id)
     if game is None or (user.role != UserRole.ADMIN and game.created_by != user.id):
@@ -81,50 +56,53 @@ async def owned_game(session: Session, game_id: uuid.UUID, user: User) -> Busine
     return game
 
 
-async def _latest_jobs(session: Session, game_ids: list[uuid.UUID]) -> dict[uuid.UUID, GenerationJob]:
-    query = (
-        select(GenerationJob)
-        .where(GenerationJob.business_game_id.in_(game_ids))
-        .order_by(GenerationJob.business_game_id, GenerationJob.created_at.desc())
-        .ext(distinct_on(GenerationJob.business_game_id))
-    )
-    return {job.business_game_id: job for job in await session.scalars(query)}
+def _choices(pack: dict[str, Any]) -> dict[str, Any]:
+    """Les choix d'un pack (secteurs, modules, agents, caractère, difficulté, aléas), tels que lus par le client."""
+    return {
+        "themes": [
+            {"id": key, "label": t["label"], "description": t["description"],
+             "products": [p["name"] for p in t["products"]]}
+            for key, t in pack["themes"].items()
+        ],
+        "modules": [
+            {"id": key, "title": m["title"], "description": m["description"]} for key, m in pack["modules"].items()
+        ],
+        "extra_agents": [
+            {"id": key, "title": a["title"], "description": a["description"]}
+            for key, a in pack["extra_agents"].items()
+        ],
+        "tones": [{"id": key, "label": t["label"]} for key, t in pack["agent_tones"].items()],
+        "difficulties": [
+            {"id": key, "label": d["label"], "detail": d["detail"]} for key, d in pack["difficulties"].items()
+        ],
+        "events": [{"id": key, "label": e["label"]} for key, e in pack["events_levels"].items()],
+    }  # fmt: skip
 
 
-@router.post("", status_code=status.HTTP_202_ACCEPTED)
-async def request_game(body: GameRequest, actor: Staff, session: Session, request: Request) -> GameSummary:
-    """Crée le business game et publie la demande ; la progression arrive par WebSocket (generation.*)."""
-    domain = await session.get(Domain, body.domain)
-    if domain is None or not domain.is_active:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Domaine inconnu ou inactif")
-    game = BusinessGame(
-        domain_slug=domain.slug,
-        title=f"{domain.name} : génération en cours",
-        brief=body.brief,
-        status=GameStatus.GENERATING,
-        params=body.model_dump(exclude={"brief", "domain"}),
-        created_by=actor.id,
-    )
+def _pack_entry(pack_id: str) -> dict[str, Any]:
+    pack = load_pack(pack_id)
+    entry = ATELIER_INFO | {k: pack[k] for k in ATELIER_INFO if k in pack}
+    return {"id": pack_id, **entry, "params": pack.get("params", []), **_choices(pack),
+            "limits": pack.get("limits", ATELIER_RANGES)}  # fmt: skip
+
+
+@router.get("/options")
+async def generation_options(actor: Staff) -> dict[str, Any]:
+    """Choix proposés au formateur pour générer un business game : clés de premier niveau = pack « atelier »
+    (ai/simulation.yaml, inchangé) ; `packs` liste tous les packs (ai/packs/*.yaml), `limits` au format `ranges`."""
+    packs = ["atelier", *sorted(p.stem for p in (get_settings().gmix_ai_dir / "packs").glob("*.yaml"))]
+    return _choices(load_pack("atelier")) | {"ranges": ATELIER_RANGES, "packs": [_pack_entry(p) for p in packs]}
+
+
+@router.post("", status_code=status.HTTP_201_CREATED)
+async def create_game(params: GameParams, actor: Staff, session: Session, request: Request) -> GameDetail:
+    """Génère le business game à partir des seuls paramètres (pack et options compris), puis le vérifie par une
+    partie en pilote automatique."""
+    spec = generate(params)
+    game = BusinessGame(domain_slug=spec["meta"]["domain"], created_by=actor.id)
     session.add(game)
-    await session.flush()
-    job = GenerationJob(business_game_id=game.id, kind="generate_game", requested_by=actor.id)
-    session.add(job)
-    await session.commit()
-    command = Envelope(
-        type="generation.requested",
-        source="api",
-        correlation_id=job.id,
-        actor=_actor(actor),
-        client_id=str(actor.id),  # la progression est envoyée à la session WebSocket du formateur
-        payload={"job_id": str(job.id), "game_id": str(game.id)},
-    )
-    try:
-        await publish(request, GENERATION_COMMANDS, command, required=True)
-    except Exception:
-        game.status, job.status, job.error = GameStatus.FAILED, JobStatus.FAILED, "Kafka indisponible"
-        await session.commit()
-        raise
-    return GameSummary.model_validate(game).model_copy(update={"job": JobOut.model_validate(job)})
+    await _store(session, request, game, spec, actor, "game.generated")
+    return await get_game(game.id, actor, session)
 
 
 @router.get("")
@@ -132,59 +110,23 @@ async def list_games(actor: Staff, session: Session) -> list[GameSummary]:
     query = select(BusinessGame).where(BusinessGame.status != GameStatus.ARCHIVED)
     if actor.role != UserRole.ADMIN:
         query = query.where(BusinessGame.created_by == actor.id)
-    games = list(await session.scalars(query.order_by(BusinessGame.created_at.desc())))
-    jobs = await _latest_jobs(session, [g.id for g in games])
     return [
-        GameSummary.model_validate(g).model_copy(
-            update={"job": JobOut.model_validate(jobs[g.id]) if g.id in jobs else None}
-        )
-        for g in games
+        GameSummary.model_validate(g) for g in await session.scalars(query.order_by(BusinessGame.created_at.desc()))
     ]
 
 
 @router.get("/{game_id}")
 async def get_game(game_id: uuid.UUID, actor: Staff, session: Session) -> GameDetail:
-    game = await owned_game(session, game_id, actor)
-    job = (await _latest_jobs(session, [game.id])).get(game.id)
-    return GameDetail.model_validate(game).model_copy(update={"job": JobOut.model_validate(job) if job else None})
-
-
-async def _store_spec(
-    session: Session, request: Request, game: BusinessGame, spec: dict[str, Any], actor: User
-) -> None:
-    """Spec écrite par un humain : refusée si le schéma n'est pas respecté ; les incohérences métier restent
-    des avertissements (review.warnings) que le formateur arbitre."""
-    if errors := schemas.validation_errors(schemas.resolve("business_game"), spec):
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, {"message": "Spec invalide", "errors": errors[:20]})
-    asset_ids = {a for zone in spec["world"]["zones"] for a in zone["asset_ids"]}
-    known = set(await session.scalars(select(Asset.id).where(Asset.id.in_(asset_ids))))
-    warnings = check_spec(spec) + [f"asset inconnu du catalogue : {a}" for a in sorted(asset_ids - known)]
-    template = load_world_templates().get(spec["world"]["template"])
-    if template is None:
-        warnings.append(f"gabarit de carte inconnu « {spec['world']['template']} » : monde 3D vide")
-    else:
-        slots = {z["id"] for z in template["zones"]}
-        warnings += [
-            f"zone {z['id']} absente du gabarit : non affichée" for z in spec["world"]["zones"] if z["id"] not in slots
-        ]
-    game.spec, game.title, game.status = spec, spec["meta"]["title"][:200], GameStatus.READY
-    game.spec_version = (game.spec_version or 0) + 1  # None sur un objet pas encore inséré
-    game.review = {"warnings": warnings, "repairs": [], "edited_by": str(actor.id)}
-    await session.commit()
-    payload = {"game_id": str(game.id), "spec_version": game.spec_version, "warnings": len(warnings)}
-    await publish(request, AUDIT, Envelope(type="game.spec_saved", source="api", actor=_actor(actor), payload=payload))
+    return GameDetail.model_validate(await owned_game(session, game_id, actor))
 
 
 @router.post("/import", status_code=status.HTTP_201_CREATED)
 async def import_game(actor: Staff, session: Session, request: Request, spec: SpecBody) -> GameDetail:
-    """Crée un business game prêt à jouer depuis une spec JSON (export d'un collègue, exemple, édition hors ligne)."""
-    domain_slug = str((spec.get("meta") or {}).get("domain", ""))
-    domain = await session.get(Domain, domain_slug) if domain_slug else None
-    if domain is None or not domain.is_active:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "meta.domain : domaine inconnu ou inactif")
-    game = BusinessGame(domain_slug=domain.slug, title="Import", brief="Import d'une spec JSON", created_by=actor.id)
+    """Crée un business game depuis une spec JSON (export d'un collègue, spec retouchée hors ligne)."""
+    valid = _validated(spec)
+    game = BusinessGame(domain_slug=valid["meta"]["domain"], created_by=actor.id)
     session.add(game)
-    await _store_spec(session, request, game, spec, actor)
+    await _store(session, request, game, valid, actor, "game.imported")
     return await get_game(game.id, actor, session)
 
 
@@ -192,9 +134,33 @@ async def import_game(actor: Staff, session: Session, request: Request, spec: Sp
 async def update_spec(
     game_id: uuid.UUID, actor: Staff, session: Session, request: Request, spec: SpecBody
 ) -> GameDetail:
-    """Spec relue ou modifiée par le formateur (les lobbies déjà créés gardent leur copie)."""
+    """Spec retouchée par le formateur (les lobbies déjà créés gardent leur copie)."""
     game = await owned_game(session, game_id, actor)
-    if game.status == GameStatus.GENERATING:
-        raise HTTPException(status.HTTP_409_CONFLICT, "Génération en cours : attendre sa fin")
-    await _store_spec(session, request, game, spec, actor)
+    await _store(session, request, game, _validated(spec), actor, "game.spec_saved")
     return await get_game(game_id, actor, session)
+
+
+def _validated(spec: dict[str, Any]) -> dict[str, Any]:
+    try:
+        return SimSpec.model_validate(spec).model_dump(mode="json")
+    except ValidationError as exc:
+        errors = [f"{'/'.join(map(str, e['loc']))} : {e['msg']}" for e in exc.errors()[:20]]
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT, {"message": "Spec invalide", "errors": errors}
+        ) from None
+
+
+async def _store(
+    session: Session, request: Request, game: BusinessGame, spec: dict[str, Any], actor: User, event_type: str
+) -> None:
+    meta = spec["meta"]
+    modules = ", ".join(m["title"].lower() for m in spec["modules"])
+    game.spec, game.title, game.status = spec, meta["title"][:200], GameStatus.READY
+    game.brief = f"{meta['theme_label']} · {meta['difficulty_label']} · {meta['weeks']} semaines · {modules}"
+    game.params = spec["params"]
+    game.spec_version = (game.spec_version or 0) + 1  # None sur un objet pas encore inséré
+    game.review = {"autopilot": autopilot_check(spec), "edited_by": str(actor.id)}
+    await session.commit()
+    payload = {"game_id": str(game.id), "spec_version": game.spec_version, "seed": spec["seed"]}
+    actor_info = Actor(user_id=actor.id, role=actor.role.value)
+    await publish(request, AUDIT, Envelope(type=event_type, source="api", actor=actor_info, payload=payload))

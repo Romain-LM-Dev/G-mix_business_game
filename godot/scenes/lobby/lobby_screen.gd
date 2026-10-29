@@ -1,14 +1,15 @@
 extends Control
-## Salle du lobby. Joueur : choisir son rôle, entrer dans le monde 3D, lire le débrief à la fin.
-## Formateur ou admin : code d'accès, participants, lancement, passage des phases, débrief, observation en 3D.
+## Salle du lobby. Joueur : choisir son rôle (son module), entrer dans l'atelier 3D, lire le débrief à la fin.
+## Formateur ou admin : code d'accès, participants, lancement, simulation des semaines, débrief, observation en 3D.
 ## Tenue à jour par le WebSocket (Session.lobby_changed) ; les règles restent côté API.
 
 signal navigate(target: String)
 
 var _title: Label
+var _pitch: Label
 var _code: Label
 var _status: Label
-var _phase: RichTextLabel
+var _week: RichTextLabel
 var _kpis: RichTextLabel
 var _members: VBoxContainer
 var _role_box: VBoxContainer
@@ -24,45 +25,50 @@ var _role_ids: Array = []
 func _ready() -> void:
 	var column := Ui.vbox(Ui.screen_margin(self), 14)
 	var header := Ui.hbox(column)
-	_title = Ui.label("", 28)
+	_title = Ui.label("", 28, Color.WHITE, true)  # nom du lobby + titre du jeu : long, il passe à la ligne
 	header.add_child(_title)
-	Ui.spacer(header)
 	header.add_child(Ui.button("Actualiser", func() -> void: Session.reload()))
 	header.add_child(Ui.button("Retour à l'accueil", func() -> void: navigate.emit("home")))
+	_pitch = Ui.label("", 0, Ui.MUTED, true)
+	column.add_child(_pitch)
 	_status = Ui.label("", 0, Ui.ACCENT, true)
 	column.add_child(_status)
 	var body := Ui.hbox(column, 16)
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 
+	# Deux panneaux qui se partagent la largeur (3 : 2) ; l'état de la partie défile, les boutons restent visibles.
 	var left := Ui.panel(body)
 	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	left.size_flags_stretch_ratio = 3.0
 	var left_box := Ui.vbox(left, 14)
-	_code = Ui.label("", 30, Ui.ACCENT)
+	_code = Ui.label("", 30, Ui.ACCENT, true)
 	left_box.add_child(_code)
-	_phase = Ui.rich()
-	left_box.add_child(_phase)
+	var state_box := Ui.scroll_list(left_box)
+	_week = Ui.rich()
+	state_box.add_child(_week)
 	_kpis = Ui.rich()
-	left_box.add_child(_kpis)
-	var actions := Ui.hbox(left_box)
-	_enter_button = Ui.button("Entrer dans le monde 3D", func() -> void: navigate.emit("world"))
-	_start_button = Ui.button("Lancer la partie", _start)
-	_advance_button = Ui.button("Phase suivante", _confirm_advance)
+	state_box.add_child(_kpis)
+	var actions := Ui.flow(left_box)
+	_enter_button = Ui.button("Entrer dans l'atelier 3D", func() -> void: navigate.emit("world"), true)
+	_start_button = Ui.button("Lancer la partie", _start, true)
+	_advance_button = Ui.button("Simuler la semaine", _confirm_advance, true)
 	_debrief_button = Ui.button("Débrief", _debrief)
 	for button in [_enter_button, _start_button, _advance_button, _debrief_button]:
 		actions.add_child(button)
 
 	var right := Ui.panel(body)
-	right.custom_minimum_size.x = 540
+	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	right.size_flags_stretch_ratio = 2.0
 	var right_box := Ui.vbox(right)
 	_role_box = Ui.vbox(right_box)
 	_role_box.add_child(Ui.label("Mon rôle", 22))
-	_role_select = OptionButton.new()
+	_role_select = Ui.select([])
 	_role_select.item_selected.connect(_choose_role)
 	_role_box.add_child(_role_select)
 	_role_mission = Ui.label("", 0, Ui.MUTED, true)
 	_role_box.add_child(_role_mission)
 	right_box.add_child(Ui.label("Participants", 22))
-	_members = Ui.scroll_list(right_box, 260)
+	_members = Ui.scroll_list(right_box)
 	Session.lobby_changed.connect(_render)
 	_render()
 
@@ -76,16 +82,18 @@ func _render() -> void:
 	var manager := Session.is_manager()
 	var game_status: String = state.get("status", "waiting")
 	_title.text = "%s  ·  %s" % [lobby["name"], spec.get("meta", {}).get("title", "")]
+	_pitch.text = spec.get("meta", {}).get("pitch", "")
 	_code.text = "Code d'accès : %s" % lobby["join_code"] if manager and lobby.get("join_code") else ""
 	_code.visible = not _code.text.is_empty() and game_status != "finished"
-	_phase.text = GameText.phase_bbcode(state)
-	_kpis.text = GameText.kpis_bbcode(spec, state)
+	_week.text = GameText.week_bbcode(spec, state)
+	_kpis.text = GameText.kpis_bbcode(state)
 	_start_button.visible = manager and game_status == "waiting"
 	_advance_button.visible = manager and game_status == "running"
-	var last_phase := int(state.get("phase_index", 0)) + 1 >= int(state.get("phase_count", 1))
-	_advance_button.text = "Terminer la partie" if last_phase else "Phase suivante"
+	var week := int(state.get("week", 1))
+	var last_week := week >= int(state.get("weeks", 1))
+	_advance_button.text = "Simuler la dernière semaine" if last_week else "Simuler la semaine %d" % week
 	_debrief_button.visible = manager or game_status == "finished"
-	_enter_button.text = "Observer le monde 3D" if manager else "Entrer dans le monde 3D"
+	_enter_button.text = ("Observer %s 3D" if manager else "Entrer dans %s 3D") % GameText.world_noun(spec)
 	_enter_button.visible = game_status != "finished"
 
 	var my_role: Variant = lobby.get("my_role")
@@ -99,9 +107,9 @@ func _render() -> void:
 		_role_select.add_item(role["title"])
 		if role["id"] == my_role:
 			_role_select.selected = _role_ids.size() - 1
-			_role_mission.text = "Mission : %s" % role["mission"]
+			_role_mission.text = "Mission : %s (module %s)." % [role["mission"], GameText.module_title(spec, role["module_id"]).to_lower()]
 	if my_role == null:
-		_role_mission.text = "Choisissez un rôle pour prendre les décisions qui lui reviennent."
+		_role_mission.text = "Un rôle vous donne la main sur son module ; les modules sans titulaire restent ouverts à toute l'équipe."
 	_role_select.disabled = my_role != null and game_status != "waiting"
 
 	Ui.clear(_members)
@@ -131,24 +139,16 @@ func _start() -> void:
 	if not res["ok"]:
 		_status.text = res["error"]
 		return
-	_status.text = "Partie lancée : les joueurs peuvent décider."
+	_status.text = "Partie lancée : semaine 1 ouverte, les joueurs peuvent agir."
 	Session.apply_state(res["data"]["state"])
 
 
 func _confirm_advance() -> void:
-	var dialog := ConfirmationDialog.new()
-	dialog.title = _advance_button.text
-	dialog.dialog_text = "Les effets différés et les aléas de la phase suivante vont s'appliquer. Continuer ?"
-	dialog.ok_button_text = "Continuer"
-	dialog.cancel_button_text = "Annuler"
-	dialog.confirmed.connect(
-		func() -> void:
-			dialog.queue_free()
-			_advance()
+	Ui.confirm(
+		self, _advance_button.text,
+		"Livraisons, production, ventes et coûts de la semaine vont être simulés avec les réglages actuels. Continuer ?",
+		"Continuer", _advance
 	)
-	dialog.canceled.connect(dialog.queue_free)
-	add_child(dialog)
-	dialog.popup_centered()
 
 
 func _advance() -> void:

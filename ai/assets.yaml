@@ -8,6 +8,9 @@
 #             l'échelle uniformément pour que sa dimension `fit` (h, w, d ou max = plus grande dimension au sol)
 #             égale celle de l'emprise ; les autres dimensions suivent ses proportions.
 # source    : pack + fichier GLB importé, ou pack `gmix` sans fichier = scène procédurale écrite à la main.
+# status    : importe (défaut : modèle importé ou scène construite) ; a_sourcer = déclaré par son id (génération, packs)
+#             mais ni importé ni fabriqué : absent de godot/assets/catalog.json, de CREDITS.md et de la table assets.
+#             Passer à importe quand la scène existe (le test_assets vérifie alors sa présence).
 # Scène Godot (convention) : res://assets/<category>/<id>/<id>.tscn
 #
 # Chaîne : python -m gmix.tools.assets import <dossier des zips extraits> ; python -m gmix.tools.assets export ;
@@ -140,6 +143,16 @@ assets:
       tags: [kpi, tableau_de_bord, indicateurs, score],
       description: "Grand écran sur pieds qui affiche en direct les indicateurs de la partie.",
       source: { pack: gmix } }
+  # Repris du jeu de référence G-mix Business_game (github.com/eloiseferrante27-alt/Business_game, procédural
+  # three.js porté en GDScript ; dépôt sans licence : accord de son autrice à confirmer avant diffusion).
+  - { id: prop_production_line, name: Ligne de production, category: industrial, fit: w, footprint: { w: 2.7, d: 2.7, h: 2.4 }, variants: [titre, etat],
+      tags: [ligne, production, machine, convoyeur, usine, atelier],
+      description: "Machine de production avec tapis d'alimentation, écran et voyants d'état vert, orange ou rouge : une ligne de l'atelier.",
+      source: { pack: gmix } }
+  - { id: prop_site_office, name: Bureau d'atelier, category: building, fit: w, footprint: { w: 3.5, d: 3.2, h: 2.9 }, variants: [enseigne],
+      tags: [bureau, direction, atelier, planning, reunion],
+      description: "Cabine de bureau posée dans l'atelier : direction du site, planning et réunions d'équipe.",
+      source: { pack: gmix } }
 
   # --- Véhicules ----------------------------------------------------------------------------------------
   - { id: veh_forklift, name: Chariot élévateur, category: vehicle, footprint: { w: 1.15, d: 3.6, h: 2.6 }, variants: [hauteur_fourches],
@@ -232,3 +245,89 @@ assets:
       tags: [eclairage, voirie], description: "Lampadaire de voirie.", source: { pack: kenney-city-kit-roads, file: light-square.glb } }
   - { id: prop_traffic_cone, name: Cône de signalisation, category: road, fit: h, footprint: { w: 0.4, d: 0.4, h: 0.5 },
       tags: [chantier, balisage, securite], description: "Cône de balisage.", source: { pack: kenney-city-kit-roads, file: construction-cone.glb } }
+
+  # --- Monde usine (ADR 0007, annexe §5) : tranche 1 fabriquée (étape 5b), tranches 2 et 3 en a_sourcer -------------
+  # Les 14 assets sont fabriqués en procédural (pack gmix, GDScript + Mesher, collision StaticBody3D sauf mention) : aucun
+  # modèle libre vérifié (CC0) n'existe pour un transpalette, une filmeuse ou une table d'attente avec niveau animé.
+  # Aucun ne dérive de prop_production_line ni de prop_site_office (jeu de référence sans licence, exclus par l'ADR).
+  # Les noms de variantes sont les noms français des propriétés GDScript lues par world.gd (annexe : state, title...).
+  # Emprises = taille mesurée de la scène finie (le plan en U de l'annexe en dépend : lignes au pas de 4 m, 4 machines
+  # et 4 tables en 22 m, quai de 6 m à z = 15). Tranche 1 : 11 assets ; tranche 2 : 2 ; tranche 3 : 1.
+  # Navigation : un asset est un obstacle s'il contient un CollisionObject3D (StaticBody3D « Collision »). prop_floor_zone
+  # n'en a aucun ; prop_dock_door n'a que ses deux montants (l'ouverture de 2,7 m n'est pas un obstacle).
+  # Rendu : un maillage fusionné par asset (Mesher.Batch) ; seuls les éléments animés (voyants, bacs, tas) ont le leur.
+  #
+  # Fabriqué sur base libre : scène gmix qui instancie machine.glb (kenney-factory-kit, CC0, déjà importé pour
+  # prop_cnc_machine, donc déjà crédité) à l'échelle 1,4 (tunnel ouvert le long de X, fenêtre de contrôle sur +Z), avec
+  # une colonne lumineuse sur le toit. Variante etat : arret, marche, pause, reglage, panne, attente_matiere, sortie_pleine.
+  - { id: prop_machine, name: Machine de ligne (poste d'opération), category: industrial, fit: d, footprint: { w: 1.7, d: 2.1, h: 2.3 }, variants: [titre, etat],
+      tags: [machine, poste, operation, ligne, serie, etat, panne, goulot, voyant, usine],
+      description: "Machine capotée d'un poste d'opération en série (M1 à M4), surmontée d'une colonne d'état colorée (marche, pause, réglage, panne, manque de matière, sortie pleine, éteinte à l'arrêt) et de l'étiquette du poste : les états affichés sont ceux de la simulation.",
+      source: { pack: gmix } }
+  # Table d'attente entre deux machines : convoyeur à rouleaux basse (plateau à 0,48 m, comme l'ouverture des machines),
+  # bacs de pièces en nombre proportionnel à niveau_remplissage (0 à 1, borné visuellement à 12 bacs), capacite = places
+  # de la table (étiquette « n / capacité »).
+  - { id: prop_buffer_table, name: Table d'attente (tampon), category: industrial, fit: w, footprint: { w: 1.6, d: 0.9, h: 0.65 }, variants: [niveau_remplissage, capacite],
+      tags: [table_attente, tampon, encours, file_attente, entre_machines, stock_intermediaire, pieces],
+      description: "Table d'attente à rouleaux placée entre deux machines d'une ligne : les pièces en cours y patientent, et le nombre de bacs posés dessus montre son remplissage (pleine : la machine amont s'arrête ; vide : la machine aval attend).",
+      source: { pack: gmix } }
+  # Porte sectionnelle de 3 m (relevée) ; deux portes côte à côte couvrent la tranche de 6 m de l'annexe (x de -3 à 3,
+  # z = 15) : deux passages de 2,7 m séparés par un montant commun de 0,3 m. Pas de collision dans l'ouverture (montants
+  # et butoirs seulement). Variante etat : libre (feu vert), occupe (feu rouge). Façade +Z = côté camions.
+  - { id: prop_dock_door, name: Porte de quai, category: industrial, fit: w, footprint: { w: 3.0, d: 0.5, h: 3.6 }, variants: [etat],
+      tags: [quai, porte, porte_sectionnelle, reception, expedition, camion, chargement, feu],
+      description: "Porte de quai sectionnelle de 3 m avec butoirs et un feu libre ou occupé : l'ouverture par laquelle les camions du fournisseur et du client déchargent et chargent les palettes.",
+      source: { pack: gmix } }
+  # Marquage plat sans collision (h = 0,02 m) : ne compte pas comme obstacle. Variantes : titre (étiquette au sol), couleur,
+  # taille (largeur x profondeur, 4 x 3 m par défaut).
+  - { id: prop_floor_zone, name: Marquage au sol de zone, category: industrial, fit: max, footprint: { w: 4, d: 3, h: 0.02 }, variants: [titre, couleur, taille],
+      tags: [zone, marquage, sol, departement, depose, quarantaine, conforme, a_retoucher],
+      description: "Rectangle de couleur peint au sol avec son nom, qui délimite une zone de l'usine : département, aire de dépose, quarantaine, produits conformes ou à retoucher.",
+      source: { pack: gmix } }
+  # Transpalette manuel (timon, deux fourches) ; variante chargee : une palette posée sur les fourches.
+  - { id: veh_pallet_jack, name: Transpalette manuel, category: vehicle, fit: d, footprint: { w: 0.55, d: 1.55, h: 1.2 }, variants: [chargee],
+      tags: [transpalette, manutention, palette, quai, reception, deplacement, magasinier],
+      description: "Transpalette manuel à timon et deux fourches pour déplacer une palette sur de courtes distances, du quai vers la zone de contrôle ou du stock vers les lignes.",
+      source: { pack: gmix } }
+  - { id: prop_inspection_table, name: Table de contrôle qualité, category: industrial, fit: w, footprint: { w: 1.8, d: 0.9, h: 1.4 },
+      tags: [controle, qualite, table_de_controle, mesure, instruments, inspection, conforme, rebut],
+      description: "Table de contrôle qualité à plan de travail clair, avec pied à coulisse, jauge et lampe de lecture : le contrôleur y inspecte les pièces une à une et les classe conformes, à retoucher ou au rebut.",
+      source: { pack: gmix } }
+  - { id: prop_scrap_bin, name: Bac à rebut, category: industrial, fit: w, footprint: { w: 0.85, d: 0.65, h: 0.8 }, variants: [niveau_remplissage],
+      tags: [rebut, bac, non_conforme, dechets, qualite, quarantaine],
+      description: "Bac à rebut pour les pièces non conformes, dont le niveau de remplissage monte avec le nombre de pièces mises au rebut.",
+      source: { pack: gmix } }
+  - { id: prop_packing_table, name: Table d'emballage, category: industrial, fit: w, footprint: { w: 2.0, d: 0.9, h: 1.25 },
+      tags: [emballage, conditionnement, carton, ruban, balance, colisage, expedition],
+      description: "Table d'emballage avec cartons à plat, dévidoir de ruban adhésif et balance : l'emballeur y met les pièces conformes en cartons avant leur palettisation.",
+      source: { pack: gmix } }
+  - { id: prop_pallet_wrapper, name: Filmeuse de palettes, category: industrial, fit: h, footprint: { w: 1.9, d: 2.2, h: 2.4 },
+      tags: [filmeuse, palette, film_etirable, emballage, palettisation, expedition, mat],
+      description: "Filmeuse de palettes à plateau tournant et mât porte-bobine : elle enveloppe de film étirable la palette de cartons avant son stockage en entrepôt de produits finis.",
+      source: { pack: gmix } }
+  - { id: prop_workbench, name: Établi et servante d'outils, category: industrial, fit: w, footprint: { w: 2.6, d: 0.8, h: 1.05 },
+      tags: [etabli, maintenance, outils, servante, reparation, technicien, depannage],
+      description: "Établi de maintenance avec étau et petit outillage, accompagné d'une servante d'outils à roulettes : le technicien y prépare ses interventions et y répare les pièces.",
+      source: { pack: gmix } }
+  # Variantes : titre (en-tête) et lignes (liste de textes affichés). Sur pieds : se place n'importe où dans le hall.
+  - { id: prop_wall_board, name: Tableau d'affichage, category: interactive, fit: w, footprint: { w: 1.8, d: 0.5, h: 1.85 }, variants: [titre, lignes],
+      tags: [tableau, affichage, planning, ordres_de_fabrication, interventions, suivi, ligne],
+      description: "Tableau d'affichage sur pieds avec un titre et des lignes de texte, pour le suivi d'une ligne de production (ordres de fabrication en cours) ou la liste des interventions de maintenance.",
+      source: { pack: gmix } }
+
+  # Tranche 2 : une pièce symbolique par état du produit, sans collision. Variante etat_produit : en_cours, a_controler,
+  # conforme, a_retoucher, rebut, emballe, stock_pf, expedie (forme et couleur propres à chaque état).
+  - { id: prop_part_token, name: Pièce symbolique, category: industrial, fit: max, footprint: { w: 0.4, d: 0.4, h: 0.3 }, variants: [etat_produit],
+      tags: [piece, produit, etat, jeton, flux, conforme, rebut, suivi],
+      description: "Pièce symbolique dont la forme et la couleur indiquent l'état du produit (en cours, à contrôler, conforme, à retoucher, rebut, emballé, en stock, expédié), pour suivre les produits sur le flux sans les modéliser un à un.",
+      status: a_sourcer, source: { pack: gmix } }
+  - { id: prop_bin_shelf, name: Étagère à bacs, category: industrial, fit: h, footprint: { w: 1.2, d: 0.5, h: 1.9 },
+      tags: [etagere, bacs, pieces_de_rechange, pdr, petites_pieces, maintenance, rangement],
+      description: "Étagère métallique à bacs bleus de petites pièces : pièces de rechange (PDR) et consommables de la maintenance.",
+      status: a_sourcer, source: { pack: gmix } }
+
+  # Tranche 3.
+  - { id: prop_safety_cabinet, name: Armoire de sécurité, category: industrial, fit: h, footprint: { w: 1.1, d: 0.6, h: 1.9 },
+      tags: [armoire, securite, produits_inflammables, stockage, maintenance, epi],
+      description: "Armoire de sécurité jaune à portes battantes pour ranger les produits dangereux (inflammables, huiles, solvants) à l'écart des lignes et de l'établi.",
+      status: a_sourcer, source: { pack: gmix } }

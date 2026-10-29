@@ -1,0 +1,129 @@
+{
+  "version": 1,
+  "agents": {
+    "orchestrateur": [],
+    "architecte": [
+      "docs/decisions/**",
+      "docs/kafka.md",
+      "backend/gmix/messaging/topics.py",
+      "backend/gmix/game/spec.py"
+    ],
+    "game-designer": [
+      "ai/simulation.yaml",
+      "ai/domains.yaml",
+      "ai/packs/**"
+    ],
+    "moteur-jeu": [
+      "backend/gmix/game/**",
+      "backend/tests/conftest.py",
+      "backend/tests/test_engine.py",
+      "backend/tests/test_generation.py",
+      "backend/tests/test_spec_contract.py",
+      "backend/tests/test_npc.py",
+      "backend/tests/test_ai_config.py"
+    ],
+    "backend-api": [
+      "backend/gmix/api/**",
+      "backend/gmix/db/**",
+      "backend/alembic/**",
+      "backend/alembic.ini",
+      "backend/gmix/settings.py",
+      "backend/gmix/health.py",
+      "backend/gmix/logging_setup.py",
+      "backend/gmix/storage.py",
+      "backend/gmix/tools/create_user.py",
+      "backend/pyproject.toml",
+      "backend/tests/test_auth.py",
+      "backend/tests/test_game_flow.py",
+      "backend/tests/test_npc_memory.py",
+      "backend/tests/test_presence.py",
+      "backend/tests/test_integration.py"
+    ],
+    "godot-dev": [
+      "godot/**",
+      "!godot/assets/**"
+    ],
+    "ia-runtime": [
+      "ai/models.yaml",
+      "ai/prompts/**",
+      "ai/evals/**",
+      "docs/ai-runtime.md",
+      "backend/gmix/llm/**",
+      "backend/gmix/tools/eval_*.py",
+      "backend/tests/test_llm_service.py",
+      "backend/tests/test_ollama_client.py",
+      "backend/tests/test_eval_contamination.py",
+      "backend/tests/test_eval_dialogue.py"
+    ],
+    "rag-knowledge": [
+      "backend/gmix/rag/**",
+      "backend/gmix/domains.py",
+      "backend/gmix/tools/eval_rag.py",
+      "backend/gmix/tools/fetch_wikipedia.py",
+      "knowledge/**",
+      "ai/evals/*.rag.jsonl",
+      "backend/tests/test_knowledge_tools.py",
+      "backend/tests/test_rag_and_messaging.py"
+    ],
+    "pipeline-kafka": [
+      "backend/gmix/messaging/**",
+      "backend/gmix/workers/**",
+      "docs/kafka.md",
+      "backend/tests/test_rag_and_messaging.py"
+    ],
+    "assets-3d": [
+      "ai/assets.yaml",
+      "ai/evals/assets.retrieval.jsonl",
+      "godot/assets/**",
+      "godot/tools/build_asset_scenes.gd*",
+      "godot/scenes/tools/asset_gallery/**",
+      "backend/gmix/assets_catalog.py",
+      "backend/gmix/game/assets.py",
+      "backend/gmix/tools/assets.py",
+      "backend/tests/test_assets.py"
+    ],
+    "devops": [
+      "docker-compose.yml",
+      "infra/**",
+      "scripts/**",
+      ".env.example",
+      ".github/**",
+      ".gitignore",
+      ".gitattributes",
+      ".vscode/**",
+      "start.cmd",
+      "stop.cmd",
+      "backend/Dockerfile",
+      "backend/.dockerignore",
+      "backend/pyproject.toml",
+      "backend/gmix/bootstrap.py",
+      "backend/gmix/tools/doctor.py",
+      "backend/gmix/tools/smoke.py",
+      "backend/gmix/tools/ui_accounts.py",
+      "backend/tests/test_ui_accounts.py",
+      "backend/tests/test_team_metrics.py"
+    ],
+    "qa-reviewer": [
+      "backend/tests/**",
+      "godot/tests/**"
+    ],
+    "documentaliste": [
+      "docs/**",
+      "!docs/decisions/**",
+      "README.md",
+      "CLAUDE.md",
+      "godot/README.md",
+      "ai/prompts/README.md",
+      "ai/evals/README.md",
+      ".claude/**"
+    ],
+    "coach-equipe": [
+      "docs/equipe/**"
+    ]
+  },
+  "shared": [
+    "backend/tests/**",
+    "godot/tests/**",
+    "docs/blocages.md"
+  ]
+}

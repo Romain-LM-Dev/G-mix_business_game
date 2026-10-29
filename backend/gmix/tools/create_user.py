@@ -18,6 +18,12 @@ from gmix.api.auth import MIN_PASSWORD_LENGTH, USERNAME_PATTERN, hash_password
 from gmix.db import get_engine, get_sessionmaker
 from gmix.db.models import User, UserRole
 
+EXIT_EXISTS = 3  # identifiant déjà pris : start.ps1 n'y voit pas un échec (0 = créé, 1 = erreur)
+
+
+class UserExists(ValueError):
+    pass
+
 
 async def create_user(
     username: str,
@@ -29,7 +35,7 @@ async def create_user(
 ) -> User:
     async with get_sessionmaker()() as session:
         if await session.scalar(select(User.id).where(func.lower(User.username) == username.lower())):
-            raise ValueError(f"Identifiant déjà utilisé : {username}")
+            raise UserExists(f"Identifiant déjà utilisé : {username}")
         user = User(
             username=username,
             display_name=display_name or username,
@@ -68,6 +74,9 @@ def main() -> int:
         parser.error(f"mot de passe trop court ({MIN_PASSWORD_LENGTH} caractères minimum)")
     try:
         user = asyncio.run(_run(args, password))
+    except UserExists as exc:
+        print(exc, file=sys.stderr)
+        return EXIT_EXISTS
     except ValueError as exc:
         print(exc, file=sys.stderr)
         return 1

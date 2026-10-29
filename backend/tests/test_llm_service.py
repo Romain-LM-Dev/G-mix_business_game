@@ -7,7 +7,7 @@ import pytest
 from gmix.llm.catalog import load_catalog
 from gmix.llm.ollama import ChatResult, Usage
 from gmix.llm.prompts import load_questions
-from gmix.llm.service import BudgetExceeded, InvalidOutput, LLMService, ModelUnavailable
+from gmix.llm.service import BudgetExceeded, LLMService, ModelUnavailable
 
 
 class FakeOllama:
@@ -56,12 +56,6 @@ async def test_budget_is_checked_before_calling_ollama() -> None:
     with pytest.raises(BudgetExceeded):
         await _service(client).text("npc.bark", [{"role": "user", "content": "mot " * 2000}])
     assert client.calls == []
-
-
-async def test_json_output_is_validated_against_the_task_schema() -> None:
-    client = FakeOllama({"qwen2.5:3b"}, reply='{"npcs": []}')
-    with pytest.raises(InvalidOutput):
-        await _service(client).json("game.npcs", [{"role": "user", "content": "PNJ pour une PME"}])
 
 
 async def test_think_is_not_sent_to_models_without_thinking() -> None:

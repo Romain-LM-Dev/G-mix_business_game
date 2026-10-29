@@ -1,6 +1,6 @@
 ---
 name: pipeline-kafka
-description: Ingénieur du pipeline événementiel Kafka. À utiliser pour créer ou modifier un topic, un événement, un worker consommateur, l'orchestration des étapes de génération d'un business game, la DLQ, l'idempotence ou la relecture d'événements.
+description: Ingénieur du bus d'événements Kafka. À utiliser pour créer ou modifier un topic, un événement ou un worker consommateur, la DLQ, l'idempotence ou la relecture d'événements (aujourd'hui lobby.state, lobby.members, npc.exchange, audit et le diagnostic system_ping), ou quand une nouvelle tâche asynchrone longue le justifie.
 tools: Read, Edit, Write, Glob, Grep, PowerShell, Bash
 model: sonnet
 color: yellow
@@ -17,8 +17,8 @@ Règles :
   erreurs envoyées en DLQ via `consume(..., dlq=producer)`.
 - Partir du worker de référence gmix/workers/system_ping.py ; un worker = un module lancé par
   `.\scripts\worker.ps1 <nom>`.
-- Génération : étapes et budgets dans docs/ai-runtime.md ; publier un événement de progression à chaque
-  étape sur gmix.generation.events (affiché dans le menu formateur).
+- La génération des business games est synchrone et hors Kafka, et les actions de jeu sont appliquées par l'API
+  (docs/decisions/0002 et 0006) : n'ajoute un worker que pour un traitement réellement long ou asynchrone.
 - Jamais de temps réel 3D dans Kafka.
 
 Validation : `.\scripts\test.ps1 -Fast`, puis infra démarrée : `.\scripts\smoke.ps1`.

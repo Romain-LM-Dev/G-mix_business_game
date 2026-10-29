@@ -142,25 +142,11 @@ func _log_line(text: String) -> void:
 
 
 func _build_ui() -> void:
-	var margin := MarginContainer.new()
-	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	for side in ["left", "right", "top", "bottom"]:
-		margin.add_theme_constant_override("margin_" + side, 32)
-	add_child(margin)
-
-	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", 12)
-	margin.add_child(column)
-
-	var title := Label.new()
-	title.text = "G-mix Open World : diagnostic de l'environnement"
-	title.add_theme_font_size_override("font_size", 28)
-	column.add_child(title)
-
-	var info := Label.new()
+	RenderingServer.set_default_clear_color(Ui.BACKDROP)
+	var column := Ui.vbox(Ui.screen_margin(self, 32), 12)
+	column.add_child(Ui.label("G-mix Open World : diagnostic de l'environnement", 28, Color.WHITE, true))
 	var who: String = Api.user.get("display_name", "non connecté")
-	info.text = "API %s   |   %s" % [AppConfig.api_base_url, who]
-	column.add_child(info)
+	column.add_child(Ui.label("API %s   |   %s" % [AppConfig.api_base_url, who], 0, Ui.MUTED, true))
 
 	var grid := GridContainer.new()
 	grid.columns = 2
@@ -172,26 +158,17 @@ func _build_ui() -> void:
 		grid.add_child(name_label)
 		var status_label := Label.new()
 		status_label.text = "…"
+		status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		status_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		grid.add_child(status_label)
 		_status_labels[service] = status_label
 
-	var buttons := HBoxContainer.new()
-	column.add_child(buttons)
-	var back := Button.new()
-	back.text = "Retour"
-	back.pressed.connect(func() -> void: get_tree().change_scene_to_file(MAIN_SCENE))
-	buttons.add_child(back)
-	var refresh := Button.new()
-	refresh.text = "Rafraîchir l'état"
-	refresh.pressed.connect(_refresh_health)
-	buttons.add_child(refresh)
-	_pipeline_button = Button.new()
-	_pipeline_button.text = "Tester le pipeline Kafka -> IA"
-	_pipeline_button.pressed.connect(_test_pipeline)
+	var buttons := Ui.flow(column)
+	buttons.add_child(Ui.button("Retour", func() -> void: get_tree().change_scene_to_file(MAIN_SCENE)))
+	buttons.add_child(Ui.button("Rafraîchir l'état", _refresh_health))
+	_pipeline_button = Ui.button("Tester le pipeline Kafka -> IA", _test_pipeline)
 	buttons.add_child(_pipeline_button)
 
-	_log = RichTextLabel.new()
-	_log.bbcode_enabled = true
+	_log = Ui.rich(120)
 	_log.scroll_following = true
-	_log.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	column.add_child(_log)

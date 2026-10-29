@@ -18,7 +18,7 @@ $targets = Get-CimInstance Win32_Process | Where-Object {
 Write-Step 'Jeu, serveurs de partie, API et workers'
 if (-not $targets) { Write-Ok 'Rien à arrêter' }
 foreach ($process in $targets) {
-    Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue
+    & taskkill.exe /PID $process.ProcessId /T /F *> $null  # /T : tout l'arbre, sinon le worker d'uvicorn --reload survit
     Write-Ok ("{0} (pid {1}) arrêté" -f $process.Name, $process.ProcessId)
 }
 

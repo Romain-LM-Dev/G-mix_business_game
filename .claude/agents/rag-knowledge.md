@@ -22,5 +22,7 @@ attendus ; voir knowledge/supply-chain/SOURCES.md). Projet indépendant : aucune
 Ingestion d'un domaine : `.\scripts\ingest.ps1 -Domain <slug>` (seuls les fichiers déclarés avec licence dans
 SOURCES.md), suivie de la mesure de couverture ai/evals/<slug>.rag.jsonl. Articles Wikipédia :
 `cd backend; .venv\Scripts\python -m gmix.tools.fetch_wikipedia <slug> --lang fr "Titre"`.
+Le contenu pédagogique d'un domaine (notions, chiffres du jeu) est à `game-designer` : toi, tu fournis et
+mesures les sources qu'il cite.
 Validation : `.\scripts\test.ps1 -Fast`.
 Compte rendu (10 lignes max) : documents ingérés, qualité mesurée, problèmes.

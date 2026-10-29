@@ -4,9 +4,7 @@
 flowchart LR
   G[Client Godot 4.7]
   subgraph Backend Python
-    API[API FastAPI<br/>REST + WebSocket]
-    WG[worker generation]
-    WR[worker rag]
+    API[API FastAPI<br/>REST + WebSocket<br/>génération + moteur]
     WS[worker system_ping]
   end
   K[(Kafka 4.3<br/>KRaft)]
@@ -15,19 +13,18 @@ flowchart LR
   O[[Ollama<br/>GPU local]]
   G -- HTTP JSON --> API
   API -- WebSocket : événements --> G
-  API -- commandes --> K
-  K --> WG & WR & WS
-  WG & WR & WS -- événements --> K
+  API -- événements --> K
+  K --> WS
+  WS -- événements --> K
   K -- relais --> API
-  API & WG & WR --> PG
-  WG & WR --> S3
-  WG & WR & WS --> O
+  API --> PG
+  API -- dialogue des agents --> O
   G <-. multijoueur temps réel : réseau Godot .-> G2[Autres clients Godot]
 ```
 
-État (2026-10-22) : comptes et rôles, génération (worker `generation`), moteur de partie, lobbies, PNJ,
-client Godot (menus, monde 3D) et présence multijoueur en réseau local sont en place. L'ingestion RAG passe
-par `.\scripts\ingest.ps1` (pas encore de worker `rag`).
+État (2026-10-22) : comptes et rôles, business games simulés générés par paramètres (docs/decisions/0006),
+moteur hebdomadaire, lobbies, agents PNJ à mémoire, client Godot (menus, atelier 3D) et présence multijoueur
+en réseau local sont en place. L'ingestion RAG passe par `.\scripts\ingest.ps1` (pas de worker `rag`).
 
 ## Briques
 
@@ -36,39 +33,35 @@ par `.\scripts\ingest.ps1` (pas encore de worker `rag`).
 | Client Godot | Menus (formateur, joueur, admin), monde 3D, rendu d'une spec en lobby, PNJ | `godot/` |
 | API FastAPI | Point d'entrée unique du client : authentification, rôles, CRUD, publication des commandes, relais WebSocket | `backend/gmix/api` |
 | Kafka | Commandes et événements asynchrones, traitements IA, journal des parties | `backend/gmix/messaging` |
-| Workers | Consommateurs Kafka : génération, ingestion RAG, simulation | `backend/gmix/workers` |
-| PostgreSQL + pgvector | Comptes, lobbies, specs de business games, suivi des générations, corpus RAG (vecteurs + plein texte), catalogue d'assets, cache LLM | `backend/gmix/db` |
+| Workers | Consommateurs Kafka (aujourd'hui : diagnostic `system_ping`) | `backend/gmix/workers` |
+| PostgreSQL + pgvector | Comptes, lobbies et état des parties, specs de business games, mémoire des agents, corpus RAG (vecteurs + plein texte), catalogue d'assets, cache LLM | `backend/gmix/db` |
 | RustFS (S3) | Fichiers : assets 3D, documents sources du RAG, exports | `backend/gmix/storage.py` |
 | Ollama | Modèles locaux, appelés uniquement via le catalogue de tâches | `backend/gmix/llm` |
 
 ## Flux 1 : le formateur génère un business game
 
-1. Menu formateur (Godot) : domaine, niveau, durée, nombre de joueurs, compétences visées, demande libre.
-2. `POST` API -> création de `business_games` + `generation_jobs`, publication sur `gmix.generation.commands`,
-   réponse 202 avec l'id du job.
-3. Worker de génération : étapes de docs/ai-runtime.md (contrôle de la demande, RAG, plan, phases, PNJ,
-   assets, contrôles de cohérence). Chaque étape publie sa progression sur `gmix.generation.events`.
-4. L'API relaie ces événements au formateur par WebSocket (barre de progression).
-5. Spec validée (schéma + `gmix.game.coherence`) enregistrée ; le formateur relit, régénère une section si
-   besoin, publie le lobby et obtient un code d'accès.
+1. Menu formateur (Godot) : paramètres de `GET /api/v1/games/options` (secteur, modules, agents, caractère,
+   difficulté, semaines, aléas, produits).
+2. `POST /api/v1/games` : `gmix.game.generation` assemble la spec (déterministe, sans modèle), la valide
+   (`gmix.game.spec.SimSpec`) et la joue en pilote automatique ; réponse 201 en moins d'une seconde.
+3. Le formateur relit (partie de référence comprise), crée le lobby et obtient un code d'accès.
 
-## Flux 2 : un joueur parle à un PNJ (latence visible)
+## Flux 2 : un joueur parle à un agent (latence visible)
 
-1. Message du joueur -> API -> tâche `player.intent` (décision : question métier, décision de jeu,
-   hors-sujet, injection).
-2. Recherche RAG bornée au domaine -> tâche `npc.dialogue` en streaming renvoyé directement au client.
-   Kafka n'est pas sur ce chemin (chaque saut ajoute de la latence) ; la transcription terminée est publiée
-   sur `gmix.npc.transcripts` pour l'évaluation et le débrief.
+1. Message -> API -> tâche `player.intent` (tev1) : hors-sujet et injection reçoivent une réponse fixe.
+2. Faits de la semaine de l'agent (`engine.public_state()["briefings"]`) + six derniers échanges du lobby
+   avec lui (`npc_memories`) + extraits RAG pour une question de fond -> tâche `npc.dialogue` -> une ou deux
+   phrases. L'échange est enregistré, puis publié sur `gmix.npc.transcripts`. Kafka n'est pas sur ce chemin.
 
 ## Flux 3 : partie multijoueur (en salle ou à distance)
 
 - Positions et animations : un serveur Godot headless par lobby, autoritaire, transport ENet en salle ou
   WebSocket sur 443 à distance (docs/decisions/0005). Kafka et FastAPI ne sont pas faits pour 20 à 60 mises
   à jour par seconde.
-- Décisions de jeu : l'API applique les règles (`gmix.game.engine`, fonctions pures, sous verrou de ligne
+- Actions et semaines : l'API applique les règles (`gmix.game.engine`, fonctions pures, sous verrou de ligne
   sur le lobby) et répond tout de suite au joueur ; `lobby.state` sur `gmix.game.events` diffuse l'état aux
-  autres membres par WebSocket et garde le journal. Pas de worker de simulation : un calcul de quelques
-  microsecondes ne justifie pas un aller-retour Kafka, et le joueur voit l'erreur de règle immédiatement.
+  autres membres par WebSocket et garde le journal. Pas de worker de simulation : une semaine simulée prend
+  quelques millisecondes, et le joueur voit l'erreur de règle immédiatement.
 - Présence : `POST /lobbies/{id}/presence` lance au besoin le serveur Godot du lobby (`gmix.game.servers`,
   ports GAME_SERVER_PORTS) et remet un ticket de 60 s ; le serveur vérifie sa signature (HS256, JWT_SECRET
   transmis par variable d'environnement) puis relaie les positions à 10 Hz.
@@ -77,14 +70,14 @@ par `.\scripts\ingest.ps1` (pas encore de worker `rag`).
 
 ## Mondes et assets
 
-L'IA ne crée jamais de géométrie. Un gabarit de carte (`ai/world_templates.yaml`, aujourd'hui
-`parc_activites` : une route, huit parcelles typées) expose des zones ; la génération retient les zones de
-ses PNJ et le siège, puis choisit pour chacune des ids du catalogue `ai/assets.yaml` (présélection par
-similarité vectorielle sur `assets.embedding`, puis choix contraint par un `enum`, repli sur les choix sûrs
-du gabarit). L'API envoie le gabarit avec le lobby ; Godot pose le bâtiment au fond de la parcelle, les objets
-en rangée devant, les PNJ devant l'entrée. Les fichiers .glb vivent dans le bucket `gmix-assets` et sont
-importés dans `godot/assets`.
+L'IA ne crée jamais de géométrie. La génération place les objets du catalogue `ai/assets.yaml` dans un
+atelier de 32 x 24 m repris du jeu de référence (`spec.world` : rayonnages des produits au fond, composants
+le long des murs, lignes au centre, poste qualité, bureau, écran des indicateurs, quais et camions devant),
+avec les postes d'interaction et les trajets des agents dans les allées libres (vérifiés par les tests).
+Godot construit le hall puis anime le décor avec l'état public : remplissage des rayonnages, voyants des
+lignes, palettes aux quais, écran des indicateurs, alertes des agents.
 
 ## Choix structurants
 
-Voir docs/decisions/ : stockage RustFS, Kafka hors temps réel, catalogue de tâches IA.
+Voir docs/decisions/ : stockage RustFS, Kafka hors temps réel, catalogue de tâches IA, comptes locaux, jeu
+local et distant, business games simulés par paramètres.

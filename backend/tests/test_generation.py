@@ -1,162 +1,103 @@
-"""Pipeline de génération sans modèle : un faux LLM rejoue les morceaux de la spec d'exemple. On vérifie
-l'assemblage, les schémas restreints envoyés au modèle et les réparations déterministes."""
+"""Génération par paramètres : tout secteur, toute combinaison de modules donne un jeu valide, jouable et dont
+les agents circulent dans les allées libres de l'atelier."""
 
-import copy
-from types import SimpleNamespace
+import itertools
+import math
 
 import pytest
+from pydantic import ValidationError
 
-from gmix.domains import load_domains
-from gmix.game import generation
-from gmix.game.generation import GameRequest, GenerationRefused, Generator
-from gmix.game.world import template_zones
-from gmix.llm import schemas
-from gmix.llm.ollama import ChatResult, Usage
+from gmix.assets_catalog import load_assets_catalog
+from gmix.game.generation import autopilot_check, generate
+from gmix.game.spec import GameParams, SimSpec, load_sim_catalog
 
+from .conftest import ALL_MODULES
 
-class FakeLLM:
-    def __init__(self, spec: dict, verdict: dict | None = None, review_says: str = "non_dit") -> None:
-        self.spec = spec
-        self.verdict = verdict or {"usable": 0.9, "in_domain": 0.9, "injection": 0.01}
-        self.review_says = review_says  # ce que la revue « lit » dans chaque explication
-        self.calls: list[tuple[str, dict | None]] = []
-        self.reviews = 0
-
-    async def decide(self, task, state, questions):
-        if task == "game.coherence_review":
-            self.reviews += 1
-            answer = {"choice": self.review_says, "probabilities": {self.review_says: 0.9}}
-            return {"model": "fake", "answers": dict.fromkeys(questions, answer)}
-        return {"model": "fake", "answers": {name: {"noul": self.verdict.get(name, 0.9)} for name in questions}}
-
-    async def resolve(self, task):
-        return SimpleNamespace(rag=SimpleNamespace(top_k=2, max_context_tokens=500)), None
-
-    async def embed_query(self, text):
-        return [0.0] * 768
-
-    def schema(self, task: str, index: int = -1) -> dict:
-        return [schema for name, schema in self.calls if name == task][index]
-
-    async def json(self, task, messages, *, schema=None):
-        self.calls.append((task, schema))
-        spec = copy.deepcopy(self.spec)
-        if task == "game.outline":
-            data = {key: spec[key] for key in ("meta", "learning_objectives", "context", "roles", "kpis")}
-            data["phases"] = [{k: p[k] for k in ("id", "title", "duration_minutes", "goal")} for p in spec["phases"]]
-        elif task == "game.npcs":
-            data = {"npcs": spec["npcs"]}
-        elif task == "game.phase_detail":
-            content = messages[-1]["content"]
-            phase = next(p for p in spec["phases"] if f"Phase à détailler : {p['title']}" in content)
-            for option in (o for d in phase["decisions"] for o in d["options"]):
-                option.pop("source_refs", None)  # pas de corpus dans ce test
-            for item in [o for d in phase["decisions"] for o in d["options"]] + phase["events"]:
-                item["effects"] = [  # le modèle donne un sens et une ampleur, pas de montant
-                    {"kpi": e["kpi"], "sens": "hausse" if e["value"] > 0 else "baisse", "ampleur": _strength(e)}
-                    | ({"delay_phases": e["delay_phases"]} if e.get("delay_phases") else {})
-                    for e in item["effects"]
-                ]
-            if phase["id"] == "p2_plan":
-                if "Interdit" not in content:  # premier essai : rejoue la décision de la phase 1
-                    phase["decisions"][0] = copy.deepcopy(spec["phases"][0]["decisions"][0])
-                phase["decisions"][0]["id"] = "d_priorite"  # même id qu'en phase 1 : doit être renommé
-            data = {"decisions": phase["decisions"], "events": phase["events"]}
-        elif task == "game.asset_mapping":
-            data = {"zones": [{"zone_id": "z_banque", "asset_ids": ["prop_desk_computer"]}]}
-        else:
-            data = spec["debrief"]
-        return data, ChatResult(content="", usage=Usage(model="fake", prompt_tokens=10, completion_tokens=5))
+THEMES = list(load_sim_catalog()["themes"])
+CLEARANCE = 0.35  # demi-largeur d'un personnage
 
 
-def _strength(effect: dict) -> str:
-    """Ampleur qu'aurait choisie le modèle pour un effet de l'exemple (options graduées : 60 ou 90 jours)."""
-    size = abs(effect["value"])
-    return "faible" if size < 20 else "moyenne" if size < 300 else "forte"
+@pytest.mark.parametrize(
+    ("theme", "difficulty"), list(itertools.product(THEMES, ["decouverte", "equilibre", "expert"]))
+)
+def test_every_theme_and_difficulty_gives_a_coherent_game(theme: str, difficulty: str) -> None:
+    spec = generate(GameParams(theme=theme, modules=ALL_MODULES, difficulty=difficulty, products=4, seed=3))
+    SimSpec.model_validate(spec)
+    assert len(spec["products"]) == len(spec["lines"]) == len(spec["components"]) == 4
+    for component in spec["components"]:
+        profiles = [o["profile"] for o in spec["offers"] if o["component_id"] == component["id"]]
+        assert profiles == ["rapide", "standard", "economique"]  # un vrai arbitrage coût / délai / fiabilité
+    for line, product in zip(spec["lines"], spec["products"], strict=True):
+        assert line["capacity"] * 0.85 >= product["demand"]  # la capacité nominale sert la demande à 85 % de TRS
+    assert {m["role_id"] for m in spec["modules"]} == {r["id"] for r in spec["roles"]}
+    assert {a["module_id"] for a in spec["agents"] if a["module_id"]} == set(ALL_MODULES)
+    kinds = {s["kind"] for s in spec["stations"]}
+    assert all(set(m["stations"]) <= kinds for m in spec["modules"])
+    assert spec["targets"]["cash_final"] >= spec["economy"]["initial_cash"]
 
 
-class _NoDatabase:
-    async def __aenter__(self):
-        return None
-
-    async def __aexit__(self, *exc):
-        return False
-
-
-@pytest.fixture
-def no_retrieval(monkeypatch) -> None:
-    async def nothing(*args, **kwargs):
-        return []
-
-    monkeypatch.setattr(generation, "search", nothing)
-    monkeypatch.setattr(generation, "candidate_assets", nothing)
+@pytest.mark.parametrize("modules", [[m] for m in ALL_MODULES] + [["approvisionnement", "production"]])
+def test_any_module_selection_is_playable(modules: list[str]) -> None:
+    spec = generate(GameParams(theme="agroalimentaire", modules=modules, products=2, seed=11))
+    assert [m["id"] for m in spec["modules"]] == modules
+    assert {a["module_id"] for a in spec["agents"]} == set(modules)
+    assert autopilot_check(spec)["weeks"] == spec["meta"]["weeks"]
 
 
-def _request(**overrides) -> GameRequest:
-    domain = next(d for d in load_domains() if d.slug == "finance-entreprise")
-    return GameRequest(domain=domain, brief="Trésorerie d'une PME industrielle", **overrides)
+def test_same_seed_same_game_and_company_name_kept() -> None:
+    params = GameParams(theme="sante", modules=["approvisionnement"], seed=99, company_name="Labo Test")
+    assert generate(params) == generate(params)
+    assert generate(params)["meta"]["company"] == "Labo Test"
+    other = generate(params.model_copy(update={"seed": 100}))
+    assert other["seed"] != 99
 
 
-async def _progress(stage: str, percent: int) -> None:
-    pass
+def test_reference_autopilot_wins_on_discovery_and_struggles_on_expert() -> None:
+    easy = autopilot_check(
+        generate(GameParams(theme="industrie", modules=ALL_MODULES, difficulty="decouverte", seed=5))
+    )
+    hard = autopilot_check(generate(GameParams(theme="industrie", modules=ALL_MODULES, difficulty="expert", seed=5)))
+    assert easy["otif_mean"] >= 95 and easy["stockout_weeks"] == 0
+    assert hard["otif_mean"] < easy["otif_mean"]
 
 
-async def test_pipeline_assembles_a_valid_coherent_spec(example_spec, no_retrieval) -> None:
-    llm = FakeLLM(example_spec)
-    request = _request(duration_minutes=60, players_min=2, players_max=4, level="intermediaire")
-    result = await Generator(llm, _NoDatabase, _progress).run(request)
-
-    spec = result.spec
-    assert len(result.warnings) == 1 and "non sourcé" in result.warnings[0]  # aucun corpus dans ce test
-    assert spec["meta"]["players"] == {"min": 2, "max": 4} and spec["meta"]["duration_minutes"] == 60
-    assert sum(p["duration_minutes"] for p in spec["phases"]) <= 50  # 10 min de débrief
-    assert any("durée des phases" in r for r in result.repairs)
-    assert spec["phases"][1]["decisions"][0]["id"] == "d_priorite_2"
-    assert result.usage["phase_detail"]["calls"] == len(spec["phases"]) + 1  # phase 2 répétée : un second essai
-    options = [o for p in spec["phases"] for d in p["decisions"] for o in d["options"]]
-    assert llm.reviews == sum(1 for o in options if o["effects"])
-    dso = spec["phases"][0]["decisions"][0]["options"][0]["effects"][0]
-    assert dso == {"kpi": "dso", "operation": "add", "value": -2.2, "delay_phases": 1}  # faible : 15 % de 75 -> 60
-
-    first, second = llm.schema("game.phase_detail", 0)["$defs"], llm.schema("game.phase_detail", 1)["$defs"]
-    assert first["decision"]["properties"]["role"]["enum"] == ["daf", "resp_achats", "resp_supply"]
-    assert second["decision"]["properties"]["role"]["enum"] == ["resp_achats", "resp_supply"]  # rôles sans décision
-    assert "bfr_jours" not in first["effect"]["properties"]["kpi"]["enum"]  # KPI dérivé
-    assert llm.schema("game.npcs")["$defs"]["npc"]["properties"]["zone"]["enum"] == list(template_zones())
-    pristine = schemas.resolve("business_game#/$defs/phase_detail")["$defs"]["decision"]["properties"]["role"]
-    assert pristine == {"$ref": "#/$defs/id"}  # le schéma en cache n'est jamais modifié
-
-    zones = {z["id"]: z["asset_ids"] for z in spec["world"]["zones"]}
-    assert zones["z_siege"][:2] == ["bld_office_hq", "prop_kpi_screen"]
-    assert zones["z_banque"][0] == "bld_bank_branch" and "prop_desk_computer" in zones["z_banque"]
+def test_invalid_parameters_are_refused() -> None:
+    with pytest.raises(ValidationError):
+        GameParams(theme="spatial", modules=["production"])
+    with pytest.raises(ValidationError):
+        GameParams(theme="industrie", modules=["production", "production"])
+    with pytest.raises(ValidationError):
+        GameParams(theme="industrie", modules=["production"], players_min=8, players_max=4)
 
 
-def test_outline_repair_keeps_stated_values_when_formulas_are_circular(example_spec) -> None:
-    outline = {key: copy.deepcopy(example_spec[key]) for key in ("meta", "learning_objectives", "kpis")}
-    outline["phases"] = copy.deepcopy(example_spec["phases"])
-    outline["kpis"] += [
-        {"id": "service", "initial": 85, "formula": "1 - rupture"},  # mesuré sur qwen2.5:7b, en %
-        {"id": "rupture", "initial": 15, "formula": "1 - service"},
-    ]
-    outline["kpis"][4]["initial"] = 88  # bfr_jours = dso + dio - dpo = 90 : petite erreur, corrigée
-    generator = Generator(None, None, _progress)
-    generator._repair_outline(outline, _request(duration_minutes=90, players_min=3, players_max=6))
-    kpis = {k["id"]: k for k in outline["kpis"]}
-    assert kpis["bfr_jours"]["initial"] == 90 and kpis["bfr_jours"]["formula"]
-    assert kpis["service"]["initial"] == 85 and "formula" not in kpis["service"]
-    assert kpis["rupture"]["initial"] == 15 and "formula" not in kpis["rupture"]
+def test_world_uses_catalog_assets_and_agents_walk_in_free_aisles(sim_spec) -> None:
+    catalog = load_assets_catalog().by_id()
+    obstacles = []
+    for item in sim_spec["world"]["objects"]:
+        assert item["asset"] in catalog, item["asset"]
+        footprint = catalog[item["asset"]].footprint
+        w, d = (footprint.d, footprint.w) if abs(item["rotation"]) == 90 else (footprint.w, footprint.d)
+        x, z = item["position"]
+        obstacles.append((x - w / 2 - CLEARANCE, x + w / 2 + CLEARANCE, z - d / 2 - CLEARANCE, z + d / 2 + CLEARANCE))
+    for agent in sim_spec["agents"]:
+        assert catalog[agent["character"]].category == "character"
+        points = agent["route"]
+        for start, end in zip(points, points[1:] + points[:1], strict=True):
+            for step in range(21):  # trajet échantillonné tous les 5 %
+                x = start[0] + (end[0] - start[0]) * step / 20
+                z = start[1] + (end[1] - start[1]) * step / 20
+                assert -15.6 < x < 15.6 and -11.6 < z < 11.6, (agent["id"], x, z)
+                hit = [o for o in obstacles if o[0] < x < o[1] and o[2] < z < o[3]]
+                assert not hit, (agent["id"], (x, z), hit)
+    for station in sim_spec["stations"]:
+        x, z = station["position"]
+        assert not [
+            o for o in obstacles if o[0] + CLEARANCE < x < o[1] - CLEARANCE and o[2] + CLEARANCE < z < o[3] - CLEARANCE
+        ]
+        assert math.hypot(x, z) < 20
 
 
-async def test_review_flips_effects_that_contradict_the_explanation(example_spec, no_retrieval) -> None:
-    llm = FakeLLM(example_spec, review_says="hausse")  # chaque explication « dit » que l'indicateur monte
-    result = await Generator(llm, _NoDatabase, _progress).run(_request())
-    effects = [e for p in result.spec["phases"] for d in p["decisions"] for o in d["options"] for e in o["effects"]]
-    assert effects and all(e["value"] > 0 for e in effects)
-    assert any("inversé (baisse -> hausse)" in repair for repair in result.repairs)
-
-
-async def test_unusable_brief_is_refused_before_any_generation(example_spec, no_retrieval) -> None:
-    llm = FakeLLM(example_spec, verdict={"usable": 0.05, "in_domain": 0.9, "injection": 0.0})
-    with pytest.raises(GenerationRefused):
-        await Generator(llm, _NoDatabase, _progress).run(_request())
-    assert llm.calls == []
+def test_notions_are_sourced(sim_spec) -> None:
+    assert sim_spec["notions"] and all(n["citation"] for n in sim_spec["notions"])
+    wiki = [n for n in sim_spec["notions"] if "wikipedia.org" in n["citation"]]
+    assert len(wiki) >= len(sim_spec["notions"]) - 1  # une seule notion cite une norme hors corpus (TRS)

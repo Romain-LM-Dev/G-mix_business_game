@@ -1,11 +1,10 @@
 extends Node
-## État client de la séance : lobby ouvert (vue renvoyée par l'API, tenue à jour par le WebSocket) et historiques
-## des dialogues avec les PNJ. Les règles du jeu restent côté serveur : rien n'est calculé ici.
+## État client de la séance : lobby ouvert (vue renvoyée par l'API, tenue à jour par le WebSocket). Les règles du
+## jeu et la mémoire des agents restent côté serveur : rien n'est calculé ici.
 
 signal lobby_changed
 
 var lobby: Dictionary = {}
-var dialogues: Dictionary = {}  # npc_id -> [{role: user|assistant, content}]
 
 
 func _ready() -> void:
@@ -15,8 +14,6 @@ func _ready() -> void:
 
 
 func open(view: Dictionary) -> void:
-	if lobby.get("id") != view.get("id"):
-		dialogues = {}
 	lobby = view
 	Realtime.subscribe_lobby(str(view["id"]))
 	lobby_changed.emit()
@@ -33,7 +30,6 @@ func reload() -> bool:
 
 func close() -> void:
 	lobby = {}
-	dialogues = {}
 	Realtime.subscribe_lobby("")
 
 
@@ -53,7 +49,7 @@ func url(suffix := "") -> String:
 	return "/api/v1/lobbies/%s%s" % [lobby.get("id", ""), suffix]
 
 
-## État public renvoyé par une action (start, advance, decisions) : affiché sans attendre le WebSocket.
+## État public renvoyé par une action (start, advance, actions) : affiché sans attendre le WebSocket.
 func apply_state(state_view: Dictionary) -> void:
 	_on_state({"state": state_view, "lobby_status": "closed" if state_view.get("status") == "finished" else "running"})
 

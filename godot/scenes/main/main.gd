@@ -22,6 +22,7 @@ func _ready() -> void:
 	if "--smoke" in args:
 		get_tree().change_scene_to_file.call_deferred(BOOT)
 		return
+	RenderingServer.set_default_clear_color(Ui.BACKDROP)
 	Api.unauthorized.connect(_on_unauthorized)
 	if Api.token.is_empty():
 		_show("login")

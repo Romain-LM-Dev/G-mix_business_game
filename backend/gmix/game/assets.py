@@ -1,14 +1,8 @@
-"""Choix des assets d'une zone de lobby (étape 5 du pipeline de génération, docs/ai-runtime.md).
+"""Recherche sémantique dans le catalogue d'assets (pgvector) : embedding d'un besoin comparé aux embeddings des
+descriptions du catalogue, sans aucun token de génération. Sert à l'évaluation `python -m gmix.tools.assets
+evaluate` et au choix d'assets pour de futurs gabarits."""
 
-1. `candidate_assets` : présélection sémantique dans pgvector (embedding du besoin vs embeddings des
-   descriptions du catalogue) : aucun token de génération.
-2. `restrict_schema_to` : le schéma de sortie de la tâche game.asset_mapping n'accepte plus que ces ids
-   (décodage contraint par `enum`) : le modèle ne peut pas inventer un asset.
-"""
-
-import copy
 from dataclasses import dataclass
-from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -34,10 +28,3 @@ async def candidate_assets(
         query = query.where(Asset.category.in_(categories))
     rows = await session.execute(query.order_by(distance).limit(k))
     return [AssetCandidate(row.id, row.name, row.category, float(row.distance)) for row in rows]
-
-
-def restrict_schema_to(schema: dict[str, Any], allowed_ids: list[str]) -> dict[str, Any]:
-    """Copie du schéma asset_selection où `asset_ids` n'accepte que les ids candidats."""
-    restricted = copy.deepcopy(schema)
-    restricted["properties"]["zones"]["items"]["properties"]["asset_ids"]["items"] = {"enum": list(allowed_ids)}
-    return restricted

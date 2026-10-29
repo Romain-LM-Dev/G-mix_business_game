@@ -11,6 +11,8 @@ from typing import Any
 
 import httpx
 
+CONNECT_TIMEOUT_S = 1.0
+
 
 class OllamaError(RuntimeError):
     pass
@@ -53,8 +55,10 @@ class OllamaClient:
         # api_key : Ollama n'a pas d'authentification ; sur un serveur distant il est placé derrière un reverse
         # proxy qui exige un jeton Bearer. Vide en local.
         headers = {"Authorization": f"Bearer {api_key}"} if api_key else None
+        # connect=1 s : Windows met ~2 s à refuser une connexion locale et un hôte distant muet faisait attendre 5 s ;
+        # l'agent PNJ répond alors par son secours (gmix.game.npc) en ~1 s au lieu de laisser le joueur patienter.
         self._http = httpx.AsyncClient(
-            base_url=base_url, timeout=httpx.Timeout(timeout_s, connect=5.0), headers=headers
+            base_url=base_url, timeout=httpx.Timeout(timeout_s, connect=CONNECT_TIMEOUT_S), headers=headers
         )
 
     async def aclose(self) -> None:

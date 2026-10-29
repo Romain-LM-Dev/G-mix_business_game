@@ -9,15 +9,15 @@ from pathlib import Path
 from typing import Any, Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 from gmix.settings import get_settings
 
 ModelKind = Literal["chat", "embedding", "decision"]
-OutputKind = Literal["text", "json", "decision", "embedding"]
+OutputKind = Literal["text", "decision", "embedding"]
 
 _OUTPUTS_BY_KIND: dict[str, set[str]] = {
-    "chat": {"text", "json"},
+    "chat": {"text"},
     "embedding": {"embedding"},
     "decision": {"decision"},
 }
@@ -48,13 +48,10 @@ class RagSpec(BaseModel):
 
 
 class TaskProfile(BaseModel):
-    model_config = ConfigDict(populate_by_name=True)
-
     description: str
     model: str  # alias dans `models`
     fallback: str | None = None
     output: OutputKind = "text"
-    schema_ref: str | None = Field(default=None, alias="schema")  # "fichier" ou "fichier#/$defs/x"
     think: bool = False
     stream: bool = False
     cache: bool = False
@@ -88,8 +85,6 @@ class AICatalog(BaseModel):
                     errors.append(f"{name} : repli inconnu '{t.fallback}'")
                 elif fb.kind != primary.kind and not (primary.kind == "decision" and fb.kind == "chat"):
                     errors.append(f"{name} : repli {fb.kind} impossible pour un modèle {primary.kind}")
-            if t.output == "json" and not t.schema_ref:
-                errors.append(f"{name} : sortie json sans `schema`")
             if t.cache and t.options.get("temperature") != 0:
                 errors.append(f"{name} : `cache: true` exige `temperature: 0` (sortie déterministe)")
             if "num_ctx" in t.options:

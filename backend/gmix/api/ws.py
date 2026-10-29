@@ -20,11 +20,11 @@ from gmix.db import get_sessionmaker
 from gmix.db.models import Lobby, LobbyMember, User, UserRole
 from gmix.messaging.envelope import Envelope
 from gmix.messaging.kafka import consume
-from gmix.messaging.topics import GAME_EVENTS, GENERATION_EVENTS, SYSTEM_PONG
+from gmix.messaging.topics import GAME_EVENTS, SYSTEM_PONG
 
 log = logging.getLogger("gmix.ws")
 
-RELAYED_TOPICS = (SYSTEM_PONG, GENERATION_EVENTS, GAME_EVENTS)
+RELAYED_TOPICS = (SYSTEM_PONG, GAME_EVENTS)
 
 
 class WebSocketHub:

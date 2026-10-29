@@ -54,6 +54,7 @@ func _label(font_size: int, at: Vector3) -> Label3D:
 	label.font_size = font_size
 	label.pixel_size = 0.005
 	label.outline_size = 0
+	label.double_sided = false  # vu de dos, l'écran reste muet au lieu d'afficher le texte en miroir
 	label.modulate = Color(0.92, 0.96, 1.0)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	label.vertical_alignment = VERTICAL_ALIGNMENT_TOP

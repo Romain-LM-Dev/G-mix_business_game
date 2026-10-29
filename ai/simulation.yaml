@@ -1,0 +1,554 @@
+# Contenu des business games simulés (docs/decisions/0006). Le formateur ne rédige rien : il choisit des
+# paramètres (secteur, modules, agents, caractère, difficulté, durée, aléas) et gmix.game.generation assemble
+# un jeu cohérent à partir de ce fichier. Les règles chiffrées sont dans gmix.game.engine.
+#
+# Repris du jeu de référence github.com/eloiseferrante27-alt/Business_game (commit e0cd56e, dépôt sans
+# licence : accord de son autrice à confirmer avant diffusion) : principe hebdomadaire, profils de difficulté,
+# noms et villes des fournisseurs, produits du secteur « industrie », noms des ouvriers (Maya, Idriss, Léa,
+# Noah), aléas « perturbation maritime » et « hausse des matières ».
+#
+# Noms d'entreprises, de fournisseurs et de clients : fictifs.
+
+version: 1
+
+difficulties:
+  decouverte:
+    label: Découverte
+    detail: stocks et production renforcés, fournisseurs fiables
+    stock_weeks: 2.5          # stocks de départ, en semaines de consommation
+    trs: 90                   # taux de rendement synthétique de départ des lignes (%)
+    reliability_shift: 4      # points de fiabilité ajoutés aux fournisseurs
+    defect_rate: 0.02
+    demand_noise: 0.05
+    cash_weeks: 6             # trésorerie de départ, en semaines d'achats
+  equilibre:
+    label: Équilibré
+    detail: conditions standard
+    stock_weeks: 1.8
+    trs: 85
+    reliability_shift: 0
+    defect_rate: 0.03
+    demand_noise: 0.08
+    cash_weeks: 4
+  expert:
+    label: Expert
+    detail: stocks, fiabilité et rendement réduits
+    stock_weeks: 1.2
+    trs: 76
+    reliability_shift: -8
+    defect_rate: 0.05
+    demand_noise: 0.12
+    cash_weeks: 2.5
+
+targets:
+  otif: 95            # % de livraisons à l'heure et complètes
+  trs: 85             # % moyen des lignes
+  stockouts: 0        # références en rupture la dernière semaine
+  cash_share: 0.6     # trésorerie finale >= départ + 60 % du gain obtenu par le pilote automatique
+
+# Profils d'offre fournisseur : chaque composant a trois fournisseurs, du plus réactif au moins cher.
+# min_weeks : commande minimale exprimée en semaines de consommation du composant.
+supplier_profiles:
+  - {label: rapide, lead_time: 1, reliability: 97, cost: 1.15, min_weeks: 0.5}
+  - {label: standard, lead_time: 2, reliability: 92, cost: 1.0, min_weeks: 1}
+  - {label: economique, lead_time: 4, reliability: 84, cost: 0.82, min_weeks: 2.5}
+
+# Économie commune à tous les secteurs (taux appliqués aux coûts et prix de chaque produit).
+economy:
+  holding_rate_week: 0.0048     # coût de possession : 25 % par an de la valeur du stock
+  maintenance_rate: {aucune: 0.0, preventive: 0.10, renforcee: 0.25}   # x capacité x coût de transformation
+  trs_drift: {aucune: -2.5, preventive: 0.5, renforcee: 2.0}           # points de TRS par semaine
+  control_cost_rate: 0.08       # coût d'un contrôle, en part du coût de transformation de l'unité
+  interest_rate_week: 0.004     # agios sur trésorerie négative
+  price_elasticity: 1.5
+  transport:
+    economique: {on_time: 0.90, cost_rate: 0.02}
+    standard: {on_time: 0.97, cost_rate: 0.035}
+    express: {on_time: 0.995, cost_rate: 0.07}
+
+modules:
+  approvisionnement:
+    title: Approvisionnement
+    description: Commander les composants aux fournisseurs (délai, fiabilité, prix) avant que les lignes ne s'arrêtent.
+    role: {id: acheteur, title: Acheteur·se, mission: Commander les composants au bon moment et au bon fournisseur}
+    stations: [quai_reception, rack_composant]
+    agent: {name: Noah, job: Réceptionnaire au quai, character: char_worker_m, zone: quai_reception,
+            tasks: [réceptionner les livraisons des fournisseurs, suivre les commandes en cours, signaler les composants sous leur point de commande]}
+    actions:
+      - id: commander
+        label: Passer une commande
+        fields:
+          - {id: offer, label: Composant et fournisseur, type: choice, source: offers}
+          - {id: quantity, label: Quantité, type: int, min: 50, max: 6000, step: 50, default: 500}
+    autopilot: point de commande recalculé chaque semaine, fournisseur standard
+    notions: [point_de_commande, stock_de_securite, delai_et_fiabilite]
+  production:
+    title: Production
+    description: Fixer la quantité à fabriquer sur chaque ligne selon la demande, les stocks et les composants.
+    role: {id: responsable_production, title: Responsable de production, mission: Planifier les lignes pour servir la demande sans surstocker}
+    stations: [ligne]
+    agent: {name: Idriss, job: Chef d'atelier, character: char_worker_m, zone: lignes_avant,
+            tasks: [faire tourner les lignes, adapter le plan de production, prévenir quand un composant manque]}
+    actions:
+      - id: planifier
+        label: Planifier une ligne
+        fields:
+          - {id: line, label: Ligne, type: choice, source: lines}
+          - {id: quantity, label: Quantité à produire cette semaine, type: int, min: 0, max: 3000, step: 10, default: 200}
+    autopilot: chaque ligne vise deux semaines de couverture
+    notions: [planification_mrp, capacite_et_trs]
+  maintenance:
+    title: Maintenance
+    description: Entretenir les lignes pour garder leur rendement et éviter les pannes.
+    role: {id: responsable_maintenance, title: Responsable maintenance, mission: Garder le TRS des lignes au-dessus de l'objectif}
+    stations: [ligne]
+    agent: {name: Karim, job: Technicien de maintenance, character: char_worker_m, zone: lignes_arriere,
+            tasks: [entretenir les machines, surveiller l'usure des lignes, intervenir en cas de panne]}
+    actions:
+      - id: entretenir
+        label: Choisir l'entretien d'une ligne
+        fields:
+          - {id: line, label: Ligne, type: choice, source: lines}
+          - id: level
+            label: Niveau d'entretien
+            type: choice
+            options:
+              - {id: aucune, label: "Aucun : pas de coût, la ligne s'use"}
+              - {id: preventive, label: "Préventif : coût modéré, rendement stable"}
+              - {id: renforcee, label: "Renforcé : coût élevé, rendement en hausse"}
+    autopilot: entretien préventif sur toutes les lignes
+    notions: [capacite_et_trs, maintenance_preventive]
+  qualite:
+    title: Qualité
+    description: Régler le contrôle avant expédition pour éviter d'envoyer des défauts aux clients.
+    role: {id: responsable_qualite, title: Responsable qualité, mission: Limiter les retours clients au coût de contrôle le plus juste}
+    stations: [poste_qualite]
+    agent: {name: Léa, job: Contrôleuse qualité, character: char_worker_f, zone: qualite,
+            tasks: [contrôler les lots en sortie de ligne, suivre les retours clients, alerter sur les défauts]}
+    actions:
+      - id: controler
+        label: Régler le contrôle avant expédition
+        fields:
+          - id: rate
+            label: Part des lots contrôlés
+            type: choice
+            options:
+              - {id: "0", label: "Aucun contrôle : pas de coût, tous les défauts partent chez le client"}
+              - {id: "50", label: "Un lot sur deux : la moitié des défauts est arrêtée"}
+              - {id: "100", label: "Tous les lots : aucun défaut ne sort, coût maximal"}
+    autopilot: un lot sur deux contrôlé
+    notions: [qualite_a_la_source]
+  commercial:
+    title: Commercial
+    description: "Fixer les prix de vente : un prix bas attire la demande, mais il faut pouvoir la servir."
+    role: {id: commercial, title: Commercial·e, mission: Développer le chiffre d'affaires sans provoquer de ruptures}
+    stations: [bureau]
+    agent: {name: Hugo, job: Responsable commercial, character: char_manager_m, zone: bureau,
+            tasks: [suivre la demande de l'enseigne, préparer les prévisions, négocier les prix]}
+    actions:
+      - id: fixer_prix
+        label: Fixer un prix de vente
+        fields:
+          - {id: product, label: Produit, type: choice, source: products}
+          - id: price
+            label: Niveau de prix
+            type: choice
+            options:
+              - {id: "0.9", label: "Promotion : prix -10 %, demande en hausse"}
+              - {id: "1.0", label: "Prix catalogue"}
+              - {id: "1.1", label: "Prix +10 %, demande en baisse"}
+    autopilot: prix catalogue
+    notions: [prix_et_demande, rupture_de_stock]
+  transport:
+    title: Transport
+    description: Choisir le mode de livraison des magasins, entre coût et ponctualité.
+    role: {id: responsable_transport, title: Responsable transport, mission: Livrer à l'heure au juste coût}
+    stations: [quai_expedition]
+    agent: {name: Maya, job: Cariste et expéditions, character: char_worker_f, zone: quai_expedition,
+            tasks: [préparer les expéditions, charger les camions, suivre la ponctualité des livraisons]}
+    actions:
+      - id: choisir_mode
+        label: Choisir le mode de transport
+        fields:
+          - id: mode
+            label: Mode de transport
+            type: choice
+            options:
+              - {id: economique, label: "Groupage : le moins cher, 90 % à l'heure"}
+              - {id: standard, label: "Messagerie : 97 % à l'heure"}
+              - {id: express, label: "Express : le plus cher, 99,5 % à l'heure"}
+    autopilot: messagerie standard
+    notions: [otif, transport_cout_delai]
+  finance:
+    title: Finance
+    description: "Piloter la trésorerie : sans découvert, une commande qui la rendrait négative est refusée."
+    role: {id: controleur_gestion, title: Contrôleur·se de gestion, mission: Garder une trésorerie positive sans freiner l'activité}
+    stations: [bureau]
+    agent: {name: Sarah, job: Contrôleuse de gestion, character: char_office_f, zone: bureau,
+            tasks: [suivre la trésorerie, chiffrer le coût des stocks, valider les dépenses]}
+    actions:
+      - id: decouvert
+        label: Négocier le découvert bancaire
+        fields:
+          - id: limit
+            label: Découvert autorisé
+            type: choice
+            options:
+              - {id: "0", label: "Aucun : la trésorerie ne peut pas passer sous zéro"}
+              - {id: "20000", label: "20 000 € : intérêts de 0,4 % par semaine sur le solde négatif"}
+              - {id: "50000", label: "50 000 € : intérêts de 0,4 % par semaine sur le solde négatif"}
+    autopilot: pas de contrainte de trésorerie (le solde peut être négatif, il est seulement affiché)
+    notions: [cout_de_possession, rotation_des_stocks]
+
+# Agents qui ne pilotent pas de module : ils apportent la voix du client, du fournisseur ou de la direction.
+extra_agents:
+  client:
+    title: Acheteuse de l'enseigne
+    description: Réagit au service reçu (ruptures, retards, retours) et annonce les opérations commerciales.
+    name: Mme Durand
+    job: Acheteuse de l'enseigne cliente
+    character: char_manager_f
+    zone: quai_expedition
+    tasks: [suivre le taux de service de son fournisseur, annoncer les promotions de l'enseigne, se plaindre des ruptures]
+    notions: [otif, rupture_de_stock]
+  fournisseur:
+    title: Commercial fournisseur
+    description: Prévient des retards et des hausses de prix à venir chez les fournisseurs.
+    name: Paul
+    job: Commercial d'un fournisseur
+    character: char_driver_m
+    zone: quai_reception
+    tasks: [prévenir des retards de livraison, annoncer les hausses de prix, proposer des quantités]
+    notions: [delai_et_fiabilite]
+  direction:
+    title: Direction du site
+    description: Rappelle les objectifs, les semaines restantes et les écarts à combler.
+    name: Claire
+    job: Directrice du site
+    character: char_manager_f
+    zone: bureau
+    tasks: [fixer les objectifs, suivre les indicateurs, arbitrer les priorités]
+    notions: [otif, capacite_et_trs]
+
+personalities:
+  bienveillant:
+    label: Bienveillant
+    traits: chaleureux, encourageant, patient
+    style: tutoie, rassure, glisse parfois un conseil
+    prefix: "Petit point :"
+  exigeant:
+    label: Exigeant
+    traits: direct, attaché aux résultats, peu patient avec les erreurs
+    style: phrases sèches, va droit au chiffre
+    prefix: "Il faut agir :"
+  presse:
+    label: Pressé
+    traits: toujours entre deux tâches, efficace
+    style: très bref, presque télégraphique
+    prefix: "Vite :"
+  methodique:
+    label: Méthodique
+    traits: rigoureux, aime les chiffres exacts et les procédures
+    style: précis, donne les étapes dans l'ordre
+    prefix: "À noter :"
+  sceptique:
+    label: Sceptique
+    traits: prudent, se méfie des solutions miracles
+    style: pointe les risques, pose une question en retour
+    prefix: "Attention :"
+
+agent_tones:
+  bienveillant: {label: Bienveillants, personalities: [bienveillant, methodique]}
+  mixte: {label: Caractères variés, personalities: [methodique, exigeant, bienveillant, presse, sceptique]}
+  exigeant: {label: Exigeants, personalities: [exigeant, sceptique, presse]}
+
+events:
+  perturbation_maritime:
+    title: Perturbation maritime
+    description: Des retards de navires désorganisent les approvisionnements.
+    weight: 2
+    effects: {delay_risk: 0.25, demand: 1.05}
+    modules: [approvisionnement]
+  hausse_matieres:
+    title: Hausse des matières premières
+    description: Les prix d'achat des composants augmentent de 10 %.
+    weight: 2
+    effects: {cost: 1.10}
+    modules: [approvisionnement, finance]
+  operation_promotionnelle:
+    title: Opération promotionnelle de l'enseigne
+    description: "L'enseigne met vos produits en avant : la demande grimpe de 25 % sur la semaine."
+    weight: 2
+    effects: {demand: 1.25}
+    modules: [commercial, production]
+  creux_de_demande:
+    title: Creux de demande
+    description: "Les magasins vendent moins cette semaine : la demande baisse de 20 %."
+    weight: 1
+    effects: {demand: 0.8}
+    modules: [commercial, production]
+  panne_ligne:
+    title: Panne sur une ligne
+    description: Une ligne tombe en panne et ne tourne qu'à 40 % de sa capacité réelle.
+    weight: 2
+    effects: {breakdown: 1}
+    modules: [maintenance, production]
+  greve_transport:
+    title: Grève des transporteurs
+    description: "Les tournées sont perturbées : 15 points de ponctualité en moins."
+    weight: 1
+    effects: {on_time: -0.15}
+    modules: [transport]
+  lot_defectueux:
+    title: Lot de composants défectueux
+    description: Un lot reçu génère 4 points de défauts en plus sur la production.
+    weight: 1
+    effects: {defects: 0.04}
+    modules: [qualite]
+
+events_levels:
+  aucun: {label: Aucun aléa, probability: 0}
+  rares: {label: Aléas rares, probability: 0.25}
+  frequents: {label: Aléas fréquents, probability: 0.5}
+
+# Notions transmises par les agents et rappelées au débrief. `source` : fiche du corpus knowledge/supply-chain
+# (la citation exacte est lue dans son en-tête « > Source : ») ou `citation` écrite ici.
+notions:
+  point_de_commande:
+    title: Point de commande
+    text: On recommande quand le stock, commandes en cours comprises, passe sous le point de commande, égal à la consommation prévue pendant le délai d'approvisionnement plus le stock de sécurité.
+    source: wikipedia-en-reorder-point
+  stock_de_securite:
+    title: Stock de sécurité
+    text: Le stock de sécurité couvre l'incertitude de la demande et des délais ; plus ils sont imprévisibles et plus le service visé est élevé, plus il doit être important.
+    source: wikipedia-fr-stock-de-securite
+  delai_et_fiabilite:
+    title: Délai et fiabilité des fournisseurs
+    text: Des délais de réapprovisionnement longs ou aléatoires obligent à commander plus tôt et à garder davantage de stock de sécurité ; le prix n'est qu'un critère de choix parmi d'autres.
+    source: wikipedia-fr-stock-de-securite
+  planification_mrp:
+    title: Calcul des besoins (MRP)
+    text: Le calcul des besoins part de la demande prévue pour planifier la production et les composants nécessaires ; une ligne sans composant s'arrête.
+    source: wikipedia-en-material-requirements-planning
+  capacite_et_trs:
+    title: Taux de rendement synthétique (TRS)
+    text: Le TRS (OEE en anglais) rapporte la production de pièces bonnes à ce que la ligne produirait sans arrêt, à pleine cadence ; pannes, ralentissements et rebuts le font baisser, et la capacité réelle avec lui.
+    source: wikipedia-en-overall-equipment-effectiveness   # NF E60-182 : norme payante non lue, retirée (28/10/2026)
+  maintenance_preventive:
+    title: Maintenance préventive
+    text: Le lean classe les pannes parmi les gaspillages ; entretenir avant la panne a un coût, mais préserve la capacité réelle des lignes.
+    source: wikipedia-fr-lean-production
+  qualite_a_la_source:
+    title: Qualité à la source
+    text: Le lean vise à arrêter la production au premier défaut (andon) et à intégrer la qualité dès la conception ; un défaut non détecté part chez le client et revient en retour.
+    source: wikipedia-fr-lean-production
+  prix_et_demande:
+    title: Prix, promotions et effet coup de fouet
+    text: Les variations de prix et les promotions font varier la demande et amplifient l'effet coup de fouet (bullwhip) le long de la chaîne logistique.
+    source: wikipedia-en-bullwhip-effect
+  rupture_de_stock:
+    title: Rupture de stock
+    text: Une rupture rend la référence indisponible à la vente ; la vente est perdue et le taux de service baisse.
+    source: wikipedia-fr-rupture-de-stock
+  otif:
+    title: OTIF (à l'heure et complet)
+    text: Le modèle SCOR mesure la performance de livraison comme la part des produits livrés à temps et en totalité à la date promise.
+    source: wikipedia-en-supply-chain-operations-reference
+  transport_cout_delai:
+    title: Transport, coût et délai
+    text: La logistique externe (transport, livraison) doit maîtriser à la fois les coûts et les délais ; un transport plus rapide et plus sûr coûte plus cher.
+    source: wikipedia-fr-logistique
+  cout_de_possession:
+    title: Coût de possession du stock
+    text: Garder du stock coûte, proportionnellement au stock moyen ; la formule de Wilson met ce coût en balance avec le coût de passation des commandes.
+    source: wikipedia-fr-formule-de-wilson
+  rotation_des_stocks:
+    title: Rotation des stocks
+    text: La rotation des stocks (coût des ventes divisé par le stock moyen) montre si l'entreprise garde trop de stock par rapport à ses ventes.
+    source: wikipedia-en-inventory-turnover
+
+themes:
+  industrie:
+    label: Industrie des biens de consommation
+    description: Une PME fabrique des articles de rangement et d'équipement et livre les magasins d'une enseigne.
+    companies: [Atelier Nord, Manufacture Horizon, Ateliers du Rhône]
+    client: Magasins Horizon
+    products:
+      - name: Gourde isotherme
+        category: Accessoire nomade
+        price: 13
+        cost: 2.6
+        demand: 160
+        line: Ligne Conditionnement
+        component:
+          name: Corps en inox
+          cost: 4.2
+          suppliers: [[Inox Rhône-Alpes, Lyon], [Acier & Alliages Ouest, Nantes], [Métaux Express Import, Le Havre]]
+      - name: Boîte hermétique
+        category: Rangement cuisine
+        price: 10
+        cost: 1.9
+        demand: 200
+        line: Ligne Moulage
+        component:
+          name: Granulés de polymère recyclé
+          cost: 2.8
+          suppliers: [[PolyNord Matières, Lille], [Résines Atlantique, Bordeaux], [Plasturgie Orient Import, Marseille]]
+      - name: Organiseur modulaire
+        category: Rangement maison
+        price: 16
+        cost: 3.2
+        demand: 120
+        line: Ligne Assemblage
+        component:
+          name: Panneaux modulaires
+          cost: 5.0
+          suppliers: [[Panneaux du Centre, Clermont-Ferrand], [Emballages ÉcoSud, Toulouse], [Modulo Import, Le Havre]]
+      - name: Lampe atelier LED
+        category: Éclairage
+        price: 22
+        cost: 4.0
+        demand: 90
+        line: Ligne Montage
+        component:
+          name: Kit LED et alimentation
+          cost: 8.5
+          suppliers: [[Électro Composants Bretagne, Rennes], [Lumière & Circuits, Grenoble], [LED Import Asie, Le Havre]]
+  agroalimentaire:
+    label: Agroalimentaire
+    description: Une conserverie produit des desserts et des boissons pour les supermarchés d'une enseigne régionale.
+    companies: [Conserverie du Val, Saveurs de l'Ouest, Les Ateliers Gourmands]
+    client: Supermarchés Rivage
+    products:
+      - name: Compote de pommes (pack de 4)
+        category: Desserts
+        price: 3.2
+        cost: 0.7
+        demand: 420
+        line: Ligne Cuisson
+        component:
+          name: Purée de pommes
+          cost: 0.9
+          suppliers: [[Vergers du Val de Loire, Tours], [Coopérative fruitière du Limousin, Limoges], [Fruits Import Méditerranée, Marseille]]
+      - name: Jus d'orange (1 L)
+        category: Boissons
+        price: 2.6
+        cost: 0.5
+        demand: 500
+        line: Ligne Embouteillage
+        component:
+          name: Concentré d'orange
+          cost: 0.8
+          suppliers: [[Agrumes de Corse, Bastia], [Jus et Concentrés Atlantique, Bordeaux], [Concentrés d'Outre-Mer Import, Le Havre]]
+      - name: Biscuits sablés (boîte)
+        category: Biscuiterie
+        price: 2.9
+        cost: 0.6
+        demand: 380
+        line: Ligne Four
+        component:
+          name: Farine et beurre
+          cost: 0.7
+          suppliers: [[Moulins de Beauce, Chartres], [Coopérative céréalière de Champagne, Reims], [Ingrédients de Loire, Tours]]
+      - name: Confiture de fraises (pot)
+        category: Confiserie
+        price: 3.5
+        cost: 0.8
+        demand: 260
+        line: Ligne Mise en pot
+        component:
+          name: Fraises surgelées
+          cost: 1.1
+          suppliers: [[Fraises du Périgord, Périgueux], [Surgelés de Bretagne, Quimper], [Fruits Import Méditerranée, Marseille]]
+  sante:
+    label: Santé et dispositifs médicaux
+    description: Un laboratoire fabrique des produits d'hygiène et de soin pour un réseau de pharmacies.
+    companies: [Laboratoires Alpin, Soins & Cie, Médiplast Ouest]
+    client: Réseau Pharmacies Santé Plus
+    products:
+      - name: Gel hydroalcoolique (500 ml)
+        category: Hygiène
+        price: 4.5
+        cost: 0.9
+        demand: 300
+        line: Ligne Remplissage
+        component:
+          name: Éthanol pharmaceutique
+          cost: 1.3
+          suppliers: [[Alcools de Normandie, Caen], [Chimie Pharma Sud, Montpellier], [Éthanol Import Europe, Anvers]]
+      - name: Pansements (boîte de 20)
+        category: Soin
+        price: 3.8
+        cost: 0.8
+        demand: 340
+        line: Ligne Découpe
+        component:
+          name: Rouleaux de non-tissé
+          cost: 1.0
+          suppliers: [[Non-Tissés des Vosges, Épinal], [Textiles Médicaux Lyonnais, Lyon], [Medtex Import, Marseille]]
+      - name: Masques chirurgicaux (boîte de 50)
+        category: Protection
+        price: 6.0
+        cost: 1.2
+        demand: 280
+        line: Ligne Thermosoudage
+        component:
+          name: Filtre meltblown
+          cost: 1.9
+          suppliers: [[Filtration Alsace, Mulhouse], [Polymères Santé Ouest, Nantes], [Filtres Asie Import, Le Havre]]
+      - name: Sérum physiologique (40 unidoses)
+        category: Soin
+        price: 3.2
+        cost: 0.6
+        demand: 360
+        line: Ligne Conditionnement stérile
+        component:
+          name: Unidoses vides
+          cost: 0.9
+          suppliers: [[Plasturgie médicale du Jura, Oyonnax], [Flaconnage Atlantique, La Rochelle], [Pack Med Import, Marseille]]
+  automobile:
+    label: Équipement automobile
+    description: Un équipementier fournit des pièces de rechange à la centrale d'achat d'un réseau de garages.
+    companies: [Équipements Véloce, Mécaparts Est, Atelier Auto Loire]
+    client: Centrale Garages Réunis
+    products:
+      - name: Plaquettes de frein (jeu)
+        category: Freinage
+        price: 18
+        cost: 3.5
+        demand: 150
+        line: Ligne Pressage
+        component:
+          name: Matériau de friction
+          cost: 6.0
+          suppliers: [[Friction Industrie Loire, Saint-Étienne], [Matériaux Techniques du Nord, Valenciennes], [Brake Materials Import, Le Havre]]
+      - name: Filtre à huile
+        category: Entretien
+        price: 7.5
+        cost: 1.6
+        demand: 260
+        line: Ligne Sertissage
+        component:
+          name: Cartouches filtrantes
+          cost: 2.4
+          suppliers: [[Filtration Alsace, Mulhouse], [Papiers Techniques de l'Isère, Grenoble], [Filter Parts Import, Marseille]]
+      - name: Rétroviseur extérieur
+        category: Carrosserie
+        price: 34
+        cost: 6.0
+        demand: 70
+        line: Ligne Injection
+        component:
+          name: Kit miroir et coque
+          cost: 12.0
+          suppliers: [[Verre et Plastiques de Franche-Comté, Besançon], [Optique Auto Ouest, Cholet], [Mirror Parts Import, Le Havre]]
+      - name: Faisceau électrique
+        category: Électricité
+        price: 28
+        cost: 5.5
+        demand: 90
+        line: Ligne Câblage
+        component:
+          name: Câbles et connecteurs
+          cost: 9.5
+          suppliers: [[Câblerie de Normandie, Évreux], [Connectique Bretagne, Lannion], [Wiring Import Maghreb, Marseille]]

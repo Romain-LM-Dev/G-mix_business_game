@@ -1,5 +1,5 @@
 extends Node
-## Canal temps réel WebSocket vers l'API : événements du pipeline (génération, lobby) relayés depuis Kafka.
+## Canal temps réel WebSocket vers l'API : événements du lobby (état, participants) relayés depuis Kafka.
 ## Messages JSON {type, payload, meta}. Les positions des joueurs NE passent PAS ici (réseau Godot dédié).
 ## Reconnexion automatique tant que l'utilisateur est connecté ; le lobby suivi est réabonné à chaque connexion.
 
@@ -82,8 +82,6 @@ func _route(type: String, payload: Dictionary) -> void:
 			EventBus.lobby_state_changed.emit(payload)
 		"lobby.members":
 			EventBus.lobby_members_changed.emit(payload.get("members", []))
-		"generation.progress", "generation.completed", "generation.failed":
-			EventBus.generation_event.emit(type, payload)
 
 
 func _retry() -> void:

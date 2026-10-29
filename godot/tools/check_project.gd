@@ -19,6 +19,14 @@ func _initialize() -> void:
 			var scene := load(path) as PackedScene
 			if scene == null or not scene.can_instantiate():
 				failures.append(path)
+	# Fenêtre de référence de l'interface (voir scenes/common/ui.gd) : la zone visible ne descend jamais sous 1280x720.
+	var base := Vector2i(
+		int(ProjectSettings.get_setting("display/window/size/viewport_width")),
+		int(ProjectSettings.get_setting("display/window/size/viewport_height"))
+	)
+	var stretch := "%s/%s" % [ProjectSettings.get_setting("display/window/stretch/mode"), ProjectSettings.get_setting("display/window/stretch/aspect")]
+	if base != Vector2i(1280, 720) or stretch != "canvas_items/expand":
+		failures.append("project.godot : fenêtre de référence 1280x720, étirement canvas_items, aspect expand (trouvé %s, %s)" % [base, stretch])
 	print("Fichiers vérifiés : %d, en échec : %d" % [files.size(), failures.size()])
 	for path in failures:
 		printerr("ÉCHEC %s" % path)

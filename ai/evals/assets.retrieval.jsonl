@@ -10,3 +10,14 @@
 {"need": "contrôler les colis à la réception", "expected": ["prop_scanner_gate"]}
 {"need": "chauffeur qui livre le client", "expected": ["char_driver_m"]}
 {"need": "fournisseur de matières premières en amont", "expected": ["bld_factory_plant"]}
+{"need": "montrer l'état d'une machine de la ligne : en marche, en panne ou à l'arrêt", "expected": ["prop_machine"]}
+{"need": "pièces qui patientent entre deux machines de la ligne", "expected": ["prop_buffer_table"]}
+{"need": "porte par laquelle le camion du fournisseur décharge les palettes", "expected": ["prop_dock_door"]}
+{"need": "délimiter au sol la zone de quarantaine des pièces non conformes", "expected": ["prop_floor_zone"]}
+{"need": "déplacer une palette à la main du quai vers la zone de contrôle", "expected": ["veh_pallet_jack"]}
+{"need": "poste du contrôleur qui mesure les pièces une à une", "expected": ["prop_inspection_table"]}
+{"need": "jeter les pièces défectueuses après le contrôle", "expected": ["prop_scrap_bin"]}
+{"need": "mettre les pièces conformes en cartons avant l'expédition", "expected": ["prop_packing_table"]}
+{"need": "envelopper de film plastique la palette avant son stockage", "expected": ["prop_pallet_wrapper"]}
+{"need": "atelier du technicien qui répare les machines en panne", "expected": ["prop_workbench"]}
+{"need": "afficher la liste des ordres de fabrication en cours sur la ligne", "expected": ["prop_wall_board"]}

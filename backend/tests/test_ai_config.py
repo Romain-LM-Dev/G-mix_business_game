@@ -1,16 +1,13 @@
-"""Cohérence des fichiers de configuration IA (ai/) : catalogue, schémas, prompts, domaines."""
-
-import json
-import re
+"""Cohérence des fichiers de configuration IA (ai/) : catalogue, prompts, domaines, contenu des simulations."""
 
 import pytest
-from jsonschema import Draft202012Validator
 
 from gmix.assets_catalog import load_assets_catalog
 from gmix.db.models import EMBED_DIM
 from gmix.domains import load_domains
-from gmix.game.world import load_world_templates, template_zones
-from gmix.llm import schemas
+from gmix.game import engine
+from gmix.game.generation import ZONE_ROUTES
+from gmix.game.spec import load_sim_catalog
 from gmix.llm.catalog import load_catalog
 from gmix.llm.prompts import load_prompt, load_questions
 from gmix.llm.tokens import estimate_tokens
@@ -26,17 +23,6 @@ def test_catalog_is_consistent() -> None:
 
 def test_embedding_dims_match_database_column() -> None:
     assert load_catalog().embedding_model().dims == EMBED_DIM
-
-
-def test_every_schema_file_is_valid() -> None:
-    for path in (AI_DIR / "schemas").glob("*.schema.json"):
-        Draft202012Validator.check_schema(json.loads(path.read_text(encoding="utf-8")))
-
-
-def test_json_tasks_point_to_existing_schemas() -> None:
-    for task in load_catalog().tasks.values():
-        if task.output == "json":
-            Draft202012Validator.check_schema(schemas.resolve(task.schema_ref))
 
 
 @pytest.mark.parametrize("path", PROMPT_FILES, ids=lambda p: p.stem)
@@ -67,23 +53,39 @@ def test_decision_questions_belong_to_decision_tasks() -> None:
             assert question["type"] in {"choice", "noul", "score"}
 
 
-def test_domains_are_valid_and_cover_the_example(example_spec) -> None:
+def test_domains_are_valid() -> None:
     slugs = {d.slug for d in load_domains()}
-    assert len(slugs) >= 10
-    assert example_spec["meta"]["domain"] in slugs
+    assert len(slugs) >= 10 and "supply-chain" in slugs
 
 
-def test_world_templates_use_catalog_assets(example_spec) -> None:
-    catalog = load_assets_catalog().by_id()
-    categories = {a.category for a in catalog.values()}
-    for template in load_world_templates().values():
-        zones = template["zones"]
-        assert len(zones) <= 8 and len({z["id"] for z in zones}) == len(zones)
-        for zone in zones:
-            assert re.fullmatch(r"^[a-z][a-z0-9_]*$", zone["id"])
-            assert set(zone["categories"]) <= categories
-            assert zone["defaults"] and set(zone["defaults"]) <= catalog.keys(), zone["id"]
-            assert catalog[zone["defaults"][0]].category == "building"  # le bâtiment principal ouvre la liste
-    world = example_spec["world"]
-    assert {z["id"] for z in world["zones"]} <= template_zones(world["template"]).keys()
-    assert {a for z in world["zones"] for a in z["asset_ids"]} <= catalog.keys()
+def test_simulation_catalog_matches_the_engine_and_the_assets() -> None:
+    """ai/simulation.yaml se modifie à la main : chaque action, option, agent et aléa doit exister côté moteur."""
+    catalog = load_sim_catalog()
+    assets = load_assets_catalog().by_id()
+    options = {
+        ("maintenance", "level"): set(catalog["economy"]["maintenance_rate"]),
+        ("qualite", "rate"): set(engine.CONTROL_RATES),
+        ("commercial", "price"): set(engine.PRICE_LEVELS),
+        ("transport", "mode"): set(catalog["economy"]["transport"]),
+        ("finance", "limit"): set(engine.OVERDRAFTS),
+    }
+    for module_id, module in catalog["modules"].items():
+        for action in module["actions"]:
+            assert (module_id, action["id"]) in engine._HANDLERS
+            for field in action["fields"]:
+                if field.get("options"):
+                    assert {o["id"] for o in field["options"]} == options[(module_id, field["id"])]
+    agents = [m["agent"] | {"notions": m["notions"]} for m in catalog["modules"].values()]
+    for agent in agents + list(catalog["extra_agents"].values()):
+        assert assets[agent["character"]].category == "character"
+        assert agent["zone"] in ZONE_ROUTES or agent["zone"] in {"lignes_avant", "lignes_arriere"}
+        assert set(agent["notions"]) <= catalog["notions"].keys()
+    assert all(n["citation"] for n in catalog["notions"].values())
+    for tone in catalog["agent_tones"].values():
+        assert set(tone["personalities"]) <= catalog["personalities"].keys()
+    for event in catalog["events"].values():
+        assert set(event["modules"]) <= catalog["modules"].keys()
+        assert set(event["effects"]) <= {"delay_risk", "demand", "cost", "breakdown", "on_time", "defects"}
+    for theme in catalog["themes"].values():
+        assert len(theme["products"]) >= 4  # GameParams.products va jusqu'à 4
+        assert all(len(p["component"]["suppliers"]) == len(catalog["supplier_profiles"]) for p in theme["products"])

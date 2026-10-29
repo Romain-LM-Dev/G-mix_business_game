@@ -21,14 +21,8 @@ class Topic:
 
 SYSTEM_PING = Topic("gmix.system.ping", 1, HOUR_MS, "Diagnostic : requête de test du pipeline (API -> worker)")
 SYSTEM_PONG = Topic("gmix.system.pong", 1, HOUR_MS, "Diagnostic : réponse du worker (worker -> API -> WebSocket)")
-GENERATION_COMMANDS = Topic(
-    "gmix.generation.commands", 3, 7 * DAY_MS, "Demandes de génération / régénération de business game"
-)
-GENERATION_EVENTS = Topic(
-    "gmix.generation.events", 3, 7 * DAY_MS, "Progression et résultat des générations (stage, completed, failed)"
-)
 GAME_EVENTS = Topic(
-    "gmix.game.events", 3, 30 * DAY_MS, "Décisions des joueurs et événements de partie (scores, KPI, aléas)"
+    "gmix.game.events", 3, 30 * DAY_MS, "Actions des joueurs et semaines simulées (état public diffusé au lobby)"
 )
 NPC_TRANSCRIPTS = Topic(
     "gmix.npc.transcripts", 3, 30 * DAY_MS, "Dialogues PNJ terminés (évaluation pédagogique, analytics)"
@@ -41,8 +35,6 @@ DLQ = Topic("gmix.dlq", 1, 30 * DAY_MS, "Messages en échec (dead letter queue) 
 ALL_TOPICS: tuple[Topic, ...] = (
     SYSTEM_PING,
     SYSTEM_PONG,
-    GENERATION_COMMANDS,
-    GENERATION_EVENTS,
     GAME_EVENTS,
     NPC_TRANSCRIPTS,
     RAG_COMMANDS,

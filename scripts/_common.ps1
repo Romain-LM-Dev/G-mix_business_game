@@ -47,3 +47,44 @@ function ConvertTo-Version([string]$Text) {
     if ($Text -match '^(\d+)\.(\d+)\.(\d+)') { return [version]"$($Matches[1]).$($Matches[2]).$($Matches[3])" }
     return [version]'0.0.0'
 }
+
+## Journal complet d'une exécution : %TEMP%\gmix_logs\<horodatage>-<nom>-<pid>.log (chemin affiché par les scripts).
+function New-LogPath([string]$Name) {
+    $dir = Join-Path $env:TEMP 'gmix_logs'
+    New-Item -ItemType Directory -Force -Path $dir | Out-Null
+    return Join-Path $dir ('{0}-{1}-{2}.log' -f (Get-Date -Format 'yyyyMMdd-HHmmss'), $Name, $PID)
+}
+
+## Ajoute une section au journal (UTF-8 sans BOM, plusieurs sections possibles dans le même fichier).
+function Add-Journal([string]$LogPath, [string]$Title, $Lines) {
+    $text = @("=== $Title ===") + @($Lines | Where-Object { $null -ne $_ })
+    [IO.File]::AppendAllLines($LogPath, [string[]]$text, (New-Object Text.UTF8Encoding $false))
+}
+
+## Lance un exécutable en séparant sortie et erreurs (pas de 2>&1 : PowerShell 5.1 en ferait des erreurs).
+## Le journal reçoit toute la sortie ; renvoie Code, Out et Err.
+function Invoke-Captured([string]$Exe, [string[]]$Arguments, [string]$LogPath, [string]$Title) {
+    $outFile = [IO.Path]::GetTempFileName()
+    $errFile = [IO.Path]::GetTempFileName()
+    $quoted = @($Arguments | ForEach-Object { if ($_ -match '\s' -or $_ -eq '') { '"' + $_ + '"' } else { $_ } })
+    try {
+        $process = Start-Process -FilePath $Exe -ArgumentList $quoted -NoNewWindow -Wait -PassThru `
+            -RedirectStandardOutput $outFile -RedirectStandardError $errFile
+        $out = @(Get-Content -LiteralPath $outFile -Encoding UTF8)
+        $err = @(Get-Content -LiteralPath $errFile -Encoding UTF8)
+    } finally {
+        Remove-Item -LiteralPath $outFile, $errFile -ErrorAction SilentlyContinue
+    }
+    Add-Journal $LogPath $Title ($out + $err)
+    return @{ Code = $process.ExitCode; Out = $out; Err = $err }
+}
+
+## Sortie complète d'une exécution capturée (mode -Full).
+function Write-Raw($Run) { foreach ($line in (@($Run.Out) + @($Run.Err))) { Write-Host $line } }
+
+## Détail d'échec plafonné : au plus $Max lignes affichées, le reste est dans le journal.
+function Write-Capped($Lines, [int]$Max) {
+    $items = @($Lines | Where-Object { $null -ne $_ })
+    foreach ($line in @($items | Select-Object -First $Max)) { Write-Host "    $line" }
+    if ($items.Count -gt $Max) { Write-Host "    ... $($items.Count - $Max) ligne(s) de plus dans le journal" }
+}

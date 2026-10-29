@@ -1,0 +1,3342 @@
+{
+ "_note": "Fichier d'exemple tiré de l'annexe de l'ADR 0007 (placement de démonstration, pas la génération du moteur) : spec usine à 3 lignes, valide contre gmix.game.spec.SimSpec",
+ "kind": "simulation",
+ "version": 2,
+ "seed": 20261029,
+ "meta": {
+  "title": "Ateliers Métal Loire · Équipement en acier (exemple usine)",
+  "company": "Ateliers Métal Loire",
+  "client": "Brico Distribution",
+  "theme": "industrie",
+  "theme_label": "Équipement en acier",
+  "pitch": "Une PME soude des équipements en acier pour un distributeur de bricolage.",
+  "difficulty": "equilibre",
+  "difficulty_label": "Équilibré",
+  "weeks": 6,
+  "players": {
+   "min": 2,
+   "max": 6
+  },
+  "language": "fr",
+  "domain": "supply-chain",
+  "pack": "usine"
+ },
+ "params": {
+  "pack": "usine",
+  "theme": "industrie",
+  "modules": [
+   "pilotage",
+   "production",
+   "maintenance"
+  ],
+  "extra_agents": [],
+  "agent_tone": "mixte",
+  "difficulty": "equilibre",
+  "weeks": 6,
+  "events": "rares",
+  "products": 1,
+  "options": {
+   "lines": 3
+  },
+  "company_name": "Ateliers Métal Loire",
+  "players_min": 2,
+  "players_max": 6,
+  "seed": 20261029
+ },
+ "products": [
+  {
+   "id": "p1",
+   "name": "Tabouret d'atelier",
+   "category": "Mobilier d'atelier",
+   "price": 38,
+   "unit_cost": 7.5,
+   "demand": 1100,
+   "component_id": "c1",
+   "line_id": "l1",
+   "initial_stock": 240,
+   "safety_stock": 120
+  }
+ ],
+ "components": [
+  {
+   "id": "c1",
+   "name": "Kit tubes et assise en acier",
+   "unit_cost": 11,
+   "usage": 1000,
+   "initial_stock": 600,
+   "safety_stock": 200,
+   "product_id": "p1"
+  }
+ ],
+ "suppliers": [
+  {
+   "id": "s1",
+   "name": "Tubes et Profilés de Lorraine",
+   "region": "Nancy"
+  },
+  {
+   "id": "s2",
+   "name": "Aciers du Rhône",
+   "region": "Lyon"
+  },
+  {
+   "id": "s3",
+   "name": "Steel Kits Import",
+   "region": "Le Havre"
+  }
+ ],
+ "offers": [
+  {
+   "id": "o1",
+   "supplier_id": "s1",
+   "component_id": "c1",
+   "profile": "rapide",
+   "lead_time": 1,
+   "reliability": 97,
+   "unit_cost": 12.32,
+   "min_order": 1,
+   "label": "Tubes et Profilés de Lorraine (Nancy) : rapide"
+  },
+  {
+   "id": "o2",
+   "supplier_id": "s2",
+   "component_id": "c1",
+   "profile": "standard",
+   "lead_time": 3,
+   "reliability": 95,
+   "unit_cost": 11.0,
+   "min_order": 1,
+   "label": "Aciers du Rhône (Lyon) : standard"
+  },
+  {
+   "id": "o3",
+   "supplier_id": "s3",
+   "component_id": "c1",
+   "profile": "economique",
+   "lead_time": 5,
+   "reliability": 85,
+   "unit_cost": 9.68,
+   "min_order": 4,
+   "label": "Steel Kits Import (Le Havre) : economique"
+  }
+ ],
+ "lines": [
+  {
+   "id": "l1",
+   "name": "Ligne 1",
+   "product_id": "p1",
+   "capacity": 840,
+   "trs": 80,
+   "label": "Ligne 1 : Tabouret d'atelier"
+  },
+  {
+   "id": "l2",
+   "name": "Ligne 2",
+   "product_id": "p1",
+   "capacity": 840,
+   "trs": 80,
+   "label": "Ligne 2 : Tabouret d'atelier"
+  },
+  {
+   "id": "l3",
+   "name": "Ligne 3",
+   "product_id": "p1",
+   "capacity": 840,
+   "trs": 80,
+   "label": "Ligne 3 : Tabouret d'atelier"
+  }
+ ],
+ "modules": [
+  {
+   "id": "pilotage",
+   "title": "Pilotage",
+   "description": "Lancer les ordres de fabrication et acheter la matière pour livrer chaque commande à la date promise.",
+   "role_id": "responsable_production",
+   "stations": [
+    "pilotage"
+   ],
+   "actions": [
+    {
+     "id": "lancer_of",
+     "label": "Lancer des ordres de fabrication",
+     "fields": [
+      {
+       "id": "line",
+       "label": "Ligne",
+       "type": "choice",
+       "source": "lines"
+      },
+      {
+       "id": "lots",
+       "label": "Nombre de lots de 24",
+       "type": "int",
+       "min": 1,
+       "max": 40,
+       "step": 1,
+       "default": 5
+      }
+     ]
+    },
+    {
+     "id": "commander_mp",
+     "label": "Commander la matière première",
+     "fields": [
+      {
+       "id": "offer",
+       "label": "Matière et fournisseur",
+       "type": "choice",
+       "source": "offers"
+      },
+      {
+       "id": "pallets",
+       "label": "Palettes (un camion)",
+       "type": "int",
+       "min": 1,
+       "max": 6,
+       "step": 1,
+       "default": 4
+      }
+     ]
+    }
+   ],
+   "autopilot": "OF quand stock PF + encours passe sous une journée de demande ; MP au point de commande (consommation pendant le délai + 1 jour), fournisseur standard",
+   "notions": [
+    "point_de_commande",
+    "stock_de_securite",
+    "delai_et_fiabilite",
+    "otif",
+    "loi_de_little",
+    "takt_time",
+    "charge_et_attente"
+   ]
+  },
+  {
+   "id": "production",
+   "title": "Production",
+   "description": "Protéger le goulot de chaque ligne pour que pauses et pannes en amont ne lui fassent pas perdre de temps.",
+   "role_id": "chef_de_ligne",
+   "stations": [
+    "tableau_ligne",
+    "machine"
+   ],
+   "actions": [
+    {
+     "id": "proteger_goulot",
+     "label": "Protéger le goulot d'une ligne",
+     "fields": [
+      {
+       "id": "line",
+       "label": "Ligne",
+       "type": "choice",
+       "source": "lines"
+      },
+      {
+       "id": "mode",
+       "label": "Protection",
+       "type": "choice",
+       "options": [
+        {
+         "id": "aucune",
+         "label": "Aucune : le goulot s'arrête aux pauses et quand l'amont s'arrête"
+        },
+        {
+         "id": "releve_pauses",
+         "label": "Relève : le chef de ligne fait tourner le goulot pendant les pauses (une seule ligne à la fois)"
+        },
+        {
+         "id": "tampon_avant",
+         "label": "Tampon : table de 30 produits devant le goulot, plus d'encours"
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "autopilot": "aucune protection",
+   "notions": [
+    "goulot",
+    "tampon_avant_goulot",
+    "rendement_en_cascade",
+    "capacite_et_trs",
+    "changement_de_serie"
+   ]
+  },
+  {
+   "id": "maintenance",
+   "title": "Maintenance",
+   "description": "Choisir où faire le préventif et dans quel ordre réparer, avec un seul technicien.",
+   "role_id": "responsable_maintenance",
+   "stations": [
+    "maintenance",
+    "machine"
+   ],
+   "actions": [
+    {
+     "id": "preventif",
+     "label": "Programmer le préventif d'une ligne",
+     "fields": [
+      {
+       "id": "line",
+       "label": "Ligne",
+       "type": "choice",
+       "source": "lines"
+      },
+      {
+       "id": "cible",
+       "label": "Machines entretenues chaque semaine",
+       "type": "choice",
+       "options": [
+        {
+         "id": "aucune",
+         "label": "Aucune : pas de coût, l'usure s'accumule"
+        },
+        {
+         "id": "goulot",
+         "label": "Le goulot : une intervention pendant une pause"
+        },
+        {
+         "id": "toutes",
+         "label": "Les 4 machines : plus de coût et de temps de technicien"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": "priorite_reparation",
+     "label": "Régler l'ordre des réparations",
+     "fields": [
+      {
+       "id": "ordre",
+       "label": "Ordre",
+       "type": "choice",
+       "options": [
+        {
+         "id": "arrivee",
+         "label": "Dans l'ordre d'arrivée des pannes"
+        },
+        {
+         "id": "goulot",
+         "label": "Les goulots d'abord"
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "autopilot": "préventif sur le goulot de chaque ligne, réparations dans l'ordre d'arrivée",
+   "notions": [
+    "disponibilite",
+    "pannes_par_usure",
+    "maintenance_preventive",
+    "goulot"
+   ]
+  }
+ ],
+ "roles": [
+  {
+   "id": "responsable_production",
+   "title": "Responsable de production",
+   "mission": "Livrer les commandes à l'heure sans rupture de matière ni stock inutile",
+   "module_id": "pilotage"
+  },
+  {
+   "id": "chef_de_ligne",
+   "title": "Chef·fe de ligne",
+   "mission": "Faire tourner le goulot de chaque ligne le plus longtemps possible",
+   "module_id": "production"
+  },
+  {
+   "id": "responsable_maintenance",
+   "title": "Responsable maintenance",
+   "mission": "Garder les goulots disponibles au juste coût",
+   "module_id": "maintenance"
+  }
+ ],
+ "agents": [
+  {
+   "id": "agent_fournisseur",
+   "name": "Paul",
+   "job": "Commercial du fournisseur",
+   "kind": "fournisseur",
+   "module_id": null,
+   "department_id": "fournisseur",
+   "facts": "usine_fournisseur",
+   "personality": {
+    "id": "methodique",
+    "label": "Méthodique",
+    "traits": "rigoureux, aime les chiffres exacts et les procédures",
+    "style": "précis, donne les étapes dans l'ordre",
+    "prefix": "À noter :"
+   },
+   "tasks": [
+    "recevoir les commandes de l'usine",
+    "préparer les palettes",
+    "envoyer le camion avec le bon de livraison"
+   ],
+   "character": "char_manager_m",
+   "zone": "fournisseur",
+   "route": [
+    [
+     -38.0,
+     23
+    ],
+    [
+     -32.0,
+     23
+    ],
+    [
+     -32.0,
+     19
+    ],
+    [
+     -38.0,
+     19
+    ]
+   ],
+   "notions": [
+    "delai_et_fiabilite"
+   ]
+  },
+  {
+   "id": "agent_reception",
+   "name": "Noah",
+   "job": "Réceptionnaire",
+   "kind": "departement",
+   "module_id": null,
+   "department_id": "reception",
+   "facts": "usine_reception",
+   "personality": {
+    "id": "exigeant",
+    "label": "Exigeant",
+    "traits": "direct, attaché aux résultats, peu patient avec les erreurs",
+    "style": "phrases sèches, va droit au chiffre",
+    "prefix": "Il faut agir :"
+   },
+   "tasks": [
+    "décharger les camions",
+    "contrôler et étiqueter les palettes",
+    "mettre les non-conformes en quarantaine et prévenir le pilotage"
+   ],
+   "character": "char_worker_m",
+   "zone": "reception",
+   "route": [
+    [
+     -19.25,
+     13.7
+    ],
+    [
+     -13.25,
+     13.7
+    ],
+    [
+     -13.25,
+     12.2
+    ],
+    [
+     -19.25,
+     12.2
+    ]
+   ],
+   "notions": [
+    "delai_et_fiabilite"
+   ]
+  },
+  {
+   "id": "agent_stock_mp",
+   "name": "Inès",
+   "job": "Magasinière-cariste",
+   "kind": "departement",
+   "module_id": null,
+   "department_id": "stock_mp",
+   "facts": "usine_stock_mp",
+   "personality": {
+    "id": "bienveillant",
+    "label": "Bienveillant",
+    "traits": "chaleureux, encourageant, patient",
+    "style": "tutoie, rassure, glisse parfois un conseil",
+    "prefix": "Petit point :"
+   },
+   "tasks": [
+    "ranger les palettes reçues",
+    "sortir la matière dans l'ordre d'arrivée",
+    "préparer et livrer le kit de chaque OF",
+    "signaler le stock sous le point de commande"
+   ],
+   "character": "char_worker_f",
+   "zone": "stock_mp",
+   "route": [
+    [
+     -22.0,
+     1.7
+    ],
+    [
+     -16.0,
+     1.7
+    ],
+    [
+     -16.0,
+     0.2
+    ],
+    [
+     -22.0,
+     0.2
+    ]
+   ],
+   "notions": [
+    "point_de_commande",
+    "stock_de_securite",
+    "rotation_fifo"
+   ]
+  },
+  {
+   "id": "agent_production",
+   "name": "Idriss",
+   "job": "Chef de ligne",
+   "kind": "module",
+   "module_id": "production",
+   "department_id": "production",
+   "facts": "usine_production",
+   "personality": {
+    "id": "presse",
+    "label": "Pressé",
+    "traits": "toujours entre deux tâches, efficace",
+    "style": "très bref, presque télégraphique",
+    "prefix": "Vite :"
+   },
+   "tasks": [
+    "lancer les OF sur les lignes",
+    "suivre la cadence et les arrêts",
+    "relayer l'opérateur du goulot pendant les pauses",
+    "appeler la maintenance"
+   ],
+   "character": "char_worker_m",
+   "zone": "production",
+   "route": [
+    [
+     -8.0,
+     3.9
+    ],
+    [
+     8.0,
+     3.9
+    ],
+    [
+     8.0,
+     4.4
+    ],
+    [
+     -8.0,
+     4.4
+    ]
+   ],
+   "notions": [
+    "goulot",
+    "tampon_avant_goulot",
+    "rendement_en_cascade",
+    "changement_de_serie"
+   ]
+  },
+  {
+   "id": "agent_qualite",
+   "name": "Léa",
+   "job": "Contrôleuse qualité",
+   "kind": "departement",
+   "module_id": null,
+   "department_id": "qualite",
+   "facts": "usine_qualite",
+   "personality": {
+    "id": "sceptique",
+    "label": "Sceptique",
+    "traits": "prudent, se méfie des solutions miracles",
+    "style": "pointe les risques, pose une question en retour",
+    "prefix": "Attention :"
+   },
+   "tasks": [
+    "contrôler chaque produit en sortie de ligne",
+    "trier conformes et rebuts",
+    "prévenir le chef de ligne quand le rebut grimpe"
+   ],
+   "character": "char_worker_f",
+   "zone": "qualite",
+   "route": [
+    [
+     16.0,
+     -5.8
+    ],
+    [
+     22.0,
+     -5.8
+    ],
+    [
+     22.0,
+     -7.3
+    ],
+    [
+     16.0,
+     -7.3
+    ]
+   ],
+   "notions": [
+    "rendement_en_cascade",
+    "carte_p"
+   ]
+  },
+  {
+   "id": "agent_emballage",
+   "name": "Malik",
+   "job": "Emballeur",
+   "kind": "departement",
+   "module_id": null,
+   "department_id": "emballage",
+   "facts": "usine_emballage",
+   "personality": {
+    "id": "methodique",
+    "label": "Méthodique",
+    "traits": "rigoureux, aime les chiffres exacts et les procédures",
+    "style": "précis, donne les étapes dans l'ordre",
+    "prefix": "À noter :"
+   },
+   "tasks": [
+    "mettre 4 produits par carton",
+    "étiqueter et peser",
+    "monter et filmer les palettes",
+    "les envoyer à l'entrepôt"
+   ],
+   "character": "char_worker_m",
+   "zone": "emballage",
+   "route": [
+    [
+     16.0,
+     3.7
+    ],
+    [
+     22.0,
+     3.7
+    ],
+    [
+     22.0,
+     2.2
+    ],
+    [
+     16.0,
+     2.2
+    ]
+   ],
+   "notions": [
+    "loi_de_little"
+   ]
+  },
+  {
+   "id": "agent_maintenance",
+   "name": "Karim",
+   "job": "Technicien de maintenance",
+   "kind": "module",
+   "module_id": "maintenance",
+   "department_id": "maintenance",
+   "facts": "usine_maintenance",
+   "personality": {
+    "id": "exigeant",
+    "label": "Exigeant",
+    "traits": "direct, attaché aux résultats, peu patient avec les erreurs",
+    "style": "phrases sèches, va droit au chiffre",
+    "prefix": "Il faut agir :"
+   },
+   "tasks": [
+    "aller réparer les machines en panne",
+    "faire le préventif pendant les pauses",
+    "tenir le tableau des interventions"
+   ],
+   "character": "char_worker_m",
+   "zone": "maintenance",
+   "route": [
+    [
+     -9.0,
+     -12.8
+    ],
+    [
+     -3.0,
+     -12.8
+    ],
+    [
+     -3.0,
+     -14.3
+    ],
+    [
+     -9.0,
+     -14.3
+    ]
+   ],
+   "notions": [
+    "disponibilite",
+    "pannes_par_usure",
+    "maintenance_preventive"
+   ]
+  },
+  {
+   "id": "agent_pilotage",
+   "name": "Sophie",
+   "job": "Responsable de production",
+   "kind": "module",
+   "module_id": "pilotage",
+   "department_id": "pilotage",
+   "facts": "usine_pilotage",
+   "personality": {
+    "id": "bienveillant",
+    "label": "Bienveillant",
+    "traits": "chaleureux, encourageant, patient",
+    "style": "tutoie, rassure, glisse parfois un conseil",
+    "prefix": "Petit point :"
+   },
+   "tasks": [
+    "recevoir les commandes client",
+    "créer et lancer les OF",
+    "commander la matière",
+    "suivre les indicateurs"
+   ],
+   "character": "char_manager_f",
+   "zone": "pilotage",
+   "route": [
+    [
+     3.25,
+     -12.8
+    ],
+    [
+     9.25,
+     -12.8
+    ],
+    [
+     9.25,
+     -14.3
+    ],
+    [
+     3.25,
+     -14.3
+    ]
+   ],
+   "notions": [
+    "point_de_commande",
+    "takt_time",
+    "loi_de_little",
+    "otif"
+   ]
+  },
+  {
+   "id": "agent_entrepot_pf",
+   "name": "Maya",
+   "job": "Magasinière PF",
+   "kind": "departement",
+   "module_id": null,
+   "department_id": "entrepot_pf",
+   "facts": "usine_entrepot_pf",
+   "personality": {
+    "id": "presse",
+    "label": "Pressé",
+    "traits": "toujours entre deux tâches, efficace",
+    "style": "très bref, presque télégraphique",
+    "prefix": "Vite :"
+   },
+   "tasks": [
+    "ranger les palettes venant de l'emballage",
+    "préparer les commandes",
+    "charger le camion du client",
+    "signaler le stock PF sous le minimum"
+   ],
+   "character": "char_worker_f",
+   "zone": "entrepot_pf",
+   "route": [
+    [
+     13.25,
+     13.7
+    ],
+    [
+     19.25,
+     13.7
+    ],
+    [
+     19.25,
+     12.2
+    ],
+    [
+     13.25,
+     12.2
+    ]
+   ],
+   "notions": [
+    "otif"
+   ]
+  },
+  {
+   "id": "agent_client",
+   "name": "Mme Durand",
+   "job": "Acheteuse du client",
+   "kind": "client",
+   "module_id": null,
+   "department_id": "client",
+   "facts": "usine_client",
+   "personality": {
+    "id": "sceptique",
+    "label": "Sceptique",
+    "traits": "prudent, se méfie des solutions miracles",
+    "style": "pointe les risques, pose une question en retour",
+    "prefix": "Attention :"
+   },
+   "tasks": [
+    "passer les commandes",
+    "suivre les livraisons à la date promise",
+    "se plaindre des retards"
+   ],
+   "character": "char_manager_f",
+   "zone": "client",
+   "route": [
+    [
+     32.0,
+     23
+    ],
+    [
+     38.0,
+     23
+    ],
+    [
+     38.0,
+     19
+    ],
+    [
+     32.0,
+     19
+    ]
+   ],
+   "notions": [
+    "otif"
+   ]
+  }
+ ],
+ "stations": [
+  {
+   "id": "machine_l1-m1",
+   "kind": "machine",
+   "label": "Machine M1 · Découpe des tubes (ligne 1)",
+   "position": [
+    -9.0,
+    -4.0
+   ],
+   "ref": "l1-m1",
+   "modules": [
+    "production",
+    "maintenance"
+   ],
+   "department_id": "production"
+  },
+  {
+   "id": "machine_l1-m2",
+   "kind": "machine",
+   "label": "Machine M2 · Cintrage (ligne 1)",
+   "position": [
+    -3.8,
+    -4.0
+   ],
+   "ref": "l1-m2",
+   "modules": [
+    "production",
+    "maintenance"
+   ],
+   "department_id": "production"
+  },
+  {
+   "id": "machine_l1-m3",
+   "kind": "machine",
+   "label": "Machine M3 · Soudage (ligne 1)",
+   "position": [
+    1.4,
+    -4.0
+   ],
+   "ref": "l1-m3",
+   "modules": [
+    "production",
+    "maintenance"
+   ],
+   "department_id": "production"
+  },
+  {
+   "id": "machine_l1-m4",
+   "kind": "machine",
+   "label": "Machine M4 · Montage de l'assise (ligne 1)",
+   "position": [
+    6.6,
+    -4.0
+   ],
+   "ref": "l1-m4",
+   "modules": [
+    "production",
+    "maintenance"
+   ],
+   "department_id": "production"
+  },
+  {
+   "id": "machine_l2-m1",
+   "kind": "machine",
+   "label": "Machine M1 · Découpe des tubes (ligne 2)",
+   "position": [
+    -9.0,
+    0.0
+   ],
+   "ref": "l2-m1",
+   "modules": [
+    "production",
+    "maintenance"
+   ],
+   "department_id": "production"
+  },
+  {
+   "id": "machine_l2-m2",
+   "kind": "machine",
+   "label": "Machine M2 · Cintrage (ligne 2)",
+   "position": [
+    -3.8,
+    0.0
+   ],
+   "ref": "l2-m2",
+   "modules": [
+    "production",
+    "maintenance"
+   ],
+   "department_id": "production"
+  },
+  {
+   "id": "machine_l2-m3",
+   "kind": "machine",
+   "label": "Machine M3 · Soudage (ligne 2)",
+   "position": [
+    1.4,
+    0.0
+   ],
+   "ref": "l2-m3",
+   "modules": [
+    "production",
+    "maintenance"
+   ],
+   "department_id": "production"
+  },
+  {
+   "id": "machine_l2-m4",
+   "kind": "machine",
+   "label": "Machine M4 · Montage de l'assise (ligne 2)",
+   "position": [
+    6.6,
+    0.0
+   ],
+   "ref": "l2-m4",
+   "modules": [
+    "production",
+    "maintenance"
+   ],
+   "department_id": "production"
+  },
+  {
+   "id": "machine_l3-m1",
+   "kind": "machine",
+   "label": "Machine M1 · Découpe des tubes (ligne 3)",
+   "position": [
+    -9.0,
+    4.0
+   ],
+   "ref": "l3-m1",
+   "modules": [
+    "production",
+    "maintenance"
+   ],
+   "department_id": "production"
+  },
+  {
+   "id": "machine_l3-m2",
+   "kind": "machine",
+   "label": "Machine M2 · Cintrage (ligne 3)",
+   "position": [
+    -3.8,
+    4.0
+   ],
+   "ref": "l3-m2",
+   "modules": [
+    "production",
+    "maintenance"
+   ],
+   "department_id": "production"
+  },
+  {
+   "id": "machine_l3-m3",
+   "kind": "machine",
+   "label": "Machine M3 · Soudage (ligne 3)",
+   "position": [
+    1.4,
+    4.0
+   ],
+   "ref": "l3-m3",
+   "modules": [
+    "production",
+    "maintenance"
+   ],
+   "department_id": "production"
+  },
+  {
+   "id": "machine_l3-m4",
+   "kind": "machine",
+   "label": "Machine M4 · Montage de l'assise (ligne 3)",
+   "position": [
+    6.6,
+    4.0
+   ],
+   "ref": "l3-m4",
+   "modules": [
+    "production",
+    "maintenance"
+   ],
+   "department_id": "production"
+  },
+  {
+   "id": "poste_reception",
+   "kind": "poste_reception",
+   "label": "Poste de contrôle de la réception",
+   "position": [
+    -22.4,
+    9.2
+   ],
+   "ref": null,
+   "modules": [],
+   "department_id": "reception"
+  },
+  {
+   "id": "magasin_mp",
+   "kind": "magasin_mp",
+   "label": "Bureau du magasin MP",
+   "position": [
+    -20.4,
+    -12.0
+   ],
+   "ref": null,
+   "modules": [],
+   "department_id": "stock_mp"
+  },
+  {
+   "id": "tableau_ligne",
+   "kind": "tableau_ligne",
+   "label": "Tableau de ligne",
+   "position": [
+    0.0,
+    1.7
+   ],
+   "ref": null,
+   "modules": [
+    "production"
+   ],
+   "department_id": "production"
+  },
+  {
+   "id": "poste_qualite",
+   "kind": "poste_qualite",
+   "label": "Table de contrôle",
+   "position": [
+    15.8,
+    -12.2
+   ],
+   "ref": null,
+   "modules": [],
+   "department_id": "qualite"
+  },
+  {
+   "id": "poste_emballage",
+   "kind": "poste_emballage",
+   "label": "Table d'emballage",
+   "position": [
+    15.9,
+    0.8
+   ],
+   "ref": null,
+   "modules": [],
+   "department_id": "emballage"
+  },
+  {
+   "id": "maintenance",
+   "kind": "maintenance",
+   "label": "Établi de maintenance",
+   "position": [
+    -8.8,
+    -12.3
+   ],
+   "ref": null,
+   "modules": [
+    "maintenance"
+   ],
+   "department_id": "maintenance"
+  },
+  {
+   "id": "pilotage",
+   "kind": "pilotage",
+   "label": "Bureau du pilotage",
+   "position": [
+    3.1,
+    -11.8
+   ],
+   "ref": null,
+   "modules": [
+    "pilotage"
+   ],
+   "department_id": "pilotage"
+  },
+  {
+   "id": "entrepot_pf",
+   "kind": "entrepot_pf",
+   "label": "Bureau de l'entrepôt",
+   "position": [
+    12.1,
+    10.5
+   ],
+   "ref": null,
+   "modules": [],
+   "department_id": "entrepot_pf"
+  }
+ ],
+ "world": {
+  "template": "usine",
+  "size": [
+   48,
+   30
+  ],
+  "spawn": [
+   0,
+   20
+  ],
+  "objects": [
+   {
+    "asset": "prop_machine",
+    "position": [
+     -9.0,
+     -6
+    ],
+    "rotation": 0,
+    "label": "M1 · Découpe des tubes",
+    "ref": "machine:l1-m1"
+   },
+   {
+    "asset": "prop_buffer_table",
+    "position": [
+     -6.4,
+     -6
+    ],
+    "rotation": 0,
+    "label": null,
+    "ref": "buffer:l1-m1"
+   },
+   {
+    "asset": "prop_machine",
+    "position": [
+     -3.8,
+     -6
+    ],
+    "rotation": 0,
+    "label": "M2 · Cintrage",
+    "ref": "machine:l1-m2"
+   },
+   {
+    "asset": "prop_buffer_table",
+    "position": [
+     -1.2,
+     -6
+    ],
+    "rotation": 0,
+    "label": null,
+    "ref": "buffer:l1-m2"
+   },
+   {
+    "asset": "prop_machine",
+    "position": [
+     1.4,
+     -6
+    ],
+    "rotation": 0,
+    "label": "M3 · Soudage",
+    "ref": "machine:l1-m3"
+   },
+   {
+    "asset": "prop_buffer_table",
+    "position": [
+     4.0,
+     -6
+    ],
+    "rotation": 0,
+    "label": null,
+    "ref": "buffer:l1-m3"
+   },
+   {
+    "asset": "prop_machine",
+    "position": [
+     6.6,
+     -6
+    ],
+    "rotation": 0,
+    "label": "M4 · Montage de l'assise",
+    "ref": "machine:l1-m4"
+   },
+   {
+    "asset": "prop_buffer_table",
+    "position": [
+     9.2,
+     -6
+    ],
+    "rotation": 0,
+    "label": null,
+    "ref": "buffer:l1-m4"
+   },
+   {
+    "asset": "prop_machine",
+    "position": [
+     -9.0,
+     -2
+    ],
+    "rotation": 0,
+    "label": "M1 · Découpe des tubes",
+    "ref": "machine:l2-m1"
+   },
+   {
+    "asset": "prop_buffer_table",
+    "position": [
+     -6.4,
+     -2
+    ],
+    "rotation": 0,
+    "label": null,
+    "ref": "buffer:l2-m1"
+   },
+   {
+    "asset": "prop_machine",
+    "position": [
+     -3.8,
+     -2
+    ],
+    "rotation": 0,
+    "label": "M2 · Cintrage",
+    "ref": "machine:l2-m2"
+   },
+   {
+    "asset": "prop_buffer_table",
+    "position": [
+     -1.2,
+     -2
+    ],
+    "rotation": 0,
+    "label": null,
+    "ref": "buffer:l2-m2"
+   },
+   {
+    "asset": "prop_machine",
+    "position": [
+     1.4,
+     -2
+    ],
+    "rotation": 0,
+    "label": "M3 · Soudage",
+    "ref": "machine:l2-m3"
+   },
+   {
+    "asset": "prop_buffer_table",
+    "position": [
+     4.0,
+     -2
+    ],
+    "rotation": 0,
+    "label": null,
+    "ref": "buffer:l2-m3"
+   },
+   {
+    "asset": "prop_machine",
+    "position": [
+     6.6,
+     -2
+    ],
+    "rotation": 0,
+    "label": "M4 · Montage de l'assise",
+    "ref": "machine:l2-m4"
+   },
+   {
+    "asset": "prop_buffer_table",
+    "position": [
+     9.2,
+     -2
+    ],
+    "rotation": 0,
+    "label": null,
+    "ref": "buffer:l2-m4"
+   },
+   {
+    "asset": "prop_machine",
+    "position": [
+     -9.0,
+     2
+    ],
+    "rotation": 0,
+    "label": "M1 · Découpe des tubes",
+    "ref": "machine:l3-m1"
+   },
+   {
+    "asset": "prop_buffer_table",
+    "position": [
+     -6.4,
+     2
+    ],
+    "rotation": 0,
+    "label": null,
+    "ref": "buffer:l3-m1"
+   },
+   {
+    "asset": "prop_machine",
+    "position": [
+     -3.8,
+     2
+    ],
+    "rotation": 0,
+    "label": "M2 · Cintrage",
+    "ref": "machine:l3-m2"
+   },
+   {
+    "asset": "prop_buffer_table",
+    "position": [
+     -1.2,
+     2
+    ],
+    "rotation": 0,
+    "label": null,
+    "ref": "buffer:l3-m2"
+   },
+   {
+    "asset": "prop_machine",
+    "position": [
+     1.4,
+     2
+    ],
+    "rotation": 0,
+    "label": "M3 · Soudage",
+    "ref": "machine:l3-m3"
+   },
+   {
+    "asset": "prop_buffer_table",
+    "position": [
+     4.0,
+     2
+    ],
+    "rotation": 0,
+    "label": null,
+    "ref": "buffer:l3-m3"
+   },
+   {
+    "asset": "prop_machine",
+    "position": [
+     6.6,
+     2
+    ],
+    "rotation": 0,
+    "label": "M4 · Montage de l'assise",
+    "ref": "machine:l3-m4"
+   },
+   {
+    "asset": "prop_buffer_table",
+    "position": [
+     9.2,
+     2
+    ],
+    "rotation": 0,
+    "label": null,
+    "ref": "buffer:l3-m4"
+   },
+   {
+    "asset": "bld_factory_plant",
+    "position": [
+     -42.0,
+     41
+    ],
+    "rotation": 0,
+    "label": "Usine du fournisseur",
+    "ref": null
+   },
+   {
+    "asset": "prop_pallet_stack",
+    "position": [
+     -31,
+     26.0
+    ],
+    "rotation": 0,
+    "label": null,
+    "ref": null
+   },
+   {
+    "asset": "prop_pallet_stack",
+    "position": [
+     -31,
+     29.0
+    ],
+    "rotation": 0,
+    "label": null,
+    "ref": null
+   },
+   {
+    "asset": "prop_floor_zone",
+    "position": [
+     -35.0,
+     30.0
+    ],
+    "rotation": 0,
+    "label": "Fournisseur de matière première",
+    "ref": "dept:fournisseur"
+   },
+   {
+    "asset": "prop_floor_zone",
+    "position": [
+     -21.8,
+     11.6
+    ],
+    "rotation": 0,
+    "label": "Zone de dépose (6 palettes)",
+    "ref": null
+   },
+   {
+    "asset": "prop_floor_zone",
+    "position": [
+     -16.8,
+     11.6
+    ],
+    "rotation": 0,
+    "label": "Quarantaine (2 palettes)",
+    "ref": "quarantine"
+   },
+   {
+    "asset": "prop_desk_computer",
+    "position": [
+     -22.4,
+     7.45
+    ],
+    "rotation": 0,
+    "label": "Poste de contrôle : PC, lecteur, imprimante d'étiquettes",
+    "ref": null
+   },
+   {
+    "asset": "veh_pallet_jack",
+    "position": [
+     -20.63,
+     7.58
+    ],
+    "rotation": 0,
+    "label": "Transpalette (2 000 kg)",
+    "ref": null
+   },
+   {
+    "asset": "prop_floor_zone",
+    "position": [
+     -22.4,
+     10.5
+    ],
+    "rotation": 0,
+    "label": "Réception",
+    "ref": "dept:reception"
+   },
+   {
+    "asset": "prop_pallet_rack",
+    "position": [
+     -20.4,
+     -13.65
+    ],
+    "rotation": 0,
+    "label": "Racks à palettes (24 emplacements)",
+    "ref": "mp:c1"
+   },
+   {
+    "asset": "prop_pallet_rack",
+    "position": [
+     -20.4,
+     -11.75
+    ],
+    "rotation": 0,
+    "label": "Racks à palettes (24 emplacements)",
+    "ref": null
+   },
+   {
+    "asset": "prop_pallet_rack",
+    "position": [
+     -20.4,
+     -9.85
+    ],
+    "rotation": 0,
+    "label": "Racks à palettes (24 emplacements)",
+    "ref": null
+   },
+   {
+    "asset": "prop_pallet_rack",
+    "position": [
+     -20.4,
+     -7.95
+    ],
+    "rotation": 0,
+    "label": "Racks à palettes (24 emplacements)",
+    "ref": null
+   },
+   {
+    "asset": "prop_floor_zone",
+    "position": [
+     -21.8,
+     -0.4
+    ],
+    "rotation": 0,
+    "label": "Préparation des kits",
+    "ref": null
+   },
+   {
+    "asset": "veh_forklift",
+    "position": [
+     -16.33,
+     -6.7
+    ],
+    "rotation": 0,
+    "label": "Chariot élévateur (1 200 kg)",
+    "ref": null
+   },
+   {
+    "asset": "prop_floor_zone",
+    "position": [
+     -20.4,
+     -6.0
+    ],
+    "rotation": 0,
+    "label": "Stock de matière première",
+    "ref": "dept:stock_mp"
+   },
+   {
+    "asset": "prop_wall_board",
+    "position": [
+     -8.0,
+     -8.0
+    ],
+    "rotation": 0,
+    "label": "Tableau de ligne",
+    "ref": null
+   },
+   {
+    "asset": "prop_andon_light",
+    "position": [
+     9.5,
+     -8.0
+    ],
+    "rotation": 0,
+    "label": null,
+    "ref": null
+   },
+   {
+    "asset": "prop_floor_zone",
+    "position": [
+     0.0,
+     -2.75
+    ],
+    "rotation": 0,
+    "label": "Production",
+    "ref": "dept:production"
+   },
+   {
+    "asset": "prop_inspection_table",
+    "position": [
+     15.8,
+     -13.75
+    ],
+    "rotation": 0,
+    "label": "Table de contrôle et instruments",
+    "ref": "quality"
+   },
+   {
+    "asset": "prop_floor_zone",
+    "position": [
+     16.2,
+     -7.9
+    ],
+    "rotation": 0,
+    "label": "Zone conforme",
+    "ref": null
+   },
+   {
+    "asset": "prop_floor_zone",
+    "position": [
+     21.2,
+     -7.9
+    ],
+    "rotation": 0,
+    "label": "Zone à retoucher",
+    "ref": null
+   },
+   {
+    "asset": "prop_scrap_bin",
+    "position": [
+     17.9,
+     -13.9
+    ],
+    "rotation": 0,
+    "label": "Bac à rebut",
+    "ref": "scrap"
+   },
+   {
+    "asset": "prop_floor_zone",
+    "position": [
+     15.8,
+     -9.75
+    ],
+    "rotation": 0,
+    "label": "Contrôle qualité",
+    "ref": "dept:qualite"
+   },
+   {
+    "asset": "prop_packing_table",
+    "position": [
+     15.9,
+     -0.75
+    ],
+    "rotation": 0,
+    "label": "Table d'emballage : cartons, ruban, balance",
+    "ref": null
+   },
+   {
+    "asset": "prop_pallet_wrapper",
+    "position": [
+     18.65,
+     -0.1
+    ],
+    "rotation": 0,
+    "label": "Filmeuse de palettes",
+    "ref": null
+   },
+   {
+    "asset": "prop_pallet",
+    "position": [
+     21.0,
+     -0.8
+    ],
+    "rotation": 0,
+    "label": "Palette en cours",
+    "ref": null
+   },
+   {
+    "asset": "prop_floor_zone",
+    "position": [
+     15.9,
+     1.5
+    ],
+    "rotation": 0,
+    "label": "Emballage",
+    "ref": "dept:emballage"
+   },
+   {
+    "asset": "prop_workbench",
+    "position": [
+     -8.8,
+     -13.8
+    ],
+    "rotation": 0,
+    "label": "Établi et servante d'outils",
+    "ref": null
+   },
+   {
+    "asset": "prop_wall_board",
+    "position": [
+     -5.8,
+     -13.95
+    ],
+    "rotation": 0,
+    "label": "Tableau des interventions",
+    "ref": null
+   },
+   {
+    "asset": "prop_floor_zone",
+    "position": [
+     -8.8,
+     -13.25
+    ],
+    "rotation": 0,
+    "label": "Maintenance et pièces de rechange",
+    "ref": "dept:maintenance"
+   },
+   {
+    "asset": "prop_desk_computer",
+    "position": [
+     3.1,
+     -13.55
+    ],
+    "rotation": 0,
+    "label": "Bureau : stocks, OF, commandes",
+    "ref": null
+   },
+   {
+    "asset": "prop_kpi_screen",
+    "position": [
+     6.15,
+     -13.9
+    ],
+    "rotation": 0,
+    "label": "Écran des indicateurs",
+    "ref": "kpi"
+   },
+   {
+    "asset": "prop_floor_zone",
+    "position": [
+     3.1,
+     -13.25
+    ],
+    "rotation": 0,
+    "label": "Pilotage",
+    "ref": "dept:pilotage"
+   },
+   {
+    "asset": "prop_dock_door",
+    "position": [
+     -1.5,
+     15
+    ],
+    "rotation": 0,
+    "label": "Porte de quai",
+    "ref": "dock"
+   },
+   {
+    "asset": "prop_dock_door",
+    "position": [
+     1.5,
+     15
+    ],
+    "rotation": 0,
+    "label": null,
+    "ref": null
+   },
+   {
+    "asset": "veh_pallet_jack",
+    "position": [
+     -4.82,
+     10.08
+    ],
+    "rotation": 0,
+    "label": "Transpalette du quai",
+    "ref": null
+   },
+   {
+    "asset": "prop_floor_zone",
+    "position": [
+     -4.82,
+     11.75
+    ],
+    "rotation": 0,
+    "label": "Quai partagé (réception et expédition)",
+    "ref": "dept:quai"
+   },
+   {
+    "asset": "prop_pallet_rack",
+    "position": [
+     12.1,
+     8.85
+    ],
+    "rotation": 0,
+    "label": "Racks PF (20 palettes)",
+    "ref": "pf"
+   },
+   {
+    "asset": "prop_pallet_rack",
+    "position": [
+     18.3,
+     8.85
+    ],
+    "rotation": 0,
+    "label": "Racks PF (20 palettes)",
+    "ref": null
+   },
+   {
+    "asset": "prop_pallet_rack",
+    "position": [
+     12.1,
+     10.75
+    ],
+    "rotation": 0,
+    "label": "Racks PF (20 palettes)",
+    "ref": null
+   },
+   {
+    "asset": "prop_floor_zone",
+    "position": [
+     10.7,
+     11.6
+    ],
+    "rotation": 0,
+    "label": "Préparation des commandes",
+    "ref": null
+   },
+   {
+    "asset": "prop_floor_zone",
+    "position": [
+     12.1,
+     11.25
+    ],
+    "rotation": 0,
+    "label": "Entrepôt de produits finis",
+    "ref": "dept:entrepot_pf"
+   },
+   {
+    "asset": "bld_distribution_center",
+    "position": [
+     42.0,
+     41
+    ],
+    "rotation": 0,
+    "label": "Entrepôt du client",
+    "ref": null
+   },
+   {
+    "asset": "prop_floor_zone",
+    "position": [
+     35.0,
+     30.0
+    ],
+    "rotation": 0,
+    "label": "Client",
+    "ref": "dept:client"
+   },
+   {
+    "asset": "veh_box_truck",
+    "position": [
+     -9.5,
+     20
+    ],
+    "rotation": 0,
+    "label": null,
+    "ref": null
+   },
+   {
+    "asset": "veh_box_truck",
+    "position": [
+     9.5,
+     20
+    ],
+    "rotation": 0,
+    "label": null,
+    "ref": null
+   },
+   {
+    "asset": "road_straight",
+    "position": [
+     -40,
+     22
+    ],
+    "rotation": 0,
+    "label": null,
+    "ref": null
+   },
+   {
+    "asset": "road_straight",
+    "position": [
+     -30,
+     22
+    ],
+    "rotation": 0,
+    "label": null,
+    "ref": null
+   },
+   {
+    "asset": "road_straight",
+    "position": [
+     -20,
+     22
+    ],
+    "rotation": 0,
+    "label": null,
+    "ref": null
+   },
+   {
+    "asset": "road_straight",
+    "position": [
+     -10,
+     22
+    ],
+    "rotation": 0,
+    "label": null,
+    "ref": null
+   },
+   {
+    "asset": "road_straight",
+    "position": [
+     0,
+     22
+    ],
+    "rotation": 0,
+    "label": null,
+    "ref": null
+   },
+   {
+    "asset": "road_straight",
+    "position": [
+     10,
+     22
+    ],
+    "rotation": 0,
+    "label": null,
+    "ref": null
+   },
+   {
+    "asset": "road_straight",
+    "position": [
+     20,
+     22
+    ],
+    "rotation": 0,
+    "label": null,
+    "ref": null
+   },
+   {
+    "asset": "road_straight",
+    "position": [
+     30,
+     22
+    ],
+    "rotation": 0,
+    "label": null,
+    "ref": null
+   },
+   {
+    "asset": "road_straight",
+    "position": [
+     40,
+     22
+    ],
+    "rotation": 0,
+    "label": null,
+    "ref": null
+   }
+  ],
+  "forklift_route": []
+ },
+ "notions": [
+  {
+   "id": "disponibilite",
+   "title": "Disponibilité, MTBF et MTTR",
+   "text": "La disponibilité est le temps de marche divisé par le temps total. Pour les pannes, avec le MTBF compté en heures de marche entre deux pannes, elle vaut MTBF ÷ (MTBF + MTTR) ; l'attente du technicien et son trajet allongent l'arrêt et la font encore baisser.",
+   "citation": "Wikipédia (en), « Availability », révision 1378432007 : https://en.wikipedia.org/wiki/Availability?oldid=1378432007"
+  },
+  {
+   "id": "pannes_par_usure",
+   "title": "Pannes d'usure et pannes au hasard",
+   "text": "Réviser ou remplacer à date fixe ne se justifie que si l'équipement s'use avec l'usage : son risque de panne croît avec l'âge et l'entretien le remet à zéro. Les études des compagnies aériennes des années 1960 ont montré que la plupart des pannes ne sont pas liées à l'âge : contre celles-là, le préventif à date fixe n'aide pas.",
+   "citation": "Wikipédia (en), « Reliability-centered maintenance », révision 1318353310 : https://en.wikipedia.org/wiki/Reliability-centered_maintenance?oldid=1318353310"
+  },
+  {
+   "id": "maintenance_preventive",
+   "title": "Maintenance préventive et corrective",
+   "text": "Le préventif inspecte et entretient l'équipement à intervalles planifiés pour remplacer les pièces usées avant la panne ; le correctif répare après la panne, souvent plus cher à cause des arrêts et des dégâts en chaîne.",
+   "citation": "Wikipédia (en), « Maintenance », révision 1380603447 : https://en.wikipedia.org/wiki/Maintenance?oldid=1380603447"
+  },
+  {
+   "id": "goulot",
+   "title": "Goulot et contrainte",
+   "text": "Dans une ligne en série, le poste le plus lent fixe le débit maximal : augmenter sa capacité augmente le débit de l'ensemble, améliorer les autres ne sert à rien. Tant que la demande reste sous ce débit, c'est le marché qui limite l'usine ; lors d'un pic ou après une panne, ce poste devient la contrainte et chaque heure qu'il perd est perdue pour la ligne.",
+   "citation": "Wikipédia (fr), « Théorie des contraintes », révision 237231287 : https://fr.wikipedia.org/wiki/Th%C3%A9orie_des_contraintes?oldid=237231287"
+  },
+  {
+   "id": "tampon_avant_goulot",
+   "title": "Protéger la contrainte par des tampons",
+   "text": "Un stock tampon placé devant la contrainte lui évite de manquer de travail quand un poste amont s'arrête, et de la place libre derrière elle évite qu'un arrêt en aval la bloque. Le tampon achète du temps ; il doit suffire sans être excessif.",
+   "citation": "Wikipédia (en), « Theory of constraints », révision 1380318896 : https://en.wikipedia.org/wiki/Theory_of_constraints?oldid=1380318896"
+  },
+  {
+   "id": "rendement_en_cascade",
+   "title": "Rendement cumulé",
+   "text": "La probabilité qu'un produit sorte bon d'un procédé à plusieurs étapes est le produit des rendements de chaque étape : le rendement de la ligne n'est donc jamais meilleur que celui de sa moins bonne machine.",
+   "citation": "Wikipédia (en), « Rolled throughput yield », révision 1313806052 : https://en.wikipedia.org/wiki/Rolled_throughput_yield?oldid=1313806052"
+  },
+  {
+   "id": "capacite_et_trs",
+   "title": "Taux de rendement synthétique (TRS)",
+   "text": "Le TRS (OEE en anglais) multiplie trois taux : disponibilité (temps de marche ÷ temps planifié, pauses et pannes comprises), performance (vitesse réelle ÷ vitesse maximale) et qualité (bons ÷ produits). À 100 %, la machine tourne sans arrêt, à pleine vitesse, sans défaut.",
+   "citation": "Wikipédia (en), « Overall equipment effectiveness », révision 1372274508 : https://en.wikipedia.org/wiki/Overall_equipment_effectiveness?oldid=1372274508"
+  },
+  {
+   "id": "loi_de_little",
+   "title": "Loi de Little",
+   "text": "En régime stable, l'encours moyen égale le débit multiplié par le temps moyen passé dans le système : à débit égal, plus d'encours veut dire des produits qui attendent plus longtemps.",
+   "citation": "Wikipédia (en), « Little's law », révision 1370351232 : https://en.wikipedia.org/wiki/Little%27s_law?oldid=1370351232"
+  },
+  {
+   "id": "charge_et_attente",
+   "title": "Charge et attente",
+   "text": "Selon l'approximation de Kingman, l'attente devant un poste croît avec u ÷ (1 − u), u étant son taux d'occupation, et avec la variabilité des arrivées et des temps de service : près de 100 % de charge, elle explose.",
+   "citation": "Wikipédia (en), « Kingman's formula », révision 1322269537 : https://en.wikipedia.org/wiki/Kingman%27s_formula?oldid=1322269537"
+  },
+  {
+   "id": "takt_time",
+   "title": "Takt time",
+   "text": "Le takt time est le temps disponible divisé par le nombre d'unités demandées : le rythme à tenir pour suivre le client. Il ne se confond pas avec le temps de cycle réel, qui compte aussi les pièces défectueuses et les réglages.",
+   "citation": "Wikipédia (fr), « Takt time », révision 229912463 : https://fr.wikipedia.org/wiki/Takt_time?oldid=229912463"
+  },
+  {
+   "id": "changement_de_serie",
+   "title": "Changement de série (SMED)",
+   "text": "Le SMED réduit le temps de changement de série pour pouvoir produire en petits lots ; « single minute » veut dire moins de 10 minutes.",
+   "citation": "Wikipédia (en), « Single-minute exchange of die », révision 1360889711 : https://en.wikipedia.org/wiki/Single-minute_exchange_of_die?oldid=1360889711"
+  },
+  {
+   "id": "carte_p",
+   "title": "Carte p",
+   "text": "La carte p suit la part de produits non conformes d'un échantillon ; sa limite haute vaut p + 3 × racine(p (1 − p) ÷ n). Un lot au-delà signale probablement un changement du procédé plutôt qu'un simple aléa.",
+   "citation": "Wikipédia (en), « P-chart », révision 1322280790 : https://en.wikipedia.org/wiki/P-chart?oldid=1322280790"
+  },
+  {
+   "id": "rotation_fifo",
+   "title": "Premier entré, premier sorti (FIFO)",
+   "text": "Sortir d'abord ce qui est arrivé en premier évite que le stock vieillisse ou se dégrade avant d'être utilisé.",
+   "citation": "Wikipédia (en), « Stock rotation », révision 1363766650 : https://en.wikipedia.org/wiki/Stock_rotation?oldid=1363766650"
+  },
+  {
+   "id": "point_de_commande",
+   "title": "Point de commande",
+   "text": "On recommande quand le stock, commandes en cours comprises, passe sous le point de commande, égal à la consommation prévue pendant le délai d'approvisionnement plus le stock de sécurité.",
+   "citation": "Wikipédia (en), « Reorder point », révision 1361046588 : https://en.wikipedia.org/wiki/Reorder_point?oldid=1361046588"
+  },
+  {
+   "id": "stock_de_securite",
+   "title": "Stock de sécurité",
+   "text": "Le stock de sécurité couvre l'incertitude de la demande et des délais ; plus ils sont imprévisibles et plus le service visé est élevé, plus il doit être important.",
+   "citation": "Wikipédia (fr), « Stock de sécurité », révision 209683581 : https://fr.wikipedia.org/wiki/Stock_de_s%C3%A9curit%C3%A9?oldid=209683581"
+  },
+  {
+   "id": "delai_et_fiabilite",
+   "title": "Délai et fiabilité des fournisseurs",
+   "text": "Des délais de réapprovisionnement longs ou aléatoires obligent à commander plus tôt et à garder davantage de stock de sécurité ; le prix n'est qu'un critère de choix parmi d'autres.",
+   "citation": "Wikipédia (fr), « Stock de sécurité », révision 209683581 : https://fr.wikipedia.org/wiki/Stock_de_s%C3%A9curit%C3%A9?oldid=209683581"
+  },
+  {
+   "id": "otif",
+   "title": "OTIF (à l'heure et complet)",
+   "text": "Le modèle SCOR mesure la performance de livraison comme la part des produits livrés à temps et en totalité à la date promise.",
+   "citation": "Wikipédia (en), « Supply chain operations reference », révision 1378804368 : https://en.wikipedia.org/wiki/Supply_chain_operations_reference?oldid=1378804368"
+  }
+ ],
+ "events": [
+  {
+   "id": "retard_transport",
+   "title": "Perturbations routières",
+   "description": "Travaux et bouchons sur les routes des fournisseurs : 25 % de risque de retard en plus pour les livraisons de matière.",
+   "weight": 2,
+   "effects": {
+    "delay_risk": 0.25
+   },
+   "modules": [
+    "pilotage"
+   ]
+  },
+  {
+   "id": "hausse_matieres",
+   "title": "Hausse de l'acier",
+   "description": "Les prix d'achat de la matière augmentent de 10 %.",
+   "weight": 2,
+   "effects": {
+    "cost": 1.1
+   },
+   "modules": [
+    "pilotage"
+   ]
+  },
+  {
+   "id": "commande_exceptionnelle",
+   "title": "Commandes exceptionnelles du client",
+   "description": "Le client ajoute des commandes : la demande grimpe de 15 % sur la semaine.",
+   "weight": 1,
+   "effects": {
+    "demand": 1.15
+   },
+   "modules": [
+    "pilotage",
+    "production"
+   ]
+  },
+  {
+   "id": "creux_de_demande",
+   "title": "Creux de demande",
+   "description": "Le client commande moins cette semaine : la demande baisse de 15 %.",
+   "weight": 1,
+   "effects": {
+    "demand": 0.85
+   },
+   "modules": [
+    "pilotage"
+   ]
+  },
+  {
+   "id": "lot_mp_non_conforme",
+   "title": "Lot de matière non conforme",
+   "description": "Un lot du fournisseur est défectueux ; le taux de palettes reçues non conformes, mises en quarantaine, prend 10 points de plus.",
+   "weight": 1,
+   "effects": {
+    "nonconform": 0.1
+   },
+   "modules": [
+    "pilotage"
+   ]
+  },
+  {
+   "id": "vague_de_chaleur",
+   "title": "Vague de chaleur dans l'atelier",
+   "description": "Les fortes chaleurs fatiguent les machines ; elles tombent en panne environ 40 % plus souvent cette semaine.",
+   "weight": 1,
+   "effects": {
+    "mtbf": 0.7
+   },
+   "modules": [
+    "maintenance",
+    "production"
+   ]
+  }
+ ],
+ "economy": {
+  "initial_cash": 90000,
+  "holding_rate_week": 0.0048,
+  "maintenance_rate": {
+   "aucune": 0,
+   "preventive": 0.02
+  },
+  "trs_drift": {
+   "aucune": -2,
+   "preventive": 0
+  },
+  "control_cost_rate": 0.01,
+  "interest_rate_week": 0.004,
+  "price_elasticity": 0.5,
+  "defect_rate": 0.078,
+  "demand_noise": 0.1,
+  "events_probability": 0.25,
+  "transport": {
+   "standard": {
+    "on_time": 0.95
+   }
+  }
+ },
+ "targets": {
+  "otif": 95,
+  "trs": 80,
+  "stockouts": 0,
+  "cash_final": 110000
+ },
+ "departments": [
+  {
+   "id": "fournisseur",
+   "label": "Fournisseur de matière première",
+   "external": true,
+   "area": [
+    -42,
+    24,
+    -28,
+    36
+   ]
+  },
+  {
+   "id": "reception",
+   "label": "Réception",
+   "external": false,
+   "area": [
+    -24,
+    6,
+    -8.5,
+    15
+   ]
+  },
+  {
+   "id": "stock_mp",
+   "label": "Stock de matière première",
+   "external": false,
+   "area": [
+    -24,
+    -15,
+    -14,
+    3
+   ]
+  },
+  {
+   "id": "production",
+   "label": "Production",
+   "external": false,
+   "area": [
+    -11,
+    -8.5,
+    11,
+    3
+   ]
+  },
+  {
+   "id": "qualite",
+   "label": "Contrôle qualité",
+   "external": false,
+   "area": [
+    14,
+    -15,
+    24,
+    -4.5
+   ]
+  },
+  {
+   "id": "emballage",
+   "label": "Emballage",
+   "external": false,
+   "area": [
+    14,
+    -2,
+    24,
+    5
+   ]
+  },
+  {
+   "id": "maintenance",
+   "label": "Maintenance et pièces de rechange",
+   "external": false,
+   "area": [
+    -11,
+    -15,
+    -1,
+    -11.5
+   ]
+  },
+  {
+   "id": "pilotage",
+   "label": "Pilotage",
+   "external": false,
+   "area": [
+    1.5,
+    -15,
+    11,
+    -11.5
+   ]
+  },
+  {
+   "id": "quai",
+   "label": "Quai partagé (réception et expédition)",
+   "external": false,
+   "area": [
+    -6,
+    8.5,
+    6,
+    15
+   ]
+  },
+  {
+   "id": "entrepot_pf",
+   "label": "Entrepôt de produits finis",
+   "external": false,
+   "area": [
+    8.5,
+    7.5,
+    24,
+    15
+   ]
+  },
+  {
+   "id": "client",
+   "label": "Client",
+   "external": true,
+   "area": [
+    28,
+    24,
+    42,
+    36
+   ]
+  }
+ ],
+ "factory": {
+  "product_id": "p1",
+  "lot_size": 24,
+  "pf_min": 480,
+  "bom": [
+   {
+    "component_id": "c1",
+    "per_unit": 1
+   }
+  ],
+  "machines": [
+   {
+    "id": "l1-m1",
+    "line_id": "l1",
+    "rank": 1,
+    "name": "M1 · Découpe des tubes",
+    "operation": "Découpe des tubes",
+    "cycle_min": 2,
+    "run_min": 480,
+    "stop_min": 0,
+    "mtbf_h": 40,
+    "weibull_shape": 2,
+    "mttr_h": 1,
+    "setup_min": 10,
+    "defect_rate": 0.02,
+    "buffer": 10,
+    "transfer_min": 0.5,
+    "operators": 1,
+    "asset": "prop_machine"
+   },
+   {
+    "id": "l1-m2",
+    "line_id": "l1",
+    "rank": 2,
+    "name": "M2 · Cintrage",
+    "operation": "Cintrage",
+    "cycle_min": 1.5,
+    "run_min": 480,
+    "stop_min": 0,
+    "mtbf_h": 80,
+    "weibull_shape": 2,
+    "mttr_h": 0.5,
+    "setup_min": 5,
+    "defect_rate": 0.01,
+    "buffer": 10,
+    "transfer_min": 0.5,
+    "operators": 1,
+    "asset": "prop_machine"
+   },
+   {
+    "id": "l1-m3",
+    "line_id": "l1",
+    "rank": 3,
+    "name": "M3 · Soudage",
+    "operation": "Soudage",
+    "cycle_min": 3,
+    "run_min": 480,
+    "stop_min": 0,
+    "mtbf_h": 60,
+    "weibull_shape": 2,
+    "mttr_h": 1,
+    "setup_min": 0,
+    "defect_rate": 0.03,
+    "buffer": 10,
+    "transfer_min": 0.5,
+    "operators": 1,
+    "asset": "prop_machine"
+   },
+   {
+    "id": "l1-m4",
+    "line_id": "l1",
+    "rank": 4,
+    "name": "M4 · Montage de l'assise",
+    "operation": "Montage de l'assise",
+    "cycle_min": 1,
+    "run_min": 480,
+    "stop_min": 0,
+    "mtbf_h": 100,
+    "weibull_shape": 2,
+    "mttr_h": 0.5,
+    "setup_min": 5,
+    "defect_rate": 0.02,
+    "buffer": 10,
+    "transfer_min": 0,
+    "operators": 1,
+    "asset": "prop_machine"
+   },
+   {
+    "id": "l2-m1",
+    "line_id": "l2",
+    "rank": 1,
+    "name": "M1 · Découpe des tubes",
+    "operation": "Découpe des tubes",
+    "cycle_min": 2,
+    "run_min": 480,
+    "stop_min": 0,
+    "mtbf_h": 40,
+    "weibull_shape": 2,
+    "mttr_h": 1,
+    "setup_min": 10,
+    "defect_rate": 0.02,
+    "buffer": 10,
+    "transfer_min": 0.5,
+    "operators": 1,
+    "asset": "prop_machine"
+   },
+   {
+    "id": "l2-m2",
+    "line_id": "l2",
+    "rank": 2,
+    "name": "M2 · Cintrage",
+    "operation": "Cintrage",
+    "cycle_min": 1.5,
+    "run_min": 480,
+    "stop_min": 0,
+    "mtbf_h": 80,
+    "weibull_shape": 2,
+    "mttr_h": 0.5,
+    "setup_min": 5,
+    "defect_rate": 0.01,
+    "buffer": 10,
+    "transfer_min": 0.5,
+    "operators": 1,
+    "asset": "prop_machine"
+   },
+   {
+    "id": "l2-m3",
+    "line_id": "l2",
+    "rank": 3,
+    "name": "M3 · Soudage",
+    "operation": "Soudage",
+    "cycle_min": 3,
+    "run_min": 480,
+    "stop_min": 0,
+    "mtbf_h": 60,
+    "weibull_shape": 2,
+    "mttr_h": 1,
+    "setup_min": 0,
+    "defect_rate": 0.03,
+    "buffer": 10,
+    "transfer_min": 0.5,
+    "operators": 1,
+    "asset": "prop_machine"
+   },
+   {
+    "id": "l2-m4",
+    "line_id": "l2",
+    "rank": 4,
+    "name": "M4 · Montage de l'assise",
+    "operation": "Montage de l'assise",
+    "cycle_min": 1,
+    "run_min": 480,
+    "stop_min": 0,
+    "mtbf_h": 100,
+    "weibull_shape": 2,
+    "mttr_h": 0.5,
+    "setup_min": 5,
+    "defect_rate": 0.02,
+    "buffer": 10,
+    "transfer_min": 0,
+    "operators": 1,
+    "asset": "prop_machine"
+   },
+   {
+    "id": "l3-m1",
+    "line_id": "l3",
+    "rank": 1,
+    "name": "M1 · Découpe des tubes",
+    "operation": "Découpe des tubes",
+    "cycle_min": 2,
+    "run_min": 480,
+    "stop_min": 0,
+    "mtbf_h": 40,
+    "weibull_shape": 2,
+    "mttr_h": 1,
+    "setup_min": 10,
+    "defect_rate": 0.02,
+    "buffer": 10,
+    "transfer_min": 0.5,
+    "operators": 1,
+    "asset": "prop_machine"
+   },
+   {
+    "id": "l3-m2",
+    "line_id": "l3",
+    "rank": 2,
+    "name": "M2 · Cintrage",
+    "operation": "Cintrage",
+    "cycle_min": 1.5,
+    "run_min": 480,
+    "stop_min": 0,
+    "mtbf_h": 80,
+    "weibull_shape": 2,
+    "mttr_h": 0.5,
+    "setup_min": 5,
+    "defect_rate": 0.01,
+    "buffer": 10,
+    "transfer_min": 0.5,
+    "operators": 1,
+    "asset": "prop_machine"
+   },
+   {
+    "id": "l3-m3",
+    "line_id": "l3",
+    "rank": 3,
+    "name": "M3 · Soudage",
+    "operation": "Soudage",
+    "cycle_min": 3,
+    "run_min": 480,
+    "stop_min": 0,
+    "mtbf_h": 60,
+    "weibull_shape": 2,
+    "mttr_h": 1,
+    "setup_min": 0,
+    "defect_rate": 0.03,
+    "buffer": 10,
+    "transfer_min": 0.5,
+    "operators": 1,
+    "asset": "prop_machine"
+   },
+   {
+    "id": "l3-m4",
+    "line_id": "l3",
+    "rank": 4,
+    "name": "M4 · Montage de l'assise",
+    "operation": "Montage de l'assise",
+    "cycle_min": 1,
+    "run_min": 480,
+    "stop_min": 0,
+    "mtbf_h": 100,
+    "weibull_shape": 2,
+    "mttr_h": 0.5,
+    "setup_min": 5,
+    "defect_rate": 0.02,
+    "buffer": 10,
+    "transfer_min": 0,
+    "operators": 1,
+    "asset": "prop_machine"
+   }
+  ],
+  "crew": [
+   {
+    "id": "op_l1-m1",
+    "job": "operateur",
+    "department_id": "production",
+    "machine_id": "l1-m1",
+    "character": "char_worker_m"
+   },
+   {
+    "id": "op_l1-m2",
+    "job": "operateur",
+    "department_id": "production",
+    "machine_id": "l1-m2",
+    "character": "char_worker_f"
+   },
+   {
+    "id": "op_l1-m3",
+    "job": "operateur",
+    "department_id": "production",
+    "machine_id": "l1-m3",
+    "character": "char_worker_m"
+   },
+   {
+    "id": "op_l1-m4",
+    "job": "operateur",
+    "department_id": "production",
+    "machine_id": "l1-m4",
+    "character": "char_worker_f"
+   },
+   {
+    "id": "op_l2-m1",
+    "job": "operateur",
+    "department_id": "production",
+    "machine_id": "l2-m1",
+    "character": "char_worker_f"
+   },
+   {
+    "id": "op_l2-m2",
+    "job": "operateur",
+    "department_id": "production",
+    "machine_id": "l2-m2",
+    "character": "char_worker_m"
+   },
+   {
+    "id": "op_l2-m3",
+    "job": "operateur",
+    "department_id": "production",
+    "machine_id": "l2-m3",
+    "character": "char_worker_f"
+   },
+   {
+    "id": "op_l2-m4",
+    "job": "operateur",
+    "department_id": "production",
+    "machine_id": "l2-m4",
+    "character": "char_worker_m"
+   },
+   {
+    "id": "op_l3-m1",
+    "job": "operateur",
+    "department_id": "production",
+    "machine_id": "l3-m1",
+    "character": "char_worker_m"
+   },
+   {
+    "id": "op_l3-m2",
+    "job": "operateur",
+    "department_id": "production",
+    "machine_id": "l3-m2",
+    "character": "char_worker_f"
+   },
+   {
+    "id": "op_l3-m3",
+    "job": "operateur",
+    "department_id": "production",
+    "machine_id": "l3-m3",
+    "character": "char_worker_m"
+   },
+   {
+    "id": "op_l3-m4",
+    "job": "operateur",
+    "department_id": "production",
+    "machine_id": "l3-m4",
+    "character": "char_worker_f"
+   },
+   {
+    "id": "chauffeur_fournisseur",
+    "job": "chauffeur_fournisseur",
+    "department_id": "fournisseur",
+    "character": "char_driver_m"
+   },
+   {
+    "id": "chauffeur_client",
+    "job": "chauffeur_client",
+    "department_id": "client",
+    "character": "char_driver_m"
+   }
+  ],
+  "clock": {
+   "days_per_turn": 5,
+   "minutes_per_day": 480,
+   "day_start_h": 8,
+   "frame_min": 5,
+   "breaks": [
+    [
+     120,
+     10
+    ],
+    [
+     240,
+     20
+    ],
+    [
+     360,
+     10
+    ]
+   ]
+  },
+  "logistics": {
+   "units_per_pallet_mp": 100,
+   "unload_min_per_pallet": 2,
+   "inspect_min_per_pallet": 5,
+   "supplier_nonconform_rate": 0.02,
+   "delivery_window_min": [
+    0,
+    120
+   ],
+   "mp_capacity_pallets": 24,
+   "kit_min": 8,
+   "qc_min_per_unit": 0.7,
+   "qc_block_threshold": 0.15,
+   "units_per_case": 4,
+   "cases_per_pallet": 6,
+   "pack_min_per_case": 2,
+   "wrap_min_per_pallet": 5,
+   "pf_capacity_pallets": 20,
+   "load_min_per_pallet": 2,
+   "repair_travel_min": 3,
+   "preventive_min": 20
+  },
+  "customer": {
+   "demand_per_day": 210,
+   "variability": 0.1,
+   "promised_days": 2
+  },
+  "resources": {
+   "docks": 1,
+   "forklifts": 1,
+   "technicians": 1,
+   "line_leads": 1
+  },
+  "costs": {
+   "repair_per_h": 75,
+   "preventive_per_intervention": 50,
+   "operator_per_h": 28
+  }
+ },
+ "panels": [
+  {
+   "id": "bandeau",
+   "type": "kpis",
+   "title": "Indicateurs",
+   "placement": "bandeau",
+   "source": "kpis",
+   "columns": [
+    {
+     "key": "otif",
+     "label": "OTIF",
+     "format": "pct",
+     "target": "targets.otif"
+    },
+    {
+     "key": "trs",
+     "label": "TRS",
+     "format": "pct",
+     "target": "targets.trs"
+    },
+    {
+     "key": "cash",
+     "label": "Trésorerie",
+     "format": "money",
+     "target": "targets.cash_final"
+    }
+   ]
+  },
+  {
+   "id": "bandeau_pf",
+   "type": "kpis",
+   "title": "Stock PF",
+   "placement": "bandeau",
+   "source": "factory.stocks.pf",
+   "columns": [
+    {
+     "key": "pallets",
+     "label": "Stock PF (palettes)",
+     "format": "int"
+    },
+    {
+     "key": "capacity_pallets",
+     "label": "Places",
+     "format": "int"
+    }
+   ]
+  },
+  {
+   "id": "flux",
+   "type": "flow",
+   "title": "Flux de l'usine",
+   "placement": "tableau_de_bord",
+   "source": "factory.flow"
+  },
+  {
+   "id": "lignes",
+   "type": "table",
+   "title": "Lignes",
+   "placement": "tableau_de_bord",
+   "source": "factory.lines",
+   "columns": [
+    {
+     "key": "name",
+     "label": "Ligne"
+    },
+    {
+     "key": "bottleneck_id",
+     "label": "Goulot"
+    },
+    {
+     "key": "theoretical_h",
+     "label": "Débit théorique (/ h)",
+     "format": "dec1"
+    },
+    {
+     "key": "expected_h",
+     "label": "Bons attendus (/ h)",
+     "format": "dec1"
+    },
+    {
+     "key": "real_h",
+     "label": "Bons mesurés (/ h)",
+     "format": "dec1"
+    },
+    {
+     "key": "production_rate",
+     "label": "Réalisation du plan",
+     "format": "pct"
+    },
+    {
+     "key": "wip",
+     "label": "Encours",
+     "format": "int"
+    }
+   ]
+  },
+  {
+   "id": "machines",
+   "type": "table",
+   "title": "Machines",
+   "placement": "tableau_de_bord",
+   "source": "factory.machines",
+   "columns": [
+    {
+     "key": "name",
+     "label": "Machine"
+    },
+    {
+     "key": "state",
+     "label": "État",
+     "format": "state",
+     "labels": {
+      "arret": "Arrêt",
+      "marche": "En marche",
+      "pause": "Pause",
+      "reglage": "Réglage",
+      "panne": "En panne",
+      "attente_matiere": "Attente matière",
+      "sortie_pleine": "Sortie pleine"
+     }
+    },
+    {
+     "key": "availability",
+     "label": "Disponibilité",
+     "format": "pct"
+    },
+    {
+     "key": "produced",
+     "label": "Produits",
+     "format": "int"
+    },
+    {
+     "key": "failures",
+     "label": "Pannes",
+     "format": "int"
+    },
+    {
+     "key": "downtime_min",
+     "label": "Arrêt",
+     "format": "minutes"
+    },
+    {
+     "key": "buffer",
+     "label": "Table d'attente",
+     "format": "int"
+    }
+   ]
+  },
+  {
+   "id": "historique",
+   "type": "chart",
+   "title": "OTIF et TRS par semaine",
+   "placement": "tableau_de_bord",
+   "source": "history",
+   "columns": [
+    {
+     "key": "otif",
+     "label": "OTIF",
+     "format": "pct",
+     "target": "targets.otif"
+    },
+    {
+     "key": "trs",
+     "label": "TRS",
+     "format": "pct",
+     "target": "targets.trs"
+    }
+   ]
+  },
+  {
+   "id": "ordres",
+   "type": "table",
+   "title": "Ordres de fabrication",
+   "placement": "tableau_de_bord",
+   "source": "factory.orders.production",
+   "columns": [
+    {
+     "key": "id",
+     "label": "OF"
+    },
+    {
+     "key": "line_id",
+     "label": "Ligne"
+    },
+    {
+     "key": "quantity",
+     "label": "Lancés",
+     "format": "int"
+    },
+    {
+     "key": "done",
+     "label": "Faits",
+     "format": "int"
+    },
+    {
+     "key": "status",
+     "label": "État",
+     "format": "state",
+     "labels": {
+      "attente": "En attente",
+      "en_cours": "En cours",
+      "termine": "Terminé"
+     }
+    }
+   ]
+  },
+  {
+   "id": "poste_machine",
+   "type": "table",
+   "title": "Cette machine",
+   "placement": "poste",
+   "station_kinds": [
+    "machine"
+   ],
+   "source": "factory.machines",
+   "match": "id",
+   "columns": [
+    {
+     "key": "name",
+     "label": "Machine"
+    },
+    {
+     "key": "state",
+     "label": "État",
+     "format": "state",
+     "labels": {
+      "arret": "Arrêt",
+      "marche": "En marche",
+      "pause": "Pause",
+      "reglage": "Réglage",
+      "panne": "En panne",
+      "attente_matiere": "Attente matière",
+      "sortie_pleine": "Sortie pleine"
+     }
+    },
+    {
+     "key": "availability",
+     "label": "Disponibilité",
+     "format": "pct"
+    },
+    {
+     "key": "produced",
+     "label": "Produits",
+     "format": "int"
+    },
+    {
+     "key": "failures",
+     "label": "Pannes",
+     "format": "int"
+    },
+    {
+     "key": "downtime_min",
+     "label": "Arrêt",
+     "format": "minutes"
+    },
+    {
+     "key": "buffer",
+     "label": "Table d'attente",
+     "format": "int"
+    }
+   ]
+  },
+  {
+   "id": "commandes_client",
+   "type": "table",
+   "title": "Commandes client",
+   "placement": "poste",
+   "station_kinds": [
+    "pilotage"
+   ],
+   "source": "factory.orders.customer",
+   "columns": [
+    {
+     "key": "id",
+     "label": "Commande"
+    },
+    {
+     "key": "quantity",
+     "label": "Produits",
+     "format": "int"
+    },
+    {
+     "key": "due_day",
+     "label": "Jour promis",
+     "format": "int"
+    },
+    {
+     "key": "shipped",
+     "label": "Expédiés",
+     "format": "int"
+    },
+    {
+     "key": "status",
+     "label": "État",
+     "format": "state",
+     "labels": {
+      "ouverte": "Ouverte",
+      "livree": "Livrée",
+      "en_retard": "En retard"
+     }
+    }
+   ]
+  },
+  {
+   "id": "stock_matiere",
+   "type": "table",
+   "title": "Matière première",
+   "placement": "poste",
+   "station_kinds": [
+    "pilotage"
+   ],
+   "source": "factory.stocks.mp",
+   "columns": [
+    {
+     "key": "name",
+     "label": "Matière"
+    },
+    {
+     "key": "pallets",
+     "label": "Palettes",
+     "format": "int"
+    },
+    {
+     "key": "capacity_pallets",
+     "label": "Places",
+     "format": "int"
+    },
+    {
+     "key": "reorder_point",
+     "label": "Point de commande",
+     "format": "int"
+    },
+    {
+     "key": "pending",
+     "label": "En commande",
+     "format": "int"
+    }
+   ]
+  },
+  {
+   "id": "pannes",
+   "type": "table",
+   "title": "Pannes et disponibilité",
+   "placement": "poste",
+   "station_kinds": [
+    "maintenance"
+   ],
+   "source": "factory.machines",
+   "columns": [
+    {
+     "key": "name",
+     "label": "Machine"
+    },
+    {
+     "key": "failures",
+     "label": "Pannes",
+     "format": "int"
+    },
+    {
+     "key": "downtime_min",
+     "label": "Arrêt",
+     "format": "minutes"
+    },
+    {
+     "key": "availability",
+     "label": "Disponibilité",
+     "format": "pct"
+    },
+    {
+     "key": "age_h",
+     "label": "Âge (h de marche)",
+     "format": "dec1"
+    }
+   ]
+  },
+  {
+   "id": "part_de_bons",
+   "type": "gauge",
+   "title": "Part de produits bons",
+   "placement": "poste",
+   "station_kinds": [
+    "poste_qualite"
+   ],
+   "source": "kpis",
+   "columns": [
+    {
+     "key": "good_share",
+     "label": "Part de bons",
+     "format": "pct"
+    }
+   ],
+   "min": 80,
+   "max": 100
+  }
+ ],
+ "provenance": {
+  "fournisseur.delai_jours": {
+   "status": "exemple",
+   "note": "Cahier §2, délai de livraison ; profil standard."
+  },
+  "fournisseur.fiabilite_delai": {
+   "status": "exemple",
+   "note": "Cahier §2 ; profil standard."
+  },
+  "fournisseur.taux_non_conforme": {
+   "status": "exemple",
+   "note": "Cahier §2 (« livraisons non conformes ») ; appliqué palette par palette, la palette part en quarantaine."
+  },
+  "fournisseur.commande_min_palettes": {
+   "status": "exemple",
+   "note": "Cahier §2 ; profils rapide et standard."
+  },
+  "fournisseur.camion_palettes": {
+   "status": "exemple",
+   "note": "Cahier §2 : camion de 4 à 6 palettes ; le maximum borne une commande (une commande = un camion)."
+  },
+  "fournisseur.creneau_livraison_min": {
+   "status": "exemple",
+   "note": "Cahier §2 : créneau 8 h - 10 h."
+  },
+  "fournisseur.stock": {
+   "status": "exemple",
+   "note": "Cahier §2 : stock du fournisseur illimité par défaut."
+  },
+  "fournisseur.retard_jours": {
+   "status": "calibre",
+   "note": "Une livraison en retard arrive le jour ouvré suivant ; le cahier ne dit pas de combien."
+  },
+  "fournisseur.profils": {
+   "status": "calibre",
+   "note": "Standard = fournisseur du cahier. Arbitrage voulu : le rapide coûte 12 % de plus ; l'économique coûte 12 % de moins mais livre en 5 jours, moins souvent à l'heure et par 4 palettes, ce qui demande plus de stock de sécurité et peut saturer les 24 places de racks à 3 lignes. Écarts indicatifs, non sourcés. Ordre des fournisseurs d'un produit (themes) = ordre des profils."
+  },
+  "fournisseur.ecart_fiabilite": {
+   "status": "calibre",
+   "note": "difficulties.reliability_shift : points ajoutés à la fiabilité des trois profils (+3, 0, -8), plafonnée à 100."
+  },
+  "reception.dechargement_min_palette": {
+   "status": "exemple",
+   "note": "Cahier §3.1."
+  },
+  "reception.controle_min_palette": {
+   "status": "exemple",
+   "note": "Cahier §3.1."
+  },
+  "reception.zone_depose_palettes": {
+   "status": "exemple",
+   "note": "Cahier §3.1 (décor et file d'attente du contrôle)."
+  },
+  "reception.quarantaine_palettes": {
+   "status": "exemple",
+   "note": "Cahier §3.1."
+  },
+  "reception.quais": {
+   "status": "exemple",
+   "note": "Cahier §3.1 : un quai partagé avec l'expédition (décision de l'utilisateur du 28/10/2026)."
+  },
+  "stock_mp.capacite_palettes": {
+   "status": "exemple",
+   "note": "Cahier §3.2 : racks de 24 emplacements."
+  },
+  "stock_mp.chariots": {
+   "status": "exemple",
+   "note": "Cahier §3.2 : chariot de 1 200 kg (batterie : tranche 2)."
+  },
+  "stock_mp.kit_min": {
+   "status": "calibre",
+   "note": "Cahier sans valeur : prélever la matière d'un lot de 24 et la livrer en tête de ligne. Indicatif ; à 3 lignes, environ 15 kits par jour occupent le chariot 2 h."
+  },
+  "stock_mp.sortie_fifo": {
+   "status": "exemple",
+   "note": "Cahier §3.2 : sortie dans l'ordre d'arrivée. Pratique décrite par wikipedia-en-stock-rotation (notion rotation_fifo)."
+  },
+  "stock_mp.stock_securite_jours": {
+   "status": "calibre",
+   "note": "Pilote automatique : point de commande = consommation pendant le délai du fournisseur standard + 1 jour."
+  },
+  "stock_mp.stock_initial_jours": {
+   "status": "calibre",
+   "note": "difficulties.mp_stock_days (5, 4, 2,5 jours de consommation) : au plus 15 palettes à 3 lignes, sous les 24 places."
+  },
+  "stock_mp.unites_par_palette": {
+   "status": "calibre",
+   "note": "themes.*.mp.units_per_pallet (120 à 150) : à 3 lignes, environ 3 palettes consommées par jour, un camion de 6 tous les 2 jours, racks de 24 suffisants ; kits de quelques kilos, palette sous les 1 200 kg du chariot. Indicatif."
+  },
+  "machine.cycle_min": {
+   "status": "exemple",
+   "note": "Cahier §5.2 : 2 ; 1,5 ; 3 ; 1 min. M3 est le goulot (20 / h)."
+  },
+  "machine.mtbf_h": {
+   "status": "exemple",
+   "note": "Cahier §5.2 : 40, 80, 60, 100 h. Convention du jeu (maintenance.convention_mtbf) : temps moyen de marche entre deux pannes, réparation exclue."
+  },
+  "machine.mttr_h": {
+   "status": "exemple",
+   "note": "Cahier §5.2 : 1 ; 0,5 ; 1 ; 0,5 h de réparation active ; l'arrêt réel ajoute l'attente et le trajet du technicien."
+  },
+  "machine.weibull_shape": {
+   "status": "calibre",
+   "note": "Forme 2 : risque de panne croissant avec l'âge (usure), pour que le préventif ait un effet, comme sur une machine qui s'use (wikipedia-en-reliability-centered-maintenance : le préventif ne vaut que si l'équipement s'use). La loi de Weibull elle-même n'est dans aucune fiche : à sourcer."
+  },
+  "machine.facteur_mtbf": {
+   "status": "calibre",
+   "note": "difficulties.mtbf_factor (1,5 ; 1 ; 0,6) appliqué aux MTBF du cahier."
+  },
+  "machine.setup_min": {
+   "status": "exemple",
+   "note": "Cahier §5.2 : 10, 5, 0, 5 min à chaque changement de lot (aucun sur le goulot)."
+  },
+  "machine.defect_rate": {
+   "status": "exemple",
+   "note": "Cahier §5.2 : 2 %, 1 %, 3 %, 2 % ; rendement cumulé de la ligne = 98 x 99 x 97 x 98 % = 92,2 %."
+  },
+  "machine.buffer": {
+   "status": "exemple",
+   "note": "Cahier §5.2 : table d'attente de 10 produits en sortie de chaque machine."
+  },
+  "machine.transfer_min": {
+   "status": "exemple",
+   "note": "Cahier §8 : 0,5 min ; 3 transferts pour 4 machines (le cahier en compte 4), M4 envoie au contrôle."
+  },
+  "machine.operators": {
+   "status": "exemple",
+   "note": "Cahier §3.3 : un opérateur par machine."
+  },
+  "machine.pauses": {
+   "status": "calibre",
+   "note": "Cahier : 110 min de marche / 10 min d'arrêt. Remplacé par les pauses du personnel (clock.breaks) qui arrêtent toute la ligne au même moment ; run_min = 480 et stop_min = 0 (aucun arrêt propre à la machine)."
+  },
+  "machine.outil": {
+   "status": "calibre",
+   "note": "Usure d'outil : tranche 2 (le cahier ne donne aucune durée de vie) ; tool_life absent."
+  },
+  "machine.protect_buffer": {
+   "status": "calibre",
+   "note": "Factory.protect_buffer, action proteger_goulot, mode tampon_avant : table devant le goulot portée de 10 à 30 produits, soit 90 min de travail du goulot, plus qu'une réparation de M1 (1 h) ; prix : 20 produits d'encours en plus (loi de Little)."
+  },
+  "qualite.controle_min_produit": {
+   "status": "calibre",
+   "note": "Cahier : 1 min, soit 60 / h, autant que 3 lignes au goulot (60 / h) : le contrôle deviendrait le goulot de l'usine. 0,7 min donne 60 / 0,7 = 85,7 / h >= 1,2 x 60 = 72 / h (annexe §5). Indicatif."
+  },
+  "qualite.frequence": {
+   "status": "exemple",
+   "note": "Cahier §3.4 : 100 % (1 sur N : module qualité, tranche 2)."
+  },
+  "qualite.facteur_defauts": {
+   "status": "calibre",
+   "note": "difficulties.defect_factor (0,5 ; 1 ; 1,5) appliqué aux taux de défaut du cahier."
+  },
+  "qualite.seuil_blocage": {
+   "status": "source",
+   "citation": "wikipedia-en-p-chart"
+  },
+  "emballage.produits_par_colis": {
+   "status": "calibre",
+   "note": "Cahier : 1, soit 6 produits par palette en 6 x 2 + 5 = 17 min, 21 / h : l'emballage serait le goulot de l'usine. Avec 4 : 60 x 4 x 6 / (6 x 2 + 5) = 84,7 / h >= 72 / h (annexe §5) et des palettes de 24."
+  },
+  "emballage.colis_par_palette": {
+   "status": "exemple",
+   "note": "Cahier §3.5."
+  },
+  "emballage.min_par_colis": {
+   "status": "exemple",
+   "note": "Cahier §3.5 (mettre en carton, fermer, étiqueter, peser)."
+  },
+  "emballage.filmage_min_palette": {
+   "status": "exemple",
+   "note": "Cahier §3.5."
+  },
+  "entrepot_pf.capacite_palettes": {
+   "status": "exemple",
+   "note": "Cahier §4 : 480 produits, environ 2 jours de demande à 2 lignes."
+  },
+  "entrepot_pf.chargement_min_palette": {
+   "status": "exemple",
+   "note": "Cahier §4."
+  },
+  "entrepot_pf.stock_initial_jours": {
+   "status": "calibre",
+   "note": "difficulties.pf_stock_days (1,2 ; 1 ; 0,5 jour de demande), toujours sous les 20 palettes."
+  },
+  "client.charge": {
+   "status": "calibre",
+   "note": "difficulties.load (0,80 ; 0,85 ; 0,90) : demande par jour = charge x débit réel attendu (expected_h) des machines de la partie, facteurs de difficulté compris, x lignes actives x 8 h ; la génération vérifie une charge réelle < 0,95. Au-delà de 0,9, l'attente croît très vite (wikipedia-en-kingman-s-formula). Expert relevable jusqu'à 0,92 au calibrage (étape 9). Le cahier (100 / jour) chargeait l'usine à 23 %."
+  },
+  "client.variabilite": {
+   "status": "exemple",
+   "note": "Cahier §4.1 : ± 10 % (équilibré) ; 5 % et 15 % en découverte et expert (difficulties.demand_variability, calibre)."
+  },
+  "client.delai_promis_jours": {
+   "status": "calibre",
+   "note": "difficulties.promised_days : J+2 (J+1 en expert). Le cahier promet 5 jours, une semaine entière : aucun retard possible."
+  },
+  "client.orders_per_day": {
+   "status": "calibre",
+   "note": "Customer.orders_per_day : une commande par jour ouvré, passée à 8 h, d'environ une journée de demande."
+  },
+  "client.pickup_window_min": {
+   "status": "calibre",
+   "note": "Customer.pickup_window_min : camion du client entre 14 h et 15 h 30, après les livraisons MP (8 h - 10 h) ; le quai partagé n'est en conflit qu'en cas de retard."
+  },
+  "maintenance.techniciens": {
+   "status": "exemple",
+   "note": "Cahier §3.6 : une seule réparation à la fois."
+  },
+  "maintenance.trajet_min": {
+   "status": "exemple",
+   "note": "Cahier §3.6 : déplacement jusqu'à la machine."
+  },
+  "maintenance.convention_mtbf": {
+   "status": "source",
+   "citation": "wikipedia-en-availability"
+  },
+  "maintenance.preventif_min": {
+   "status": "calibre",
+   "note": "Graissage, contrôle, pièce d'usure : indicatif. Égal à la pause de 20 min pour qu'un préventif fait pendant cette pause n'arrête pas la production."
+  },
+  "maintenance.preventif_regle": {
+   "status": "calibre",
+   "note": "Une intervention par machine ciblée et par tour, faite pendant les pauses du personnel (les plus longues d'abord), goulots d'abord ; la part qui dépasse la pause arrête la machine ; une panne passe avant ; l'âge de la machine revient à zéro. Règle détaillée : annexe §5 (29/10)."
+  },
+  "maintenance.cout_reparation_h": {
+   "status": "calibre",
+   "note": "Technicien et pièces courantes : ordre de grandeur indicatif, non sourcé."
+  },
+  "maintenance.cout_preventif": {
+   "status": "calibre",
+   "note": "Indicatif, non sourcé ; une panne du goulot coûte en plus environ 20 produits par heure d'arrêt."
+  },
+  "pilotage.journee_min": {
+   "status": "exemple",
+   "note": "Cahier §3.7 : journée de 8 h simulées."
+  },
+  "pilotage.jours_par_tour": {
+   "status": "calibre",
+   "note": "Décision de l'utilisateur du 28/10/2026 : un tour = une semaine de 5 jours rejouée."
+  },
+  "pilotage.pauses": {
+   "status": "calibre",
+   "note": "2 x 10 + 1 x 20 min (40 min sur 480, comme les 4 x 10 du cahier : disponibilité 440 / 480 = 91,7 %). La pause de 20 min consécutives dès 6 h de travail quotidien est le minimum du Code du travail, art. L3121-16 (texte lu sur des reprises secondaires, Légifrance à vérifier ; hors corpus) ; les deux pauses de 10 min sont un usage d'entreprise."
+  },
+  "pilotage.chefs_de_ligne": {
+   "status": "exemple",
+   "note": "Cahier §3.3 : un chef de ligne pour toutes les lignes."
+  },
+  "pilotage.releve_pauses": {
+   "status": "calibre",
+   "note": "Mode releve_pauses : le chef de ligne fait tourner le goulot pendant les pauses ; seul, il ne relève qu'une ligne à la fois (une autre demande est refusée). Gain : 40 min de goulot par jour, environ +9 % ; coût : minutes de relève x pilotage.cout_operateur_h. Règle détaillée : annexe §5 (29/10)."
+  },
+  "pilotage.taille_lot": {
+   "status": "calibre",
+   "note": "Cahier : 20. 24 = une palette de 24 (4 colis x 6) : les lots font des palettes entières, la palettisation continue d'un lot à l'autre. Avec 0 min de réglage au goulot, la taille du lot ne coûte rien au débit."
+  },
+  "pilotage.lancement_avec_rebut": {
+   "status": "calibre",
+   "note": "Pilote automatique : lots à lancer = besoin en bons / (24 x rendement cumulé attendu), arrondi au-dessus. Le « x (1 + taux de rebut) » du cahier sous-estime le surplus : écart faible à 7,8 % de rebut (1,078 contre 1,084), net à 20 % (1,20 contre 1,25)."
+  },
+  "pilotage.pf_min_jours": {
+   "status": "calibre",
+   "note": "pf_min : le pilote automatique lance un OF quand stock PF + encours < une journée de demande."
+  },
+  "pilotage.temps_de_lot": {
+   "status": "exemple",
+   "note": "Cahier §8 : temps d'un lot de n = premier produit + (n - 1) x cycle du goulot, sans attente ; premier produit = somme des cycles + 3 transferts = 9 min. Formule du cahier sans fiche : montrée au débrief comme exemple."
+  },
+  "pilotage.trs": {
+   "status": "source",
+   "citation": "wikipedia-en-overall-equipment-effectiveness"
+  },
+  "pilotage.objectif_otif": {
+   "status": "calibre",
+   "note": "Repris de l'atelier ; OTIF commande par commande (wikipedia-en-supply-chain-operations-reference)."
+  },
+  "pilotage.objectif_trs": {
+   "status": "calibre",
+   "note": "TRS attendu au goulot = 91,7 % (pauses) x 98,3 % (pannes de M3 avec trajet) x 92,2 % (bons) = 83 % en équilibré ; environ 87 % en découverte, 79 % en expert, avant les attentes de matière : 80 % sépare les deux."
+  },
+  "pilotage.tresorerie_initiale_semaines": {
+   "status": "calibre",
+   "note": "difficulties.cash_weeks (6, 4, 2,5 semaines d'achats de MP), comme l'atelier."
+  },
+  "pilotage.taux_possession_semaine": {
+   "status": "calibre",
+   "note": "25 % par an, ordre de grandeur usuel du coût de possession, repris de l'atelier ; indicatif, non sourcé."
+  },
+  "pilotage.taux_interet_semaine": {
+   "status": "calibre",
+   "note": "Agios repris de l'atelier ; indicatif."
+  },
+  "pilotage.cout_operateur_h": {
+   "status": "calibre",
+   "note": "Coût employeur d'un opérateur, ordre de grandeur indicatif (à vérifier : INSEE, coût horaire de la main-d'œuvre) ; sert aux heures de relève."
+  },
+  "pilotage.prix_et_couts": {
+   "status": "calibre",
+   "note": "Prix de vente, coût de transformation (main-d'œuvre comprise, environ 4 opérateurs x 3 min = 0,2 h par produit) et coût de la MP des themes : ordres de grandeur indicatifs, non sourcés."
+  },
+  "pilotage.effets_aleas": {
+   "status": "calibre",
+   "note": "Ampleur des effets des aléas (events) : indicative, non sourcée."
+  }
+ }
+}

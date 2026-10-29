@@ -1,11 +1,37 @@
 class_name GameText
 extends RefCounted
-## Mise en forme des données de jeu renvoyées par l'API (KPI, phase, débrief, spec) en BBCode pour RichTextLabel.
-## Tout texte venant de l'API ou de l'IA passe par esc() : un « [ » ne doit jamais être lu comme une balise.
+## Mise en forme des données de jeu renvoyées par l'API (semaine, indicateurs, postes, tableau de bord, débrief,
+## spec) en BBCode pour RichTextLabel. Tout texte venant de l'API ou de l'IA passe par esc() : un « [ » ne doit
+## jamais être lu comme une balise.
 
 const GREEN := "#7fd98a"
 const ORANGE := "#ffb84d"
 const GREY := "#9aa3b2"
+## Indicateurs de l'état public : [id, nom, unité, clé de l'objectif dans targets ("" : aucun), plus haut = mieux].
+const KPIS := [
+	["otif", "OTIF", "%", "otif", true],
+	["service", "Taux de service", "%", "", true],
+	["trs", "TRS moyen", "%", "trs", true],
+	["stockouts", "Références en rupture", "", "stockouts", false],
+	["coverage_days", "Couverture du stock", "j", "", true],
+	["stock_value", "Stock immobilisé", "€", "", false],
+	["cash", "Trésorerie", "€", "cash_final", true],
+	["margin", "Résultat de la semaine", "€", "", true],
+]
+const SCREEN_KPIS := ["otif", "trs", "stockouts", "coverage_days", "cash"]
+const LEVELS := {"aucune": "aucun entretien", "preventive": "entretien préventif", "renforcee": "entretien renforcé"}
+const MODES := {"economique": "groupage", "standard": "messagerie", "express": "express"}
+const PRICES := {"0.9": "promotion (-10 %)", "1.0": "prix catalogue", "1.1": "prix +10 %"}
+const LINE_STATES := {"ok": "en marche", "alerte": "sous l'objectif de TRS", "arret": "en panne"}
+## États d'une machine d'usine (MachineState, ADR 0007 annexe §1).
+const MACHINE_STATES := {
+	"arret": "à l'arrêt", "marche": "en marche", "pause": "en pause", "reglage": "en réglage", "panne": "en panne",
+	"attente_matiere": "attend de la matière", "sortie_pleine": "sortie pleine",
+}
+const COSTS := {
+	"achats": "achats", "production": "production", "maintenance": "maintenance", "controle": "contrôle",
+	"transport": "transport", "possession": "possession du stock", "interets": "intérêts",
+}
 
 
 static func esc(text: Variant) -> String:
@@ -16,50 +42,84 @@ static func number(value: Variant) -> String:
 	if value == null:
 		return "-"
 	var f := float(value)
-	return str(int(f)) if is_equal_approx(f, roundf(f)) else "%.1f" % f
+	if absf(f) >= 1000.0 or is_equal_approx(f, roundf(f)):
+		return grouped(roundi(f))
+	return ("%.1f" % f).replace(".", ",")
 
 
-static func kpi_met(kpi: Dictionary, value: Variant) -> bool:
+## 12345 -> « 12 345 » (espaces insécables : un nombre ne se coupe pas en fin de ligne).
+static func grouped(value: int) -> String:
+	var digits := str(absi(value))
+	var out := ""
+	while digits.length() > 3:
+		out = "\u00a0" + digits.right(3) + out
+		digits = digits.left(digits.length() - 3)
+	return ("-" if value < 0 else "") + digits + out
+
+
+static func money(value: Variant) -> String:
+	return "-" if value == null else "%s\u00a0€" % grouped(roundi(float(value)))
+
+
+static func price(value: Variant) -> String:
+	return ("%.2f €" % float(value)).replace(".", ",")
+
+
+static func kpi_value(unit: String, value: Variant) -> String:
 	if value == null:
-		return false
-	if kpi["direction"] == "higher_is_better":
-		return float(value) >= float(kpi["target"])
-	return float(value) <= float(kpi["target"])
+		return "-"
+	if unit == "€":
+		return money(value)
+	return ("%s %s" % [number(value), unit]).strip_edges()
 
 
-## Lignes {name, value, unit} pour l'écran des KPI du monde 3D.
-static func kpi_rows(spec: Dictionary, state: Dictionary) -> Array:
+## true / false selon l'objectif, null s'il n'y en a pas (ou pas encore de valeur).
+static func kpi_met(kpi: Array, value: Variant, targets: Dictionary) -> Variant:
+	if kpi[3] == "" or value == null or not targets.has(kpi[3]):
+		return null
+	var target := float(targets[kpi[3]])
+	return float(value) >= target if kpi[4] else float(value) <= target
+
+
+static func kpis_bbcode(state: Dictionary) -> String:
 	var values: Dictionary = state.get("kpis", {})
-	var rows := []
-	for kpi: Dictionary in spec.get("kpis", []):
-		rows.append({"name": kpi["name"], "value": number(values.get(kpi["id"])), "unit": kpi["unit"]})
-	return rows
-
-
-static func kpis_bbcode(spec: Dictionary, state: Dictionary) -> String:
-	var values: Dictionary = state.get("kpis", {})
+	var targets: Dictionary = state.get("targets", {})
 	var lines := PackedStringArray()
-	for kpi: Dictionary in spec.get("kpis", []):
-		var value: Variant = values.get(kpi["id"])
-		var color := GREEN if kpi_met(kpi, value) else ORANGE
-		var arrow := "↑" if kpi["direction"] == "higher_is_better" else "↓"
-		lines.append(
-			"[color=%s]●[/color] %s : [b]%s %s[/b]  [color=%s]cible %s %s %s[/color]"
-			% [color, esc(kpi["name"]), number(value), esc(kpi["unit"]), GREY, arrow, number(kpi["target"]), esc(kpi["unit"])]
-		)
+	for kpi: Array in KPIS:
+		var value: Variant = values.get(kpi[0])
+		var met: Variant = kpi_met(kpi, value, targets)
+		var dot := "" if met == null else "[color=%s]●[/color] " % (GREEN if met else ORANGE)
+		var goal := ""
+		if kpi[3] != "" and targets.has(kpi[3]):
+			var when := " en fin de partie" if kpi[3] == "cash_final" else ""
+			goal = "  [color=%s]objectif%s %s %s[/color]" % [GREY, when, "≥" if kpi[4] else "≤", kpi_value(kpi[2], targets[kpi[3]])]
+		lines.append("%s%s : [b]%s[/b]%s" % [dot, kpi[1], kpi_value(kpi[2], value), goal])
 	return "\n".join(lines)
 
 
-static func phase_bbcode(state: Dictionary) -> String:
-	var phase: Dictionary = state.get("phase", {})
+## Lignes {name, value, unit} de l'écran des indicateurs de l'atelier.
+static func kpi_rows(state: Dictionary) -> Array:
+	var values: Dictionary = state.get("kpis", {})
+	var rows := []
+	for kpi: Array in KPIS:
+		if kpi[0] in SCREEN_KPIS:
+			rows.append({"name": kpi[1], "value": kpi_value(kpi[2], values.get(kpi[0])), "unit": ""})
+	return rows
+
+
+static func week_bbcode(spec: Dictionary, state: Dictionary) -> String:
+	var meta: Dictionary = spec.get("meta", {})
 	var status: String = state.get("status", "waiting")
 	var head := "En attente du lancement par le formateur"
 	if status == "running":
-		head = "Phase %d / %d : %s" % [int(state.get("phase_index", 0)) + 1, int(state.get("phase_count", 1)), esc(phase.get("title", ""))]
+		head = "Semaine %d / %d" % [int(state.get("week", 1)), int(state.get("weeks", meta.get("weeks", 1)))]
 	elif status == "finished":
 		head = "Partie terminée : place au débrief"
-	var goal := "" if status == "finished" else "\n[color=%s]%s[/color]" % [GREY, esc(phase.get("goal", ""))]
-	return "[b]%s[/b]%s" % [head, goal]
+	var lines := PackedStringArray(["[b]%s[/b]  ·  %s" % [head, esc(meta.get("company", ""))]])
+	var event: Variant = state.get("event")
+	if status == "running" and event is Dictionary:
+		lines.append("[color=%s]Annoncé cette semaine : %s. %s[/color]" % [ORANGE, esc(event["title"]), esc(event["description"])])
+	return "\n".join(lines)
 
 
 static func role_title(spec: Dictionary, role_id: Variant) -> String:
@@ -69,102 +129,273 @@ static func role_title(spec: Dictionary, role_id: Variant) -> String:
 	return str(role_id) if role_id != null else "aucun rôle"
 
 
+static func module_title(spec: Dictionary, module_id: Variant) -> String:
+	for module: Dictionary in spec.get("modules", []):
+		if module["id"] == module_id:
+			return module["title"]
+	return str(module_id)
+
+
+# --- postes de l'atelier --------------------------------------------------------------------------------------
+
+
+## Informations d'un poste (spec.stations) : ce qu'on voit en s'en approchant, avant d'agir.
+static func station_bbcode(spec: Dictionary, state: Dictionary, station: Dictionary) -> String:
+	var ref: Variant = station.get("ref")
+	var last: Dictionary = state["last"] if state.get("last") is Dictionary else {}
+	var settings: Dictionary = state.get("settings", {})
+	var out := PackedStringArray()
+	match station["kind"]:
+		"rack_produit":
+			var stock := _by_id(state.get("stocks", []), ref)
+			out.append("En stock : [b]%s[/b] · stock de sécurité %s" % [number(stock.get("quantity")), number(stock.get("safety_stock"))])
+			out.append("Demande attendue cette semaine : %s · couverture %s semaine(s)" % [number(stock.get("forecast")), number(stock.get("coverage_weeks"))])
+			out.append("Prix de vente : %s (%s)" % [price(stock.get("price", 0)), PRICES.get(settings.get("price", {}).get(ref), "")])
+			var sales: Dictionary = last.get("sales", {}).get(ref, {})
+			if not sales.is_empty():
+				out.append("Semaine dernière : %s vendus sur %s demandés, %s perdus, %s retours" % [number(sales["served"]), number(sales["demand"]), number(sales["lost"]), number(sales["returns"])])
+		"rack_composant":
+			var part := _by_id(state.get("components", []), ref)
+			out.append("En stock : [b]%s[/b] · en commande : %s · consommation : %s par semaine" % [number(part.get("quantity")), number(part.get("pending")), number(part.get("usage"))])
+			out.append("Point de commande : %s (consommation pendant le délai standard + stock de sécurité)" % number(part.get("reorder_point")))
+			if int(part.get("quantity", 0)) + int(part.get("pending", 0)) < int(part.get("reorder_point", 0)):
+				out.append("[color=%s]Sous le point de commande : il faut commander.[/color]" % ORANGE)
+			out.append_array(_orders(state, part.get("name", "")))
+		"ligne":
+			var line := _by_id(state.get("lines", []), ref)
+			var color := GREEN if line.get("status") == "ok" else ORANGE
+			out.append("TRS : [b]%s %%[/b] · [color=%s]%s[/color]" % [number(line.get("trs")), color, LINE_STATES.get(line.get("status"), "")])
+			out.append("Capacité : %s par semaine à 100 %%, %s au TRS actuel" % [number(line.get("capacity")), number(line.get("real_capacity"))])
+			out.append("Plan de la semaine : %s · %s" % [number(line.get("plan")), LEVELS.get(line.get("maintenance"), "")])
+			var report: Dictionary = last.get("lines", {}).get(ref, {})
+			if not report.is_empty():
+				var starved := " : composants manquants" if report["starved"] else ""
+				out.append("Semaine dernière : %s produits pour %s prévus%s" % [number(report["produced"]), number(report["planned"]), starved])
+		"poste_qualite":
+			out.append("Contrôle avant expédition : [b]%s %% des lots[/b]" % settings.get("control", "-"))
+			out.append("Taux de défaut des lignes : %s %%" % number(float(spec.get("economy", {}).get("defect_rate", 0)) * 100))
+			if not last.is_empty():
+				var scrapped := 0
+				for report: Dictionary in last.get("lines", {}).values():
+					scrapped += int(report["scrapped"])
+				out.append("Semaine dernière : %s défauts arrêtés au contrôle, %s retours des magasins" % [number(scrapped), number(last["totals"]["returns"])])
+		"bureau":
+			var overdraft: Variant = settings.get("overdraft")
+			var limit := "aucune limite (module finance non retenu)" if overdraft == null else money(int(overdraft))
+			out.append("Trésorerie : [b]%s[/b] · découvert autorisé : %s" % [money(state.get("cash")), limit])
+			for stock: Dictionary in state.get("stocks", []):
+				out.append("%s : %s (%s)" % [esc(stock["name"]), price(stock["price"]), PRICES.get(settings.get("price", {}).get(stock["id"]), "")])
+			if not last.is_empty():
+				out.append("Semaine dernière : ventes %s, résultat %s" % [money(last["revenue"]), money(last["kpis"]["margin"])])
+				var costs := PackedStringArray()
+				for key: String in last["costs"]:
+					costs.append("%s %s" % [COSTS.get(key, key), money(last["costs"][key])])
+				out.append("[color=%s]Coûts : %s[/color]" % [GREY, ", ".join(costs)])
+		"quai_reception":
+			out.append_array(_orders(state, ""))
+			if not last.is_empty():
+				out.append("Semaine dernière : %d livraison(s) reçue(s), %d en retard" % [last["deliveries"].size(), last["delayed"].size()])
+		"quai_expedition":
+			var mode: String = settings.get("transport", "standard")
+			var rate := float(spec.get("economy", {}).get("transport", {}).get(mode, {}).get("on_time", 0)) * 100
+			out.append("Livraisons en [b]%s[/b] : %s %% à l'heure" % [MODES.get(mode, mode), number(rate)])
+			if not last.is_empty():
+				var totals: Dictionary = last["totals"]
+				out.append("Semaine dernière : %s livrés sur %s demandés, %s perdus, OTIF %s %%" % [number(totals["served"]), number(totals["demand"]), number(totals["lost"]), number(last["kpis"]["otif"])])
+		"ecran_kpi":
+			out.append(kpis_bbcode(state))
+			out.append(history_bbcode(state.get("history", [])))
+		"machine":  # usine : la machine, d'après state.factory.machines (le panneau du pack viendra le compléter)
+			var machine := GmixFactoryState.machine(state, str(ref))
+			if not machine.is_empty():
+				var code := str(machine.get("state", ""))
+				out.append("%s : [b]%s[/b]%s" % [esc(machine.get("name", "?")), MACHINE_STATES.get(code, esc(code)), "  (goulot de la ligne)" if machine.get("bottleneck", false) else ""])
+				out.append("Table d'attente en sortie : %s / %s · disponibilité mesurée %s %% · %s panne(s) au dernier tour" % [number(machine.get("buffer")), number(machine.get("buffer_max")), number(machine.get("availability")), number(machine.get("failures"))])
+	return "\n".join(out)
+
+
+static func _orders(state: Dictionary, component_name: String) -> PackedStringArray:
+	var out := PackedStringArray()
+	for order: Dictionary in state.get("pending", []):
+		if component_name.is_empty() or order["component"] == component_name:
+			var late := "  [color=%s]%d semaine(s) de retard[/color]" % [ORANGE, int(order["delays"])] if int(order["delays"]) > 0 else ""
+			out.append("• %s %s de %s, arrivée semaine %d%s" % [number(order["quantity"]), esc(order["component"]), esc(order["supplier"]), int(order["arrival_week"]), late])
+	if out.is_empty():
+		out.append("[color=%s]Aucune commande en cours.[/color]" % GREY)
+	return out
+
+
+static func _by_id(items: Array, id: Variant) -> Dictionary:
+	for item: Dictionary in items:
+		if item.get("id") == id:
+			return item
+	return {}
+
+
+# --- tableau de bord, débrief ---------------------------------------------------------------------------------
+
+
+static func history_bbcode(history: Array) -> String:
+	if history.is_empty():
+		return "[color=%s]Aucune semaine jouée.[/color]" % GREY
+	var out := PackedStringArray(["[b]Semaines jouées[/b]"])
+	for row: Dictionary in history:
+		var event := "  [color=%s]%s[/color]" % [ORANGE, esc(row["event"])] if row.get("event") else ""
+		out.append(
+			"S%d : OTIF %s %% · TRS %s %% · ruptures %s · trésorerie %s · résultat %s%s"
+			% [int(row["week"]), number(row["otif"]), number(row["trs"]), number(row["stockouts"]), money(row["cash"]), money(row["margin"]), event]
+		)
+	return "\n".join(out)
+
+
+## Tableau de bord d'une usine (`state.factory`, ADR 0007 annexe §2) : lignes, machines, stocks. Provisoire : les panneaux
+## déclarés par le pack (`spec.panels`) le remplaceront ; toutes les lectures sont tolérantes aux clés absentes.
+static func factory_dashboard_bbcode(spec: Dictionary, state: Dictionary) -> String:
+	var factory: Dictionary = state.get("factory", {})
+	var out := PackedStringArray([week_bbcode(spec, state), "", kpis_bbcode(state), "", "[b]Lignes[/b]"])
+	for line: Dictionary in factory.get("lines", []):
+		out.append("• %s : goulot %s, %s bons / h attendus pour %s mesurés, encours %s" % [esc(line.get("name", "?")), esc(line.get("bottleneck_id", "-")), number(line.get("expected_h")), number(line.get("real_h")), number(line.get("wip"))])
+	out.append("\n[b]Machines[/b]")
+	for machine: Dictionary in factory.get("machines", []):
+		var state_code := str(machine.get("state", ""))
+		var color := GREEN if state_code == "marche" else (ORANGE if state_code in ["panne", "sortie_pleine", "attente_matiere"] else GREY)
+		out.append("• %s : [color=%s]%s[/color], table %s / %s, %s pannes" % [esc(machine.get("name", "?")), color, MACHINE_STATES.get(state_code, esc(state_code)), number(machine.get("buffer")), number(machine.get("buffer_max")), number(machine.get("failures"))])
+	var stocks: Dictionary = factory.get("stocks", {})
+	out.append("\n[b]Stocks[/b]")
+	for entry: Dictionary in stocks.get("mp", []):
+		out.append("• %s : %s palettes sur %s places, %s en commande" % [esc(entry.get("name", "?")), number(entry.get("pallets")), number(entry.get("capacity_pallets")), number(entry.get("pending"))])
+	var finished: Variant = stocks.get("pf")
+	if finished is Dictionary:
+		out.append("• Produits finis : %s palettes sur %s places" % [number(finished.get("pallets")), number(finished.get("capacity_pallets"))])
+	out.append("\n" + history_bbcode(state.get("history", [])))
+	return "\n".join(out)
+
+
+## Nom de l'endroit où se joue la partie, pour les libellés (« Observer l'atelier 3D », « Entrer dans l'usine 3D »).
+static func world_noun(spec: Dictionary) -> String:
+	return "l'usine" if spec.get("world", {}).get("template", "atelier") == "usine" else "l'atelier"
+
+
+static func dashboard_bbcode(spec: Dictionary, state: Dictionary) -> String:
+	if spec.get("factory") is Dictionary:
+		return factory_dashboard_bbcode(spec, state)
+	var out := PackedStringArray([week_bbcode(spec, state), "", kpis_bbcode(state), "", "[b]Produits finis[/b]"])
+	for stock: Dictionary in state.get("stocks", []):
+		out.append("• %s : %s en stock, %s attendus, couverture %s semaine(s)" % [esc(stock["name"]), number(stock["quantity"]), number(stock["forecast"]), number(stock["coverage_weeks"])])
+	out.append("\n[b]Composants[/b]")
+	for part: Dictionary in state.get("components", []):
+		var alert := "  [color=%s]sous le point de commande[/color]" % ORANGE if int(part["quantity"]) + int(part["pending"]) < int(part["reorder_point"]) else ""
+		out.append("• %s : %s en stock, %s en commande, point de commande %s%s" % [esc(part["name"]), number(part["quantity"]), number(part["pending"]), number(part["reorder_point"]), alert])
+	out.append("\n[b]Lignes[/b]")
+	for line: Dictionary in state.get("lines", []):
+		out.append("• %s : TRS %s %%, %s, plan %s / capacité réelle %s" % [esc(line["name"]), number(line["trs"]), LINE_STATES.get(line["status"], ""), number(line["plan"]), number(line["real_capacity"])])
+	out.append("\n[b]Commandes en cours[/b]")
+	out.append_array(_orders(state, ""))
+	out.append("\n" + history_bbcode(state.get("history", [])))
+	var log: Array = state.get("log", [])
+	if not log.is_empty():
+		out.append("\n[b]Dernières actions[/b]")
+		for entry: Dictionary in log.slice(-8):
+			out.append("[color=%s]S%d · %s :[/color] %s" % [GREY, int(entry["week"]), esc(entry.get("name", "?")), esc(entry["summary"])])
+	return "\n".join(out)
+
+
 static func debrief_bbcode(report: Dictionary) -> String:
-	var out := PackedStringArray(["[font_size=24][b]Indicateurs[/b][/font_size]"])
+	var out := PackedStringArray(["[font_size=24][b]Objectifs[/b][/font_size]"])
 	for kpi: Dictionary in report.get("kpis", []):
 		var met: Variant = kpi.get("met")
 		var mark := "[color=%s]atteint[/color]" % GREEN if met == true else "[color=%s]non atteint[/color]" % ORANGE
-		out.append(
-			"• %s : %s → [b]%s %s[/b] (cible %s) %s"
-			% [esc(kpi["name"]), number(kpi["initial"]), number(kpi.get("final")), esc(kpi["unit"]), number(kpi["target"]), mark]
-		)
-	out.append("\n[font_size=24][b]Décisions et explications[/b][/font_size]")
-	for decision: Dictionary in report.get("decisions", []):
-		out.append("\n[b]%s[/b]  [color=%s](%s)[/color]" % [esc(decision["prompt"]), GREY, esc(decision["phase"])])
-		if decision.get("chosen") == null:
-			out.append("[color=%s]Décision non prise[/color]" % ORANGE)
-		for option: Dictionary in decision.get("options", []):
-			var chosen: bool = option.get("chosen", false)
-			var label := "[b]► %s (votre choix)[/b]" % esc(option["label"]) if chosen else "○ %s" % esc(option["label"])
-			out.append("%s\n    [color=%s]%s[/color]" % [label, GREY, esc(option["rationale"])])
+		var unit: String = kpi.get("unit", "")
+		out.append("• %s : [b]%s[/b] (objectif %s) %s" % [esc(kpi["name"]), kpi_value(unit, kpi.get("final")), kpi_value(unit, kpi["target"]), mark])
+	out.append("\n[font_size=24][b]À retenir[/b][/font_size]")
+	for lesson in report.get("lessons", []):
+		out.append("• %s" % esc(lesson))
 	var events: Array = report.get("events", [])
 	if not events.is_empty():
 		out.append("\n[font_size=24][b]Aléas survenus[/b][/font_size]")
 		for event: Dictionary in events:
-			out.append("• [b]%s[/b] : %s" % [esc(event["title"]), esc(event["description"])])
-	out.append("\n[font_size=24][b]À retenir[/b][/font_size]")
-	for takeaway in report.get("key_takeaways", []):
-		out.append("• %s" % esc(takeaway))
-	out.append("\n[font_size=24][b]Questions de débrief[/b][/font_size]")
-	for question: Dictionary in report.get("questions", []):
-		out.append("[b]%s[/b]" % esc(question["question"]))
-		for point in question.get("expected_points", []):
-			out.append("    [color=%s]– %s[/color]" % [GREY, esc(point)])
-	out.append(sources_bbcode(report.get("sources", [])))
+			out.append("• Semaine %d : %s" % [int(event["week"]), esc(event["title"])])
+	out.append("\n" + history_bbcode(report.get("history", [])))
+	var notions: Array = report.get("notions", [])
+	if not notions.is_empty():
+		out.append("\n[font_size=24][b]Notions et sources[/b][/font_size]")
+		for notion: Dictionary in notions:
+			out.append("[b]%s[/b] : %s\n    [color=%s]%s[/color]" % [esc(notion["title"]), esc(notion["text"]), GREY, esc(notion["citation"])])
+	var log: Array = report.get("log", [])
+	if not log.is_empty():
+		out.append("\n[font_size=24][b]Décisions de l'équipe[/b][/font_size]")
+		for entry: Dictionary in log:
+			out.append("[color=%s]S%d · %s :[/color] %s" % [GREY, int(entry["week"]), esc(entry.get("name", "?")), esc(entry["summary"])])
 	return "\n".join(out)
 
 
-static func sources_bbcode(sources: Array) -> String:
-	if sources.is_empty():
-		return "\n[color=%s]Aucune source du corpus : contenu à faire valider par un expert.[/color]" % ORANGE
-	var out := PackedStringArray(["\n[font_size=24][b]Sources[/b][/font_size]"])
-	for source: Dictionary in sources:
-		out.append("[lb]%s] %s" % [esc(source["id"]).to_upper(), esc(source["citation"])])
-	return "\n".join(out)
+## Relecture d'une usine : lignes, journée, départements, et d'où vient chaque valeur (`spec.provenance` : sourcée, calibrée
+## pour la jouabilité, ou exemple non sourcé) : le formateur voit ce qui n'est pas vérifié (exigence n° 1).
+static func _factory_review(spec: Dictionary) -> PackedStringArray:
+	var factory: Dictionary = spec["factory"]
+	var per_line := {}
+	for machine: Dictionary in factory["machines"]:
+		per_line[machine["line_id"]] = int(per_line.get(machine["line_id"], 0)) + 1
+	var clock: Dictionary = factory.get("clock", {})
+	var out := PackedStringArray(["\n[b]Usine[/b]"])
+	out.append("• %d ligne(s) de machines en série (%s machines au total), un tour = %d jour(s) de %d minutes, lot de %d" % [per_line.size(), number(factory["machines"].size()), int(clock.get("days_per_turn", 5)), int(clock.get("minutes_per_day", 480)), int(factory["lot_size"])])
+	var places := PackedStringArray()
+	for department: Dictionary in spec.get("departments", []):
+		places.append("%s%s" % [esc(department["label"]), " (extérieur)" if department.get("external", false) else ""])
+	if not places.is_empty():
+		out.append("• Lieux : %s" % ", ".join(places))
+	var counts := {"source": 0, "calibre": 0, "exemple": 0}
+	var unverified := PackedStringArray()
+	for key: String in spec.get("provenance", {}):
+		var status := str(spec["provenance"][key].get("status"))
+		counts[status] = int(counts.get(status, 0)) + 1
+		if status == "exemple":
+			unverified.append(key)
+	out.append("• Valeurs : %d sourcée(s), %d calibrée(s) pour la jouabilité, %d d'exemple sans source" % [counts["source"], counts["calibre"], counts["exemple"]])
+	if not unverified.is_empty():
+		out.append("    [color=%s]D'exemple, à ne pas présenter comme des faits : %s.[/color]" % [GREY, esc(", ".join(unverified))])
+	return out
 
 
-## Relecture d'un business game par le formateur : contenu, contrôles, réparations, coût.
+## Relecture d'un business game par le formateur : contexte, modules et rôles, agents, chaîne logistique,
+## partie de référence jouée par le pilote automatique, notions sourcées.
 static func game_bbcode(game: Dictionary) -> String:
-	var out := PackedStringArray()
-	var review: Dictionary = game.get("review", {})
-	var job: Variant = game.get("job")
-	if job is Dictionary and job.get("error"):
-		out.append("[color=#%s][b]Échec :[/b] %s[/color]" % [Ui.ERROR.to_html(false), esc(job["error"])])
-	for warning in review.get("warnings", []):
-		out.append("[color=%s]À vérifier : %s[/color]" % [ORANGE, esc(warning)])
-	for repair in review.get("repairs", []):
-		out.append("[color=%s]Corrigé automatiquement : %s[/color]" % [GREY, esc(repair)])
 	var spec: Variant = game.get("spec")
 	if not spec is Dictionary:
-		return "\n".join(out) if not out.is_empty() else "Spec pas encore disponible."
+		return "Spec pas encore disponible."
 	var meta: Dictionary = spec["meta"]
-	out.append("[font_size=26][b]%s[/b][/font_size]\n%s" % [esc(meta["title"]), esc(meta["pitch"])])
-	var company: Dictionary = spec["context"]["company"]
-	out.append("[b]Entreprise :[/b] %s (%s, %s). %s" % [esc(company["name"]), esc(company["sector"]), company["size"], esc(company["description"])])
-	out.append("[b]Situation :[/b] %s" % esc(spec["context"]["situation"]))
-	out.append("\n[b]Objectifs pédagogiques[/b]")
-	for objective: Dictionary in spec["learning_objectives"]:
-		out.append("• %s [color=%s](%s)[/color]" % [esc(objective["statement"]), GREY, objective["bloom_level"]])
-	out.append("\n[b]Rôles[/b]")
-	for role: Dictionary in spec["roles"]:
-		out.append("• %s : %s" % [esc(role["title"]), esc(role["mission"])])
-	out.append("\n[b]KPI[/b]")
-	for kpi: Dictionary in spec["kpis"]:
-		var formula := " = %s" % esc(kpi["formula"]) if kpi.get("formula") else ""
-		out.append("• %s (%s) : %s → %s%s. %s" % [esc(kpi["name"]), esc(kpi["unit"]), number(kpi["initial"]), number(kpi["target"]), formula, esc(kpi["definition"])])
-	for phase: Dictionary in spec["phases"]:
-		out.append("\n[b]%s[/b] (%d min) : %s" % [esc(phase["title"]), int(phase["duration_minutes"]), esc(phase["goal"])])
-		for decision: Dictionary in phase["decisions"]:
-			out.append("  [b]Décision (%s)[/b] : %s" % [esc(role_title(spec, decision["role"])), esc(decision["prompt"])])
-			for option: Dictionary in decision["options"]:
-				out.append("    ○ %s [color=%s]%s[/color]" % [esc(option["label"]), GREY, _effects_text(option.get("effects", []))])
-				out.append("       [color=%s]%s[/color]" % [GREY, esc(option.get("rationale", ""))])
-		for event: Dictionary in phase["events"]:
-			out.append("  [b]Aléa[/b] : %s. %s [color=%s]%s[/color]" % [esc(event["title"]), esc(event["description"]), GREY, _effects_text(event["effects"])])
-	out.append("\n[b]PNJ[/b]")
-	for npc: Dictionary in spec["npcs"]:
-		out.append("• %s, %s : %s" % [esc(npc["name"]), esc(npc["job"]), esc(", ".join(npc["expertise"]))])
-	out.append(sources_bbcode(spec.get("sources", [])))
+	var out := PackedStringArray(["[font_size=26][b]%s[/b][/font_size]\n%s" % [esc(meta["title"]), esc(meta["pitch"])]])
+	out.append("[color=%s]%s · %d semaines · %d à %d joueurs · graine %d[/color]" % [GREY, esc(meta["difficulty_label"]), int(meta["weeks"]), int(meta["players"]["min"]), int(meta["players"]["max"]), int(spec["seed"])])
+	var autopilot: Dictionary = game.get("review", {}).get("autopilot", {})
+	if not autopilot.is_empty():
+		out.append(
+			"\n[b]Partie de référence (pilote automatique)[/b] : OTIF moyen %s %%, TRS moyen %s %%, %d semaine(s) de rupture, trésorerie finale %s"
+			% [number(autopilot["otif_mean"]), number(autopilot["trs_mean"]), int(autopilot["stockout_weeks"]), money(autopilot["final_cash"])]
+		)
+	var targets: Dictionary = spec["targets"]
+	out.append("[b]Objectifs[/b] : OTIF ≥ %s %%, TRS ≥ %s %%, aucune rupture en fin de partie, trésorerie finale ≥ %s (départ %s)" % [number(targets["otif"]), number(targets["trs"]), money(targets["cash_final"]), money(spec["economy"]["initial_cash"])])
+	out.append("\n[b]Modules et rôles[/b]")
+	for module: Dictionary in spec["modules"]:
+		var actions := PackedStringArray()
+		for action: Dictionary in module["actions"]:
+			actions.append(action["label"])
+		out.append("• [b]%s[/b] (%s) : %s\n    [color=%s]Actions : %s. Sans joueur : %s.[/color]" % [esc(module["title"]), esc(role_title(spec, module["role_id"])), esc(module["description"]), GREY, esc(", ".join(actions)), esc(module["autopilot"])])
+	out.append("\n[b]Agents[/b]")
+	for agent: Dictionary in spec["agents"]:
+		out.append("• [b]%s[/b], %s · %s (%s)\n    [color=%s]%s[/color]" % [esc(agent["name"]), esc(agent["job"]), esc(agent["personality"]["label"]), esc(agent["personality"]["traits"]), GREY, esc(", ".join(agent["tasks"]))])
+	out.append("\n[b]Produits, lignes et fournisseurs[/b]")
+	for product: Dictionary in spec["products"]:
+		var line := _by_id(spec["lines"], product["line_id"])
+		out.append("• [b]%s[/b] : %s, demande %s / semaine, %s (capacité %s)" % [esc(product["name"]), price(product["price"]), number(product["demand"]), esc(line.get("name", "")), number(line.get("capacity"))])
+		for offer: Dictionary in spec["offers"]:
+			if offer["component_id"] == product["component_id"]:
+				out.append("    [color=%s]%s[/color]" % [GREY, esc(offer["label"])])
+	if spec.get("factory") is Dictionary:
+		out.append_array(_factory_review(spec))
+	out.append("\n[b]Aléas possibles[/b] (probabilité %s %% par semaine)" % number(float(spec["economy"]["events_probability"]) * 100))
+	for event: Dictionary in spec["events"]:
+		out.append("• %s : %s" % [esc(event["title"]), esc(event["description"])])
+	out.append("\n[b]Notions et sources[/b]")
+	for notion: Dictionary in spec["notions"]:
+		out.append("• %s [color=%s](%s)[/color]" % [esc(notion["title"]), GREY, esc(notion["citation"])])
 	return "\n".join(out)
-
-
-static func _effects_text(effects: Array) -> String:
-	var parts := PackedStringArray()
-	for effect: Dictionary in effects:
-		var sign: String = {"add": "+", "multiply": "×", "set": "="}.get(effect["operation"], "?")
-		var value := number(effect["value"])
-		if effect["operation"] == "add" and float(effect["value"]) < 0:
-			sign = ""
-		var delay := int(effect.get("delay_phases", 0))
-		parts.append("%s %s%s%s" % [effect["kpi"], sign, value, " (+%d phase)" % delay if delay > 0 else ""])
-	return "[lb]" + ", ".join(parts) + "]" if not parts.is_empty() else ""

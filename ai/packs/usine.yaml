@@ -1,0 +1,1040 @@
+# Pack de domaine « usine » (ADR 0007 et son annexe, section 5), version v0 du 2026-10-29.
+# Usine à N lignes identiques (1 à 3) de 4 machines en série, jouée par tours d'une semaine (5 jours de 8 h)
+# simulés minute par minute par gmix.game.factory puis rejoués en 3D. Propriétaire : game-designer.
+# Inspiration : cahier « Mon monde – usine 3D » de l'utilisateur (docs/references/usine-3d/, 22/10/2026) ; le
+# cahier le dit lui-même : « Toutes les valeurs données sont des exemples ». Noms de personnes, d'entreprises,
+# de fournisseurs et de clients : fictifs.
+#
+# Provenance (section `values`) : `source` = fiche du corpus knowledge/supply-chain (citation lue dans son
+# en-tête « > Source : ») ; `calibre` = choisi pour la jouabilité ou la justesse, la note dit pourquoi ;
+# `exemple` = valeur du cahier, non sourcée. `value` absent : les nombres sont dans `machine_types` ou
+# `difficulties`. Les formules sont du code testé (gmix.game.factory), jamais évaluées depuis ce fichier.
+#
+# Valeurs restées `exemple` (cahier) : temps de cycle, MTBF, MTTR, réglages, taux de défaut, tables d'attente
+# (10), opérateurs (1 par machine) des 4 machines ; fournisseur standard (délai 3 j, 95 % à l'heure, 2 % de
+# non-conformes, 1 palette minimum, camion de 6 palettes, livraison 8 h - 10 h, stock illimité) ; réception
+# (2 min de déchargement et 5 min de contrôle par palette, dépose 6 palettes, quarantaine 2) ; racks MP (24) ;
+# emballage (6 colis par palette, 2 min par colis, 5 min de filmage) ; entrepôt PF (20 palettes, 2 min de
+# chargement) ; variabilité de la demande (± 10 %) ; 1 technicien (3 min de trajet), 1 chef de ligne, 1 quai
+# partagé ; journée de 8 h ; contrôle à 100 % ; sortie FIFO.
+#
+# Corrections du cahier (audit du 28/10/2026, annexe §5), toutes en `calibre` :
+#  - pauses : 2 x 10 + 1 x 20 min dans `clock.breaks` (même total que les 4 x 10 du cahier), `stop_min` = 0 ;
+#  - postes hors lignes >= 1,2 x le débit théorique de 3 lignes (60 / h, donc 72 / h) : contrôle 0,7 min par
+#    produit (85,7 / h, cahier : 1 min, 60 / h) ; 4 produits par colis (emballage 84,7 / h, cahier : 21 / h) ;
+#  - lot de 24 unités lancées (une palette de 24) au lieu de 20 ; besoin lancé = besoin / rendement cumulé
+#    (le « x (1 + taux) » du cahier sous-estime le surplus) ;
+#  - 3 transferts pour 4 machines (M4 envoie au contrôle) : traversée 9 min, lot de 20 en 66 min ;
+#  - disponibilité avec pannes (le cahier ne compte que les pauses), rendement cumulé des 4 machines (le cahier ne
+#    prend que le goulot), TRS décomposé et distinct du taux de réalisation du plan ;
+#  - demande = charge (0,80 à 0,90) x débit réel attendu des machines de la partie (cahier : 100 / jour, 23 % de sa
+#    propre capacité) ; délai promis J+2 (J+1 en expert) au lieu de 5 jours (une semaine entière) ;
+#  - seuil de blocage d'un lot par la carte p (tranche 2) au lieu de 15 % fixe ;
+#  - trois fournisseurs en profils (rapide, standard, économique) autour du fournisseur du cahier.
+#
+# Choix pédagogiques (objectifs observables, niveau de Bloom -> indicateur ou action -> leçon du débrief) :
+#  1. Identifier le goulot de chaque ligne (analyser) -> `factory.lines[].bottleneck_id`, attente et saturation
+#     des machines -> notion `goulot` : améliorer une autre machine ne rapporte rien.
+#  2. Protéger le goulot (appliquer) -> action `proteger_goulot` (relève pendant les pauses, tampon avant) et
+#     `priorite_reparation` -> débit réel attendu / mesuré (`formulas.goulot`).
+#  3. Calculer disponibilité, rendement cumulé et TRS attendus puis les comparer aux mesures (appliquer,
+#     évaluer) -> `factory.formulas[]` (attendu / mesuré) -> notions `disponibilite`, `rendement_en_cascade`,
+#     `capacite_et_trs`.
+#  4. Choisir où faire du préventif (évaluer) -> action `preventif` -> pannes et arrêts par machine ; leçon : le
+#     préventif évite les pannes d'usure, il ne sert à rien contre les pannes au hasard (`pannes_par_usure`).
+#  5. Dimensionner lancements et achats (appliquer) -> `lancer_of`, `commander_mp` -> OTIF, ruptures MP, stock PF,
+#     encours (`loi_de_little`, `point_de_commande`, `stock_de_securite`, `delai_et_fiabilite`).
+#  6. Expliquer pourquoi une usine chargée près de 100 % livre en retard (comprendre) -> charge de la difficulté,
+#     attente des commandes -> notion `charge_et_attente`.
+#
+# Hors corpus, donc non présenté comme notion : temps d'un lot = premier produit + (n - 1) x cycle du goulot
+# (formule du cahier, affichée comme `exemple` au débrief) ; loi de Weibull (à sourcer, forme en `calibre`) ;
+# « six grandes pertes » du TRS (texte absent de la fiche) ; NF E60-182, NF EN 13306, NF ISO 2859-1 (non lues).
+# Tranche 2 et suivantes (non déclarées ici pour que chaque action ait son handler) : module qualité
+# (`frequence_controle`), retouches, absences, usure d'outil, chariot à batterie, aléas propres à l'usine ;
+# assets prop_bin_shelf, prop_part_token (tranche 2), prop_safety_cabinet (tranche 3).
+
+version: 1
+id: usine
+domain: supply-chain
+engine: factory
+label: Usine à lignes de production
+description: >-
+  Une usine fabrique un produit sur 1 à 3 lignes de machines en série : réception, stock de matière, lignes,
+  contrôle, emballage, entrepôt et quai partagé. Les joueurs lancent les ordres de fabrication, achètent la
+  matière, protègent le goulot et organisent la maintenance ; chaque semaine est simulée puis rejouée en 3D.
+inspiration: Cahier « Mon monde – usine 3D » (docs/references/usine-3d/, 22/10/2026), valeurs d'exemple corrigées par l'audit du 28/10/2026.
+
+# Plan en U (annexe §5) : hall de 48 x 30 m, x de -24 à 24, z de -15 à 15. Allées d'au moins 2,5 m entre zones.
+world:
+  template: usine
+  size: [48, 30]
+  spawn: [0, 20]
+
+clock:
+  days_per_turn: 5
+  minutes_per_day: 480
+  day_start_h: 8
+  frame_min: 5
+  breaks: [[120, 10], [240, 20], [360, 10]]   # 10 h 00, 12 h 00 (20 min), 14 h 00 ; voir pilotage.pauses
+
+limits:                  # [min, max, défaut], format de `ranges` (annexe §1, 29/10)
+  weeks: [4, 12, 6]
+  products: [1, 1, 1]
+
+params:
+  - {id: lines, label: Lignes de production, type: int, min: 1, max: 3, default: 2}
+
+# Facteurs appliqués aux valeurs de référence (machine_types, fournisseur standard). Tous `calibre` : voir
+# machine.facteur_mtbf, qualite.facteur_defauts, client.charge, client.delai_promis_jours, client.variabilite,
+# fournisseur.ecart_fiabilite, stock_mp.stock_initial_jours, entrepot_pf.stock_initial_jours,
+# pilotage.tresorerie_initiale_semaines.
+difficulties:
+  decouverte:
+    label: Découverte
+    detail: machines fiables, peu de défauts, stocks confortables, usine chargée à 80 %
+    mtbf_factor: 1.5
+    defect_factor: 0.5
+    load: 0.80
+    promised_days: 2
+    demand_variability: 0.05
+    reliability_shift: 3
+    mp_stock_days: 5
+    pf_stock_days: 1.2
+    cash_weeks: 6
+  equilibre:
+    label: Équilibré
+    detail: valeurs du cahier, usine chargée à 85 %
+    mtbf_factor: 1.0
+    defect_factor: 1.0
+    load: 0.85
+    promised_days: 2
+    demand_variability: 0.10
+    reliability_shift: 0
+    mp_stock_days: 4
+    pf_stock_days: 1.0
+    cash_weeks: 4
+  expert:
+    label: Expert
+    detail: pannes plus fréquentes, plus de défauts, stocks bas, usine chargée à 90 %, livraison à J+1
+    mtbf_factor: 0.6
+    defect_factor: 1.5
+    load: 0.90
+    promised_days: 1
+    demand_variability: 0.15
+    reliability_shift: -8
+    mp_stock_days: 2.5
+    pf_stock_days: 0.5
+    cash_weeks: 2.5
+
+targets:
+  otif: 95            # % de commandes livrées complètes au plus tard le jour promis
+  trs: 80             # % moyen des lignes (voir pilotage.objectif_trs)
+  stockouts: 0        # jours de ligne arrêtée faute de matière, dernière semaine
+  cash_share: 0.6     # trésorerie finale >= départ + 60 % du gain du pilote automatique (règle de l'atelier)
+
+values:
+  # --- Fournisseur (cahier §2) ---------------------------------------------------------------------------
+  fournisseur.delai_jours: {value: 3, unit: jour, status: exemple, note: "Cahier §2, délai de livraison ; profil standard."}
+  fournisseur.fiabilite_delai: {value: 0.95, unit: part des livraisons à l'heure, status: exemple, note: "Cahier §2 ; profil standard."}
+  fournisseur.taux_non_conforme: {value: 0.02, unit: part des palettes reçues, status: exemple, note: "Cahier §2 (« livraisons non conformes ») ; appliqué palette par palette, la palette part en quarantaine."}
+  fournisseur.commande_min_palettes: {value: 1, unit: palette, status: exemple, note: "Cahier §2 ; profils rapide et standard."}
+  fournisseur.camion_palettes: {value: 6, unit: palette, status: exemple, note: "Cahier §2 : camion de 4 à 6 palettes ; le maximum borne une commande (une commande = un camion)."}
+  fournisseur.creneau_livraison_min: {value: [0, 120], unit: minute depuis 8 h, status: exemple, note: "Cahier §2 : créneau 8 h - 10 h."}
+  fournisseur.stock: {value: illimite, status: exemple, note: "Cahier §2 : stock du fournisseur illimité par défaut."}
+  fournisseur.retard_jours: {value: 1, unit: jour, status: calibre, note: "Une livraison en retard arrive le jour ouvré suivant ; le cahier ne dit pas de combien."}
+  fournisseur.profils:
+    value:
+      rapide: {lead_days: 1, reliability: 97, cost_factor: 1.12, min_pallets: 1}
+      standard: {lead_days: 3, reliability: 95, cost_factor: 1.0, min_pallets: 1}
+      economique: {lead_days: 5, reliability: 85, cost_factor: 0.88, min_pallets: 4}
+    unit: jour, % à l'heure, facteur de prix, palettes
+    status: calibre
+    note: >-
+      Standard = fournisseur du cahier. Arbitrage voulu : le rapide coûte 12 % de plus ; l'économique coûte 12 %
+      de moins mais livre en 5 jours, moins souvent à l'heure et par 4 palettes, ce qui demande plus de stock de
+      sécurité et peut saturer les 24 places de racks à 3 lignes. Écarts indicatifs, non sourcés. Ordre des fournisseurs
+      d'un produit (themes) = ordre des profils.
+  fournisseur.ecart_fiabilite: {status: calibre, note: "difficulties.reliability_shift : points ajoutés à la fiabilité des trois profils (+3, 0, -8), plafonnée à 100."}
+
+  # --- Réception (cahier §3.1) ---------------------------------------------------------------------------
+  reception.dechargement_min_palette: {value: 2, unit: min par palette, status: exemple, note: "Cahier §3.1."}
+  reception.controle_min_palette: {value: 5, unit: min par palette, status: exemple, note: "Cahier §3.1."}
+  reception.zone_depose_palettes: {value: 6, unit: palette, status: exemple, note: "Cahier §3.1 (décor et file d'attente du contrôle)."}
+  reception.quarantaine_palettes: {value: 2, unit: palette, status: exemple, note: "Cahier §3.1."}
+  reception.quais: {value: 1, unit: camion à la fois, status: exemple, note: "Cahier §3.1 : un quai partagé avec l'expédition (décision de l'utilisateur du 28/10/2026)."}
+
+  # --- Stock MP (cahier §3.2) ----------------------------------------------------------------------------
+  stock_mp.capacite_palettes: {value: 24, unit: palette, status: exemple, note: "Cahier §3.2 : racks de 24 emplacements."}
+  stock_mp.chariots: {value: 1, unit: chariot, status: exemple, note: "Cahier §3.2 : chariot de 1 200 kg (batterie : tranche 2)."}
+  stock_mp.kit_min: {value: 8, unit: min par kit, status: calibre, note: "Cahier sans valeur : prélever la matière d'un lot de 24 et la livrer en tête de ligne. Indicatif ; à 3 lignes, environ 15 kits par jour occupent le chariot 2 h."}
+  stock_mp.sortie_fifo: {value: FIFO, status: exemple, note: "Cahier §3.2 : sortie dans l'ordre d'arrivée. Pratique décrite par wikipedia-en-stock-rotation (notion rotation_fifo)."}
+  stock_mp.stock_securite_jours: {value: 1, unit: jour de consommation, status: calibre, note: "Pilote automatique : point de commande = consommation pendant le délai du fournisseur standard + 1 jour."}
+  stock_mp.stock_initial_jours: {status: calibre, note: "difficulties.mp_stock_days (5, 4, 2,5 jours de consommation) : au plus 15 palettes à 3 lignes, sous les 24 places."}
+  stock_mp.unites_par_palette: {status: calibre, note: "themes.*.mp.units_per_pallet (120 à 150) : à 3 lignes, environ 3 palettes consommées par jour, un camion de 6 tous les 2 jours, racks de 24 suffisants ; kits de quelques kilos, palette sous les 1 200 kg du chariot. Indicatif."}
+
+  # --- Machines (cahier §5.2 ; nombres dans machine_types) -----------------------------------------------
+  machine.cycle_min: {status: exemple, note: "Cahier §5.2 : 2 ; 1,5 ; 3 ; 1 min. M3 est le goulot (20 / h)."}
+  machine.mtbf_h: {status: exemple, note: "Cahier §5.2 : 40, 80, 60, 100 h. Convention du jeu (maintenance.convention_mtbf) : temps moyen de marche entre deux pannes, réparation exclue."}
+  machine.mttr_h: {status: exemple, note: "Cahier §5.2 : 1 ; 0,5 ; 1 ; 0,5 h de réparation active ; l'arrêt réel ajoute l'attente et le trajet du technicien."}
+  machine.weibull_shape:
+    status: calibre
+    note: >-
+      Forme 2 : risque de panne croissant avec l'âge (usure), pour que le préventif ait un effet, comme sur une
+      machine qui s'use (wikipedia-en-reliability-centered-maintenance : le préventif ne vaut que si l'équipement
+      s'use). La loi de Weibull elle-même n'est dans aucune fiche : à sourcer.
+  machine.facteur_mtbf: {status: calibre, note: "difficulties.mtbf_factor (1,5 ; 1 ; 0,6) appliqué aux MTBF du cahier."}
+  machine.setup_min: {status: exemple, note: "Cahier §5.2 : 10, 5, 0, 5 min à chaque changement de lot (aucun sur le goulot)."}
+  machine.defect_rate: {status: exemple, note: "Cahier §5.2 : 2 %, 1 %, 3 %, 2 % ; rendement cumulé de la ligne = 98 x 99 x 97 x 98 % = 92,2 %."}
+  machine.buffer: {status: exemple, note: "Cahier §5.2 : table d'attente de 10 produits en sortie de chaque machine."}
+  machine.transfer_min: {status: exemple, note: "Cahier §8 : 0,5 min ; 3 transferts pour 4 machines (le cahier en compte 4), M4 envoie au contrôle."}
+  machine.operators: {status: exemple, note: "Cahier §3.3 : un opérateur par machine."}
+  machine.pauses:
+    status: calibre
+    note: >-
+      Cahier : 110 min de marche / 10 min d'arrêt. Remplacé par les pauses du personnel (clock.breaks) qui
+      arrêtent toute la ligne au même moment ; run_min = 480 et stop_min = 0 (aucun arrêt propre à la machine).
+  machine.outil: {status: calibre, note: "Usure d'outil : tranche 2 (le cahier ne donne aucune durée de vie) ; tool_life absent."}
+  machine.protect_buffer: {value: 30, unit: produit, status: calibre, note: "Factory.protect_buffer, action proteger_goulot, mode tampon_avant : table devant le goulot portée de 10 à 30 produits, soit 90 min de travail du goulot, plus qu'une réparation de M1 (1 h) ; prix : 20 produits d'encours en plus (loi de Little)."}
+
+  # --- Qualité (cahier §3.4) -----------------------------------------------------------------------------
+  qualite.controle_min_produit:
+    value: 0.7
+    unit: min par produit
+    status: calibre
+    note: >-
+      Cahier : 1 min, soit 60 / h, autant que 3 lignes au goulot (60 / h) : le contrôle deviendrait le goulot de
+      l'usine. 0,7 min donne 60 / 0,7 = 85,7 / h >= 1,2 x 60 = 72 / h (annexe §5). Indicatif.
+  qualite.frequence: {value: 1.0, unit: part des produits contrôlés, status: exemple, note: "Cahier §3.4 : 100 % (1 sur N : module qualité, tranche 2)."}
+  qualite.facteur_defauts: {status: calibre, note: "difficulties.defect_factor (0,5 ; 1 ; 1,5) appliqué aux taux de défaut du cahier."}
+  qualite.seuil_blocage:
+    status: source
+    source: wikipedia-en-p-chart
+    note: >-
+      Tranche 2. Limite haute de la carte p = p + 3 x racine(p (1 - p) / n), p = part de défauts attendue,
+      n = produits contrôlés du lot ; calculée par la génération dans qc_block_threshold. Avec p = 7,8 % et
+      n = 24 : 24 %, soit 6 rebuts ou plus sur 24 (fausse alerte : 0,9 % des lots, loi binomiale). Le seuil fixe
+      de 15 % du cahier (4 rebuts sur 24) bloquerait 11 % des lots sans aucune dérive du procédé.
+
+  # --- Emballage (cahier §3.5) ---------------------------------------------------------------------------
+  emballage.produits_par_colis:
+    value: 4
+    unit: produit
+    status: calibre
+    note: >-
+      Cahier : 1, soit 6 produits par palette en 6 x 2 + 5 = 17 min, 21 / h : l'emballage serait le goulot de
+      l'usine. Avec 4 : 60 x 4 x 6 / (6 x 2 + 5) = 84,7 / h >= 72 / h (annexe §5) et des palettes de 24.
+  emballage.colis_par_palette: {value: 6, unit: colis, status: exemple, note: "Cahier §3.5."}
+  emballage.min_par_colis: {value: 2, unit: min, status: exemple, note: "Cahier §3.5 (mettre en carton, fermer, étiqueter, peser)."}
+  emballage.filmage_min_palette: {value: 5, unit: min, status: exemple, note: "Cahier §3.5."}
+
+  # --- Entrepôt PF (cahier §4) ---------------------------------------------------------------------------
+  entrepot_pf.capacite_palettes: {value: 20, unit: palette, status: exemple, note: "Cahier §4 : 480 produits, environ 2 jours de demande à 2 lignes."}
+  entrepot_pf.chargement_min_palette: {value: 2, unit: min par palette, status: exemple, note: "Cahier §4."}
+  entrepot_pf.stock_initial_jours: {status: calibre, note: "difficulties.pf_stock_days (1,2 ; 1 ; 0,5 jour de demande), toujours sous les 20 palettes."}
+
+  # --- Client (cahier §4.1) ------------------------------------------------------------------------------
+  client.charge:
+    status: calibre
+    note: >-
+      difficulties.load (0,80 ; 0,85 ; 0,90) : demande par jour = charge x débit réel attendu (expected_h) des
+      machines de la partie, facteurs de difficulté compris, x lignes actives x 8 h ; la génération vérifie une
+      charge réelle < 0,95. Au-delà de 0,9, l'attente croît très vite (wikipedia-en-kingman-s-formula). Expert
+      relevable jusqu'à 0,92 au calibrage (étape 9). Le cahier (100 / jour) chargeait l'usine à 23 %.
+  client.variabilite: {value: 0.10, unit: écart relatif, status: exemple, note: "Cahier §4.1 : ± 10 % (équilibré) ; 5 % et 15 % en découverte et expert (difficulties.demand_variability, calibre)."}
+  client.delai_promis_jours: {status: calibre, note: "difficulties.promised_days : J+2 (J+1 en expert). Le cahier promet 5 jours, une semaine entière : aucun retard possible."}
+  client.orders_per_day: {value: 1, unit: commande, status: calibre, note: "Customer.orders_per_day : une commande par jour ouvré, passée à 8 h, d'environ une journée de demande."}
+  client.pickup_window_min: {value: [360, 450], unit: minute depuis 8 h, status: calibre, note: "Customer.pickup_window_min : camion du client entre 14 h et 15 h 30, après les livraisons MP (8 h - 10 h) ; le quai partagé n'est en conflit qu'en cas de retard."}
+
+  # --- Maintenance (cahier §3.6) -------------------------------------------------------------------------
+  maintenance.techniciens: {value: 1, unit: technicien, status: exemple, note: "Cahier §3.6 : une seule réparation à la fois."}
+  maintenance.trajet_min: {value: 3, unit: min, status: exemple, note: "Cahier §3.6 : déplacement jusqu'à la machine."}
+  maintenance.convention_mtbf:
+    status: source
+    source: wikipedia-en-availability
+    note: >-
+      MTBF = temps moyen de marche entre deux pannes, réparation exclue (wikipedia-en-mean-time-between-failures,
+      wikipedia-fr-temps-moyen-entre-pannes) ; disponibilité intrinsèque = MTBF / (MTBF + MTTR) ; disponibilité
+      opérationnelle = MTBF / (MTBF + arrêt moyen), arrêt = attente du technicien + trajet + MTTR. Le MTTR exclut
+      les délais logistiques (wikipedia-en-mean-time-to-repair). wikipedia-fr-disponibilite prend l'autre
+      convention (MTBF = MTTF + MTTR) : ne pas la mélanger.
+  maintenance.preventif_min: {value: 20, unit: min par machine, status: calibre, note: "Graissage, contrôle, pièce d'usure : indicatif. Égal à la pause de 20 min pour qu'un préventif fait pendant cette pause n'arrête pas la production."}
+  maintenance.preventif_regle:
+    status: calibre
+    note: >-
+      Une intervention par machine ciblée et par tour, faite pendant les pauses du personnel (les plus longues
+      d'abord), goulots d'abord ; la part qui dépasse la pause arrête la machine ; une panne passe avant ; l'âge
+      de la machine revient à zéro. Règle détaillée : annexe §5 (29/10).
+  maintenance.cout_reparation_h: {value: 75, unit: € par heure de réparation, status: calibre, note: "Technicien et pièces courantes : ordre de grandeur indicatif, non sourcé."}
+  maintenance.cout_preventif: {value: 50, unit: € par intervention, status: calibre, note: "Indicatif, non sourcé ; une panne du goulot coûte en plus environ 20 produits par heure d'arrêt."}
+
+  # --- Pilotage (cahier §3.7) ----------------------------------------------------------------------------
+  pilotage.journee_min: {value: 480, unit: min, status: exemple, note: "Cahier §3.7 : journée de 8 h simulées."}
+  pilotage.jours_par_tour: {value: 5, unit: jour, status: calibre, note: "Décision de l'utilisateur du 28/10/2026 : un tour = une semaine de 5 jours rejouée."}
+  pilotage.pauses:
+    value: [[120, 10], [240, 20], [360, 10]]
+    unit: minute depuis 8 h, durée en minutes
+    status: calibre
+    note: >-
+      2 x 10 + 1 x 20 min (40 min sur 480, comme les 4 x 10 du cahier : disponibilité 440 / 480 = 91,7 %). La pause
+      de 20 min consécutives dès 6 h de travail quotidien est le minimum du Code du travail, art. L3121-16 (texte
+      lu sur des reprises secondaires, Légifrance à vérifier ; hors corpus) ; les deux pauses de 10 min sont un
+      usage d'entreprise.
+  pilotage.chefs_de_ligne: {value: 1, unit: personne, status: exemple, note: "Cahier §3.3 : un chef de ligne pour toutes les lignes."}
+  pilotage.releve_pauses: {status: calibre, note: "Mode releve_pauses : le chef de ligne fait tourner le goulot pendant les pauses ; seul, il ne relève qu'une ligne à la fois (une autre demande est refusée). Gain : 40 min de goulot par jour, environ +9 % ; coût : minutes de relève x pilotage.cout_operateur_h. Règle détaillée : annexe §5 (29/10)."}
+  pilotage.taille_lot:
+    value: 24
+    unit: produits lancés
+    status: calibre
+    note: >-
+      Cahier : 20. 24 = une palette de 24 (4 colis x 6) : les lots font des palettes entières, la palettisation
+      continue d'un lot à l'autre. Avec 0 min de réglage au goulot, la taille du lot ne coûte rien au débit.
+  pilotage.lancement_avec_rebut:
+    status: calibre
+    note: >-
+      Pilote automatique : lots à lancer = besoin en bons / (24 x rendement cumulé attendu), arrondi au-dessus.
+      Le « x (1 + taux de rebut) » du cahier sous-estime le surplus : écart faible à 7,8 % de rebut (1,078 contre
+      1,084), net à 20 % (1,20 contre 1,25).
+  pilotage.pf_min_jours: {value: 1, unit: jour de demande, status: calibre, note: "pf_min : le pilote automatique lance un OF quand stock PF + encours < une journée de demande."}
+  pilotage.temps_de_lot:
+    status: exemple
+    note: >-
+      Cahier §8 : temps d'un lot de n = premier produit + (n - 1) x cycle du goulot, sans attente ; premier produit
+      = somme des cycles + 3 transferts = 9 min. Formule du cahier sans fiche : montrée au débrief comme exemple.
+  pilotage.trs:
+    status: source
+    source: wikipedia-en-overall-equipment-effectiveness
+    note: >-
+      TRS = disponibilité x performance x qualité sur le temps planifié : jours ouvrés d'une ligne qui a un OF,
+      pauses comprises comme dans l'exemple de la fiche (pause de 30 min sur 480) ; le temps sans OF (sous-charge)
+      n'est pas planifié, comme le distingue la fiche (OEE et OOE). Différent du taux de réalisation du plan =
+      bons réalisés / bons prévus par les OF (lines[].production_rate).
+  pilotage.objectif_otif: {value: 95, unit: "%", status: calibre, note: "Repris de l'atelier ; OTIF commande par commande (wikipedia-en-supply-chain-operations-reference)."}
+  pilotage.objectif_trs:
+    value: 80
+    unit: "%"
+    status: calibre
+    note: >-
+      TRS attendu au goulot = 91,7 % (pauses) x 98,3 % (pannes de M3 avec trajet) x 92,2 % (bons) = 83 % en
+      équilibré ; environ 87 % en découverte, 79 % en expert, avant les attentes de matière : 80 % sépare les deux.
+  pilotage.tresorerie_initiale_semaines: {status: calibre, note: "difficulties.cash_weeks (6, 4, 2,5 semaines d'achats de MP), comme l'atelier."}
+  pilotage.taux_possession_semaine: {value: 0.0048, unit: part de la valeur du stock par semaine, status: calibre, note: "25 % par an, ordre de grandeur usuel du coût de possession, repris de l'atelier ; indicatif, non sourcé."}
+  pilotage.taux_interet_semaine: {value: 0.004, unit: part du solde négatif par semaine, status: calibre, note: "Agios repris de l'atelier ; indicatif."}
+  pilotage.cout_operateur_h: {value: 28, unit: € par heure, status: calibre, note: "Coût employeur d'un opérateur, ordre de grandeur indicatif (à vérifier : INSEE, coût horaire de la main-d'œuvre) ; sert aux heures de relève."}
+  pilotage.prix_et_couts: {status: calibre, note: "Prix de vente, coût de transformation (main-d'œuvre comprise, environ 4 opérateurs x 3 min = 0,2 h par produit) et coût de la MP des themes : ordres de grandeur indicatifs, non sourcés."}
+  pilotage.effets_aleas: {status: calibre, note: "Ampleur des effets des aléas (events) : indicative, non sourcée."}
+
+# Archétypes de machine : les 4 machines de l'exemple du cahier (§5.2). L'opération affichée vient du produit.
+machine_types:
+  m1:
+    label: Machine 1 de l'exemple (rapide, réglage long)
+    asset: prop_machine
+    cycle_min: 2
+    run_min: 480
+    stop_min: 0
+    mtbf_h: 40
+    weibull_shape: 2
+    mttr_h: 1
+    setup_min: 10
+    defect_rate: 0.02
+    buffer: 10
+    transfer_min: 0.5
+    operators: 1
+  m2:
+    label: Machine 2 de l'exemple (la plus fiable en amont)
+    asset: prop_machine
+    cycle_min: 1.5
+    run_min: 480
+    stop_min: 0
+    mtbf_h: 80
+    weibull_shape: 2
+    mttr_h: 0.5
+    setup_min: 5
+    defect_rate: 0.01
+    buffer: 10
+    transfer_min: 0.5
+    operators: 1
+  m3:
+    label: Machine 3 de l'exemple (goulot, 20 / h)
+    asset: prop_machine
+    cycle_min: 3
+    run_min: 480
+    stop_min: 0
+    mtbf_h: 60
+    weibull_shape: 2
+    mttr_h: 1
+    setup_min: 0
+    defect_rate: 0.03
+    buffer: 10
+    transfer_min: 0.5
+    operators: 1
+  m4:
+    label: Machine 4 de l'exemple (finition, envoie au contrôle)
+    asset: prop_machine
+    cycle_min: 1
+    run_min: 480
+    stop_min: 0
+    mtbf_h: 100
+    weibull_shape: 2
+    mttr_h: 0.5
+    setup_min: 5
+    defect_rate: 0.02
+    buffer: 10
+    transfer_min: 0
+    operators: 1
+
+# Secteurs. Une MP par produit (nomenclature à un article en tranche 1, per_unit = 1). Fournisseurs dans l'ordre
+# des profils : rapide (proche), standard, économique (import). Prix et coûts : pilotage.prix_et_couts.
+themes:
+  industrie:
+    label: Équipement en acier
+    description: Une PME soude des équipements en acier pour un distributeur de bricolage.
+    companies: [Ateliers Métal Loire, Soudure & Forme, Métallerie du Val]
+    client: Brico Distribution
+    products:
+      - name: Tabouret d'atelier
+        category: Mobilier d'atelier
+        price: 38
+        cost: 7.5
+        operations: [[Découpe des tubes, m1], [Cintrage, m2], [Soudage, m3], [Montage de l'assise, m4]]
+        mp:
+          name: Kit tubes et assise en acier
+          cost: 11
+          per_unit: 1
+          units_per_pallet: 120
+          suppliers: [[Tubes et Profilés de Lorraine, Nancy], [Aciers du Rhône, Lyon], [Steel Kits Import, Le Havre]]
+      - name: Étagère murale en acier
+        category: Rangement
+        price: 30
+        cost: 7
+        operations: [[Découpe laser, m1], [Pliage, m2], [Soudage des équerres, m3], [Ébavurage et perçage, m4]]
+        mp:
+          name: Tôle d'acier prédécoupée
+          cost: 8
+          per_unit: 1
+          units_per_pallet: 120
+          suppliers: [[Tôlerie de Picardie, Amiens], [Aciers du Rhône, Lyon], [Sheet Metal Import, Marseille]]
+      - name: Support mural pour vélo
+        category: Rangement
+        price: 26
+        cost: 7
+        operations: [[Découpe des plats, m1], [Pliage, m2], [Soudage des crochets, m3], [Montage des protections, m4]]
+        mp:
+          name: Kit plats et crochets en acier
+          cost: 6
+          per_unit: 1
+          units_per_pallet: 150
+          suppliers: [[Forges de Bourgogne, Dijon], [Métaux du Centre, Bourges], [Hooks & Bars Import, Le Havre]]
+      - name: Porte-outils mural perforé
+        category: Mobilier d'atelier
+        price: 34
+        cost: 7.5
+        operations: [[Poinçonnage, m1], [Pliage, m2], [Soudage des renforts, m3], [Montage des crochets, m4]]
+        mp:
+          name: Tôle perforée et renforts
+          cost: 9.5
+          per_unit: 1
+          units_per_pallet: 120
+          suppliers: [[Perforation de l'Est, Mulhouse], [Tôlerie de Picardie, Amiens], [Perforated Steel Import, Anvers]]
+  automobile:
+    label: Équipement automobile
+    description: Un sous-traitant soude des pièces de structure pour la centrale d'achat d'un réseau de garages.
+    companies: [Mécasoud Est, Équipements Véloce, Structures Auto Ouest]
+    client: Centrale Garages Réunis
+    products:
+      - name: Traverse de pare-chocs
+        category: Structure
+        price: 46
+        cost: 8
+        operations: [[Découpe des tubes, m1], [Cintrage, m2], [Soudage, m3], [Perçage des fixations, m4]]
+        mp:
+          name: Tubes et platines en acier
+          cost: 14
+          per_unit: 1
+          units_per_pallet: 120
+          suppliers: [[Tubes et Profilés de Lorraine, Nancy], [Aciers de Franche-Comté, Besançon], [Auto Steel Import, Le Havre]]
+      - name: Support de batterie
+        category: Électricité
+        price: 24
+        cost: 7
+        operations: [[Découpe des flans, m1], [Emboutissage, m2], [Soudage, m3], [Perçage, m4]]
+        mp:
+          name: Flans d'acier
+          cost: 6
+          per_unit: 1
+          units_per_pallet: 150
+          suppliers: [[Découpe Industrielle du Nord, Valenciennes], [Aciers de Franche-Comté, Besançon], [Blanks Import, Anvers]]
+      - name: Support moteur soudé
+        category: Motorisation
+        price: 28
+        cost: 7
+        operations: [[Découpe, m1], [Pliage, m2], [Soudage de l'écrou, m3], [Contrôle de perçage, m4]]
+        mp:
+          name: Pattes et écrous en acier
+          cost: 7.5
+          per_unit: 1
+          units_per_pallet: 120
+          suppliers: [[Visserie de la Vallée de l'Arve, Cluses], [Métaux du Centre, Bourges], [Fasteners Import, Marseille]]
+      - name: Support de roue de secours
+        category: Équipement
+        price: 32
+        cost: 7.5
+        operations: [[Découpe des tubes, m1], [Cintrage, m2], [Soudage des platines, m3], [Perçage des fixations, m4]]
+        mp:
+          name: Tubes et platines de support
+          cost: 9
+          per_unit: 1
+          units_per_pallet: 120
+          suppliers: [[Forges de Bourgogne, Dijon], [Aciers de Franche-Comté, Besançon], [Bracket Parts Import, Le Havre]]
+
+# Départements (cahier §1 et image « Chaque département a ses agents ») : 8 dans l'usine, 2 externes, plus le quai
+# partagé, zone sans agent ni poste (annexe §5, 29/10). area = x_min, z_min, x_max, z_max (m).
+# Un agent parlant par département du cahier ; `facts` = clé de engine._FACTS (à
+# écrire par moteur-jeu, étape 6) ; le commentaire « dit » liste les faits attendus, tous calculés par le moteur
+# (aucun chiffre inventé), une ou deux phrases chacun. La génération place les éléments le long du bord intérieur
+# de la zone, trace la zone (prop_floor_zone, ref dept:<id>) et place les lignes dans `production`. `ref: mp`
+# désigne mp:<id de la MP> (un seul article en tranche 1).
+departments:
+  - id: fournisseur
+    label: Fournisseur de matière première
+    external: true
+    area: [-42, 24, -28, 36]
+    stations: []
+    elements:
+      - {asset: bld_factory_plant, label: Usine du fournisseur}
+      - {asset: prop_pallet_stack, label: Palettes prêtes, count: 2}
+    agent:
+      name: Paul
+      job: Commercial du fournisseur
+      character: char_manager_m
+      facts: usine_fournisseur
+      # dit : commandes en cours (palettes, jour de livraison prévu, créneau 8 h - 10 h) ; retard annoncé d'une
+      # livraison (urgent) ; hausse de prix en cours ; réclamation reçue pour une palette non conforme.
+      tasks: [recevoir les commandes de l'usine, préparer les palettes, envoyer le camion avec le bon de livraison]
+      notions: [delai_et_fiabilite]
+  - id: reception
+    label: Réception
+    area: [-24, 6, -8.5, 15]
+    stations: [{kind: poste_reception, label: Poste de contrôle de la réception}]
+    elements:
+      - {asset: prop_floor_zone, label: Zone de dépose (6 palettes)}
+      - {asset: prop_floor_zone, label: Quarantaine (2 palettes), ref: quarantine}
+      - {asset: prop_desk_computer, label: "Poste de contrôle : PC, lecteur, imprimante d'étiquettes"}
+      - {asset: veh_pallet_jack, label: Transpalette (2 000 kg)}
+    agent:
+      name: Noah
+      job: Réceptionnaire
+      character: char_worker_m
+      facts: usine_reception
+      # dit : palettes reçues au dernier tour et mises en quarantaine (urgent si > 0) ; attente d'un camion au quai
+      # (minutes) ; prochaine livraison attendue (jour, palettes).
+      tasks: [décharger les camions, contrôler et étiqueter les palettes, mettre les non-conformes en quarantaine et prévenir le pilotage]
+      notions: [delai_et_fiabilite]
+  - id: stock_mp
+    label: Stock de matière première
+    area: [-24, -15, -14, 3]
+    stations: [{kind: magasin_mp, label: Bureau du magasin MP}]
+    elements:
+      - {asset: prop_pallet_rack, label: Racks à palettes (24 emplacements), ref: mp, count: 4}
+      - {asset: prop_floor_zone, label: Préparation des kits}
+      - {asset: veh_forklift, label: Chariot élévateur (1 200 kg)}
+    agent:
+      name: Inès
+      job: Magasinière-cariste
+      character: char_worker_f
+      facts: usine_stock_mp
+      # dit : stock MP en palettes et places libres ; sous le point de commande, commandes en cours comprises
+      # (urgent) ; kits livrés et minutes de ligne arrêtée faute de matière au dernier tour (urgent si > 0).
+      tasks: [ranger les palettes reçues, sortir la matière dans l'ordre d'arrivée, préparer et livrer le kit de chaque OF, signaler le stock sous le point de commande]
+      notions: [point_de_commande, stock_de_securite, rotation_fifo]
+  - id: production
+    label: Production
+    area: [-11, -8.5, 11, 3]
+    stations: [{kind: tableau_ligne, label: Tableau de ligne}]   # postes `machine` : un par machine, créés par la génération
+    elements:
+      - {asset: prop_wall_board, label: "Tableau de ligne : OF en cours, cadence, arrêts"}
+      - {asset: prop_andon_light, label: Andon des lignes}
+    agent:
+      name: Idriss
+      job: Chef de ligne
+      character: char_worker_m
+      module: production
+      facts: usine_production
+      # dit : par ligne, bons par heure mesurés et attendus ; machine goulot et ses minutes perdues (panne, attente
+      # matière, sortie pleine, pause) au dernier tour (urgent si le goulot a perdu du temps) ; OF en cours.
+      tasks: [lancer les OF sur les lignes, suivre la cadence et les arrêts, relayer l'opérateur du goulot pendant les pauses, appeler la maintenance]
+      notions: [goulot, tampon_avant_goulot, rendement_en_cascade, changement_de_serie]
+  - id: qualite
+    label: Contrôle qualité
+    area: [14, -15, 24, -4.5]
+    stations: [{kind: poste_qualite, label: Table de contrôle}]
+    elements:
+      - {asset: prop_inspection_table, label: Table de contrôle et instruments, ref: quality}
+      - {asset: prop_floor_zone, label: Zone conforme}
+      - {asset: prop_floor_zone, label: Zone à retoucher}
+      - {asset: prop_scrap_bin, label: Bac à rebut, ref: scrap}
+    agent:
+      name: Léa
+      job: Contrôleuse qualité
+      character: char_worker_f
+      facts: usine_qualite
+      # dit : produits contrôlés et rebutés au dernier tour, part de bons mesurée et attendue (rendement cumulé ;
+      # urgent si mesurée < attendue de plus de 2 points) ; produits en attente de contrôle.
+      tasks: [contrôler chaque produit en sortie de ligne, trier conformes et rebuts, prévenir le chef de ligne quand le rebut grimpe]
+      notions: [rendement_en_cascade, carte_p]
+  - id: emballage
+    label: Emballage
+    area: [14, -2, 24, 5]
+    stations: [{kind: poste_emballage, label: Table d'emballage}]
+    elements:
+      - {asset: prop_packing_table, label: "Table d'emballage : cartons, ruban, balance"}
+      - {asset: prop_pallet_wrapper, label: Filmeuse de palettes}
+      - {asset: prop_pallet, label: Palette en cours}
+    agent:
+      name: Malik
+      job: Emballeur
+      character: char_worker_m
+      facts: usine_emballage
+      # dit : colis et palettes faits au dernier tour ; produits conformes en attente d'emballage (urgent au-delà de
+      # 2 palettes).
+      tasks: [mettre 4 produits par carton, étiqueter et peser, monter et filmer les palettes, les envoyer à l'entrepôt]
+      notions: [loi_de_little]
+  - id: maintenance
+    label: Maintenance et pièces de rechange
+    area: [-11, -15, -1, -11.5]
+    stations: [{kind: maintenance, label: Établi de maintenance}]
+    elements:
+      - {asset: prop_workbench, label: Établi et servante d'outils}
+      - {asset: prop_wall_board, label: Tableau des interventions}
+    agent:
+      name: Karim
+      job: Technicien de maintenance
+      character: char_worker_m
+      module: maintenance
+      facts: usine_maintenance
+      # dit : pannes et minutes d'arrêt au dernier tour, machine la plus touchée (urgent si c'est un goulot) ;
+      # disponibilité mesurée du goulot de chaque ligne ; pannes qui ont attendu le technicien (nombre, minutes) ;
+      # préventifs faits.
+      tasks: [aller réparer les machines en panne, faire le préventif pendant les pauses, tenir le tableau des interventions]
+      notions: [disponibilite, pannes_par_usure, maintenance_preventive]
+  - id: pilotage
+    label: Pilotage
+    area: [1.5, -15, 11, -11.5]
+    stations: [{kind: pilotage, label: Bureau du pilotage}]
+    elements:
+      - {asset: prop_desk_computer, label: "Bureau : stocks, OF, commandes"}
+      - {asset: prop_kpi_screen, label: Écran des indicateurs, ref: kpi}
+    agent:
+      name: Sophie
+      job: Responsable de production
+      character: char_manager_f
+      module: pilotage
+      facts: usine_pilotage
+      # dit : commandes client ouvertes et en retard (urgent si en retard) ; stock PF + encours sous le minimum
+      # (urgent) ; OTIF et TRS du dernier tour face aux objectifs.
+      tasks: [recevoir les commandes client, créer et lancer les OF, commander la matière, suivre les indicateurs]
+      notions: [point_de_commande, takt_time, loi_de_little, otif]
+  - id: quai
+    label: Quai partagé (réception et expédition)
+    area: [-6, 8.5, 6, 15]
+    stations: []
+    elements:
+      # posée sur le mur avant (z = 15), centrée sur la zone ; Godot ouvre le mur à son emprise
+      - {asset: prop_dock_door, label: Porte de quai, ref: dock}
+      - {asset: veh_pallet_jack, label: Transpalette du quai}
+  - id: entrepot_pf
+    label: Entrepôt de produits finis
+    area: [8.5, 7.5, 24, 15]
+    stations: [{kind: entrepot_pf, label: Bureau de l'entrepôt}]
+    elements:
+      - {asset: prop_pallet_rack, label: Racks PF (20 palettes), ref: pf, count: 3}
+      - {asset: prop_floor_zone, label: Préparation des commandes}
+    agent:
+      name: Maya
+      job: Magasinière PF
+      character: char_worker_f
+      facts: usine_entrepot_pf
+      # dit : stock PF en palettes et places libres (urgent si plein) ; commande prête ou non pour le prochain
+      # camion ; commandes parties en retard ou incomplètes au dernier tour (urgent si > 0).
+      tasks: [ranger les palettes venant de l'emballage, préparer les commandes, charger le camion du client, signaler le stock PF sous le minimum]
+      notions: [otif]
+  - id: client
+    label: Client
+    external: true
+    area: [28, 24, 42, 36]
+    stations: []
+    elements:
+      - {asset: bld_distribution_center, label: Entrepôt du client}
+    agent:
+      name: Mme Durand
+      job: Acheteuse du client
+      character: char_manager_f
+      facts: usine_client
+      # dit : commande du jour (produits, jour promis) ; OTIF du dernier tour (urgent sous l'objectif) ; commandes
+      # reçues en retard.
+      tasks: [passer les commandes, suivre les livraisons à la date promise, se plaindre des retards]
+      notions: [otif]
+
+# Figurants : état animé (disponible, occupé, en déplacement, en pause, absent), aucun dialogue.
+crew:
+  - {job: operateur, per: machine, characters: [char_worker_m, char_worker_f]}
+  - {job: chauffeur_fournisseur, department: fournisseur, characters: [char_driver_m]}
+  - {job: chauffeur_client, department: client, characters: [char_driver_m]}
+
+# Modules (format de ai/simulation.yaml ; l'agent du module est celui de son département, `agent.module`).
+modules:
+  pilotage:
+    title: Pilotage
+    description: Lancer les ordres de fabrication et acheter la matière pour livrer chaque commande à la date promise.
+    role: {id: responsable_production, title: Responsable de production, mission: Livrer les commandes à l'heure sans rupture de matière ni stock inutile}
+    stations: [pilotage]
+    actions:
+      - id: lancer_of
+        label: Lancer des ordres de fabrication
+        fields:
+          - {id: line, label: Ligne, type: choice, source: lines}
+          # 40 lots de 24 = 960 > environ 700 produits par ligne et par semaine : un lancement peut charger la ligne
+          - {id: lots, label: Nombre de lots de 24, type: int, min: 1, max: 40, step: 1, default: 5}
+      - id: commander_mp
+        label: Commander la matière première
+        fields:
+          - {id: offer, label: Matière et fournisseur, type: choice, source: offers}
+          - {id: pallets, label: Palettes (un camion), type: int, min: 1, max: 6, step: 1, default: 4}
+    autopilot: OF quand stock PF + encours passe sous une journée de demande ; MP au point de commande (consommation pendant le délai + 1 jour), fournisseur standard
+    notions: [point_de_commande, stock_de_securite, delai_et_fiabilite, otif, loi_de_little, takt_time, charge_et_attente]
+  production:
+    title: Production
+    description: Protéger le goulot de chaque ligne pour que pauses et pannes en amont ne lui fassent pas perdre de temps.
+    role: {id: chef_de_ligne, title: Chef·fe de ligne, mission: Faire tourner le goulot de chaque ligne le plus longtemps possible}
+    stations: [tableau_ligne, machine]
+    actions:
+      - id: proteger_goulot
+        label: Protéger le goulot d'une ligne
+        fields:
+          - {id: line, label: Ligne, type: choice, source: lines}
+          - id: mode
+            label: Protection
+            type: choice
+            options:
+              - {id: aucune, label: "Aucune : le goulot s'arrête aux pauses et quand l'amont s'arrête"}
+              - {id: releve_pauses, label: "Relève : le chef de ligne fait tourner le goulot pendant les pauses (une seule ligne à la fois)"}
+              - {id: tampon_avant, label: "Tampon : table de 30 produits devant le goulot, plus d'encours"}
+    autopilot: aucune protection
+    notions: [goulot, tampon_avant_goulot, rendement_en_cascade, capacite_et_trs, changement_de_serie]
+  maintenance:
+    title: Maintenance
+    description: Choisir où faire le préventif et dans quel ordre réparer, avec un seul technicien.
+    role: {id: responsable_maintenance, title: Responsable maintenance, mission: Garder les goulots disponibles au juste coût}
+    stations: [maintenance, machine]
+    actions:
+      - id: preventif
+        label: Programmer le préventif d'une ligne
+        fields:
+          - {id: line, label: Ligne, type: choice, source: lines}
+          - id: cible
+            label: Machines entretenues chaque semaine
+            type: choice
+            options:
+              - {id: aucune, label: "Aucune : pas de coût, l'usure s'accumule"}
+              - {id: goulot, label: "Le goulot : une intervention pendant une pause"}
+              - {id: toutes, label: "Les 4 machines : plus de coût et de temps de technicien"}
+      - id: priorite_reparation
+        label: Régler l'ordre des réparations
+        fields:
+          - id: ordre
+            label: Ordre
+            type: choice
+            options:
+              - {id: arrivee, label: Dans l'ordre d'arrivée des pannes}
+              - {id: goulot, label: Les goulots d'abord}
+    autopilot: préventif sur le goulot de chaque ligne, réparations dans l'ordre d'arrivée
+    notions: [disponibilite, pannes_par_usure, maintenance_preventive, goulot]
+
+# Agent facultatif choisi par le formateur.
+extra_agents:
+  direction:
+    title: Direction du site
+    description: Rappelle les objectifs, les semaines restantes et les écarts à combler.
+    name: Claire
+    job: Directrice du site
+    character: char_manager_f
+    department: pilotage
+    facts: direction
+    tasks: [fixer les objectifs, suivre les indicateurs, arbitrer les priorités]
+    notions: [otif, capacite_et_trs]
+
+personalities:
+  bienveillant:
+    label: Bienveillant
+    traits: chaleureux, encourageant, patient
+    style: tutoie, rassure, glisse parfois un conseil
+    prefix: "Petit point :"
+  exigeant:
+    label: Exigeant
+    traits: direct, attaché aux résultats, peu patient avec les erreurs
+    style: phrases sèches, va droit au chiffre
+    prefix: "Il faut agir :"
+  presse:
+    label: Pressé
+    traits: toujours entre deux tâches, efficace
+    style: très bref, presque télégraphique
+    prefix: "Vite :"
+  methodique:
+    label: Méthodique
+    traits: rigoureux, aime les chiffres exacts et les procédures
+    style: précis, donne les étapes dans l'ordre
+    prefix: "À noter :"
+  sceptique:
+    label: Sceptique
+    traits: prudent, se méfie des solutions miracles
+    style: pointe les risques, pose une question en retour
+    prefix: "Attention :"
+
+agent_tones:
+  bienveillant: {label: Bienveillants, personalities: [bienveillant, methodique]}
+  mixte: {label: Caractères variés, personalities: [methodique, exigeant, bienveillant, presse, sceptique]}
+  exigeant: {label: Exigeants, personalities: [exigeant, sceptique, presse]}
+
+# Aléas annoncés une semaine à l'avance (règle de l'atelier). Effets nouveaux pour le moteur usine : `nonconform`
+# (points ajoutés au taux de palettes non conformes) et `mtbf` (facteur des MTBF). Ampleurs : pilotage.effets_aleas.
+events:
+  retard_transport:
+    title: Perturbations routières
+    description: "Travaux et bouchons sur les routes des fournisseurs : 25 % de risque de retard en plus pour les livraisons de matière."
+    weight: 2
+    effects: {delay_risk: 0.25}
+    modules: [pilotage]
+  hausse_matieres:
+    title: Hausse de l'acier
+    description: Les prix d'achat de la matière augmentent de 10 %.
+    weight: 2
+    effects: {cost: 1.10}
+    modules: [pilotage]
+  commande_exceptionnelle:
+    title: Commandes exceptionnelles du client
+    description: "Le client ajoute des commandes : la demande grimpe de 15 % sur la semaine."
+    weight: 1
+    effects: {demand: 1.15}
+    modules: [pilotage, production]
+  creux_de_demande:
+    title: Creux de demande
+    description: "Le client commande moins cette semaine : la demande baisse de 15 %."
+    weight: 1
+    effects: {demand: 0.85}
+    modules: [pilotage]
+  lot_mp_non_conforme:
+    title: Lot de matière non conforme
+    description: Un lot du fournisseur est défectueux ; le taux de palettes reçues non conformes, mises en quarantaine, prend 10 points de plus.
+    weight: 1
+    effects: {nonconform: 0.10}
+    modules: [pilotage]
+  vague_de_chaleur:
+    title: Vague de chaleur dans l'atelier
+    description: Les fortes chaleurs fatiguent les machines ; elles tombent en panne environ 40 % plus souvent cette semaine.
+    weight: 1
+    effects: {mtbf: 0.7}
+    modules: [maintenance, production]
+
+events_levels:
+  aucun: {label: Aucun aléa, probability: 0}
+  rares: {label: Aléas rares, probability: 0.25}
+  frequents: {label: Aléas fréquents, probability: 0.5}
+
+# Notions dites par les agents et rappelées au débrief, chacune avec sa fiche du corpus (citation lue dans son
+# en-tête). Textes courts, sans chiffre de partie : les chiffres viennent du moteur.
+notions:
+  disponibilite:
+    title: Disponibilité, MTBF et MTTR
+    text: "La disponibilité est le temps de marche divisé par le temps total. Pour les pannes, avec le MTBF compté en heures de marche entre deux pannes, elle vaut MTBF ÷ (MTBF + MTTR) ; l'attente du technicien et son trajet allongent l'arrêt et la font encore baisser."
+    source: wikipedia-en-availability
+  pannes_par_usure:
+    title: Pannes d'usure et pannes au hasard
+    text: "Réviser ou remplacer à date fixe ne se justifie que si l'équipement s'use avec l'usage : son risque de panne croît avec l'âge et l'entretien le remet à zéro. Les études des compagnies aériennes des années 1960 ont montré que la plupart des pannes ne sont pas liées à l'âge : contre celles-là, le préventif à date fixe n'aide pas."
+    source: wikipedia-en-reliability-centered-maintenance
+  maintenance_preventive:
+    title: Maintenance préventive et corrective
+    text: "Le préventif inspecte et entretient l'équipement à intervalles planifiés pour remplacer les pièces usées avant la panne ; le correctif répare après la panne, souvent plus cher à cause des arrêts et des dégâts en chaîne."
+    source: wikipedia-en-maintenance
+  goulot:
+    title: Goulot et contrainte
+    text: "Dans une ligne en série, le poste le plus lent fixe le débit maximal : augmenter sa capacité augmente le débit de l'ensemble, améliorer les autres ne sert à rien. Tant que la demande reste sous ce débit, c'est le marché qui limite l'usine ; lors d'un pic ou après une panne, ce poste devient la contrainte et chaque heure qu'il perd est perdue pour la ligne."
+    source: wikipedia-fr-theorie-des-contraintes
+  tampon_avant_goulot:
+    title: Protéger la contrainte par des tampons
+    text: "Un stock tampon placé devant la contrainte lui évite de manquer de travail quand un poste amont s'arrête, et de la place libre derrière elle évite qu'un arrêt en aval la bloque. Le tampon achète du temps ; il doit suffire sans être excessif."
+    source: wikipedia-en-theory-of-constraints
+  rendement_en_cascade:
+    title: Rendement cumulé
+    text: "La probabilité qu'un produit sorte bon d'un procédé à plusieurs étapes est le produit des rendements de chaque étape : le rendement de la ligne n'est donc jamais meilleur que celui de sa moins bonne machine."
+    source: wikipedia-en-rolled-throughput-yield
+  capacite_et_trs:
+    title: Taux de rendement synthétique (TRS)
+    text: "Le TRS (OEE en anglais) multiplie trois taux : disponibilité (temps de marche ÷ temps planifié, pauses et pannes comprises), performance (vitesse réelle ÷ vitesse maximale) et qualité (bons ÷ produits). À 100 %, la machine tourne sans arrêt, à pleine vitesse, sans défaut."
+    source: wikipedia-en-overall-equipment-effectiveness
+  loi_de_little:
+    title: Loi de Little
+    text: "En régime stable, l'encours moyen égale le débit multiplié par le temps moyen passé dans le système : à débit égal, plus d'encours veut dire des produits qui attendent plus longtemps."
+    source: wikipedia-en-little-s-law
+  charge_et_attente:
+    title: Charge et attente
+    text: "Selon l'approximation de Kingman, l'attente devant un poste croît avec u ÷ (1 − u), u étant son taux d'occupation, et avec la variabilité des arrivées et des temps de service : près de 100 % de charge, elle explose."
+    source: wikipedia-en-kingman-s-formula
+  takt_time:
+    title: Takt time
+    text: "Le takt time est le temps disponible divisé par le nombre d'unités demandées : le rythme à tenir pour suivre le client. Il ne se confond pas avec le temps de cycle réel, qui compte aussi les pièces défectueuses et les réglages."
+    source: wikipedia-fr-takt-time
+  changement_de_serie:
+    title: Changement de série (SMED)
+    text: "Le SMED réduit le temps de changement de série pour pouvoir produire en petits lots ; « single minute » veut dire moins de 10 minutes."
+    source: wikipedia-en-single-minute-exchange-of-die
+  carte_p:
+    title: Carte p
+    text: "La carte p suit la part de produits non conformes d'un échantillon ; sa limite haute vaut p + 3 × racine(p (1 − p) ÷ n). Un lot au-delà signale probablement un changement du procédé plutôt qu'un simple aléa."
+    source: wikipedia-en-p-chart
+  rotation_fifo:
+    title: Premier entré, premier sorti (FIFO)
+    text: "Sortir d'abord ce qui est arrivé en premier évite que le stock vieillisse ou se dégrade avant d'être utilisé."
+    source: wikipedia-en-stock-rotation
+  point_de_commande:
+    title: Point de commande
+    text: "On recommande quand le stock, commandes en cours comprises, passe sous le point de commande, égal à la consommation prévue pendant le délai d'approvisionnement plus le stock de sécurité."
+    source: wikipedia-en-reorder-point
+  stock_de_securite:
+    title: Stock de sécurité
+    text: "Le stock de sécurité couvre l'incertitude de la demande et des délais ; plus ils sont imprévisibles et plus le service visé est élevé, plus il doit être important."
+    source: wikipedia-fr-stock-de-securite
+  delai_et_fiabilite:
+    title: Délai et fiabilité des fournisseurs
+    text: "Des délais de réapprovisionnement longs ou aléatoires obligent à commander plus tôt et à garder davantage de stock de sécurité ; le prix n'est qu'un critère de choix parmi d'autres."
+    source: wikipedia-fr-stock-de-securite
+  otif:
+    title: OTIF (à l'heure et complet)
+    text: "Le modèle SCOR mesure la performance de livraison comme la part des produits livrés à temps et en totalité à la date promise."
+    source: wikipedia-en-supply-chain-operations-reference
+
+# Panneaux (annexe §5). Clé à exposer par le moteur, hors annexe §2 : kpis.good_share (part de bons, 0-100).
+panels:
+  - id: bandeau
+    type: kpis
+    title: Indicateurs
+    placement: bandeau
+    source: kpis
+    columns:
+      - {key: otif, label: OTIF, format: pct, target: targets.otif}
+      - {key: trs, label: TRS, format: pct, target: targets.trs}
+      - {key: cash, label: Trésorerie, format: money, target: targets.cash_final}
+  - id: bandeau_pf
+    type: kpis
+    title: Stock PF
+    placement: bandeau
+    source: factory.stocks.pf
+    columns:
+      - {key: pallets, label: Stock PF (palettes), format: int}
+      - {key: capacity_pallets, label: Places, format: int}
+  - id: flux
+    type: flow
+    title: Flux de l'usine
+    placement: tableau_de_bord
+    source: factory.flow
+  - id: lignes
+    type: table
+    title: Lignes
+    placement: tableau_de_bord
+    source: factory.lines
+    columns:
+      - {key: name, label: Ligne}
+      - {key: bottleneck_id, label: Goulot}
+      - {key: theoretical_h, label: Débit théorique (/ h), format: dec1}
+      - {key: expected_h, label: Bons attendus (/ h), format: dec1}
+      - {key: real_h, label: Bons mesurés (/ h), format: dec1}
+      - {key: production_rate, label: Réalisation du plan, format: pct}
+      - {key: wip, label: Encours, format: int}
+  - id: machines
+    type: table
+    title: Machines
+    placement: tableau_de_bord
+    source: factory.machines
+    columns: &machine_columns
+      - {key: name, label: Machine}
+      - key: state
+        label: État
+        format: state
+        labels: {arret: Arrêt, marche: En marche, pause: Pause, reglage: Réglage, panne: En panne, attente_matiere: Attente matière, sortie_pleine: Sortie pleine}
+      - {key: availability, label: Disponibilité, format: pct}
+      - {key: produced, label: Produits, format: int}
+      - {key: failures, label: Pannes, format: int}
+      - {key: downtime_min, label: Arrêt, format: minutes}
+      - {key: buffer, label: Table d'attente, format: int}
+  - id: historique
+    type: chart
+    title: OTIF et TRS par semaine
+    placement: tableau_de_bord
+    source: history
+    columns:
+      - {key: otif, label: OTIF, format: pct, target: targets.otif}
+      - {key: trs, label: TRS, format: pct, target: targets.trs}
+  - id: ordres
+    type: table
+    title: Ordres de fabrication
+    placement: tableau_de_bord
+    source: factory.orders.production
+    columns:
+      - {key: id, label: OF}
+      - {key: line_id, label: Ligne}
+      - {key: quantity, label: Lancés, format: int}
+      - {key: done, label: Faits, format: int}
+      - {key: status, label: État, format: state, labels: {attente: En attente, en_cours: En cours, termine: Terminé}}
+  - id: poste_machine
+    type: table
+    title: Cette machine
+    placement: poste
+    station_kinds: [machine]
+    source: factory.machines
+    match: id
+    columns: *machine_columns
+  - id: commandes_client
+    type: table
+    title: Commandes client
+    placement: poste
+    station_kinds: [pilotage]
+    source: factory.orders.customer
+    columns:
+      - {key: id, label: Commande}
+      - {key: quantity, label: Produits, format: int}
+      - {key: due_day, label: Jour promis, format: int}
+      - {key: shipped, label: Expédiés, format: int}
+      - {key: status, label: État, format: state, labels: {ouverte: Ouverte, livree: Livrée, en_retard: En retard}}
+  - id: stock_matiere
+    type: table
+    title: Matière première
+    placement: poste
+    station_kinds: [pilotage]
+    source: factory.stocks.mp
+    columns:
+      - {key: name, label: Matière}
+      - {key: pallets, label: Palettes, format: int}
+      - {key: capacity_pallets, label: Places, format: int}
+      - {key: reorder_point, label: Point de commande, format: int}
+      - {key: pending, label: En commande, format: int}
+  - id: pannes
+    type: table
+    title: Pannes et disponibilité
+    placement: poste
+    station_kinds: [maintenance]
+    source: factory.machines
+    columns:
+      - {key: name, label: Machine}
+      - {key: failures, label: Pannes, format: int}
+      - {key: downtime_min, label: Arrêt, format: minutes}
+      - {key: availability, label: Disponibilité, format: pct}
+      - {key: age_h, label: Âge (h de marche), format: dec1}
+  - id: part_de_bons
+    type: gauge
+    title: Part de produits bons
+    placement: poste
+    station_kinds: [poste_qualite]
+    source: kpis
+    columns:
+      - {key: good_share, label: Part de bons, format: pct}
+    min: 80
+    max: 100

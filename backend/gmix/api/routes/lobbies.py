@@ -1,4 +1,5 @@
-"""Lobbies : création par le formateur, entrée des joueurs par code, déroulé de la partie, PNJ et débrief.
+"""Lobbies : création par le formateur, entrée des joueurs par code, actions par module, semaines simulées,
+dialogues avec les agents PNJ (mémorisés) et débrief.
 
 L'état de partie vit dans lobbies.state. Chaque action relit le lobby sous verrou de ligne (SELECT … FOR UPDATE),
 applique gmix.game.engine puis diffuse l'état public au lobby (Kafka gmix.game.events -> relais WebSocket).
@@ -7,21 +8,21 @@ applique gmix.game.engine puis diffuse l'état public au lobby (Kafka gmix.game.
 import secrets
 import uuid
 from collections.abc import Callable
-from typing import Any, Literal
+from typing import Annotated, Any
 
 import httpx
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, HTTPException, Path, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 
 from gmix.api.auth import CurrentUser, Session, Staff, create_presence_ticket
 from gmix.api.deps import publish
 from gmix.api.routes.games import owned_game
-from gmix.db.models import GameStatus, Lobby, LobbyMember, LobbyStatus, User, UserRole
+from gmix.db.models import GameStatus, Lobby, LobbyMember, LobbyStatus, LobbyTimeline, NpcMemory, User, UserRole
 from gmix.game import engine
 from gmix.game.engine import GameRuleError
-from gmix.game.npc import npc_reply
-from gmix.game.world import load_world_templates
+from gmix.game.npc import MEMORY_TURNS, agent_reply
+from gmix.game.spec import Timeline
 from gmix.llm.ollama import OllamaError
 from gmix.llm.service import ModelUnavailable
 from gmix.messaging.envelope import Actor, Envelope
@@ -44,19 +45,14 @@ class RoleChoice(BaseModel):
     game_role: str = Field(min_length=1, max_length=64)
 
 
-class DecisionRequest(BaseModel):
-    decision_id: str = Field(min_length=1, max_length=64)
-    option_id: str = Field(min_length=1, max_length=64)
-
-
-class ChatTurn(BaseModel):
-    role: Literal["user", "assistant"]
-    content: str = Field(max_length=800)
+class ActionRequest(BaseModel):
+    module: str = Field(min_length=1, max_length=40)
+    action: str = Field(min_length=1, max_length=40)
+    values: dict[str, str | int] = Field(default_factory=dict, max_length=10)
 
 
 class TalkRequest(BaseModel):
-    message: str = Field(min_length=1, max_length=500)
-    history: list[ChatTurn] = Field(default_factory=list, max_length=12)
+    message: str = Field(min_length=1, max_length=300)
 
 
 def _manages(user: User, lobby: Lobby) -> bool:
@@ -72,6 +68,8 @@ async def _access(
     member = await session.get(LobbyMember, (lobby_id, user.id)) if lobby else None
     if lobby is None or (member is None and not _manages(user, lobby)):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Lobby introuvable")
+    if (lobby.spec or {}).get("kind") != "simulation":  # créé avant l'ADR 0006 (migration 5b1d2e7a9c40)
+        raise HTTPException(status.HTTP_410_GONE, "Partie créée avec l'ancien modèle de jeu : elle n'est plus jouable")
     return lobby, member
 
 
@@ -80,7 +78,7 @@ def _require_manager(user: User, lobby: Lobby) -> None:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Seul le formateur du lobby pilote la partie")
 
 
-def _apply(rule: Callable[..., dict[str, Any]], *args: Any, **kwargs: Any) -> dict[str, Any]:
+def _apply(rule: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
     try:
         return rule(*args, **kwargs)
     except GameRuleError as exc:
@@ -98,7 +96,7 @@ async def _members(session: Session, lobby_id: uuid.UUID) -> list[dict[str, Any]
 
 
 async def _view(session: Session, lobby: Lobby, user: User, member: LobbyMember | None) -> dict[str, Any]:
-    """Vue complète d'un lobby : un joueur ne reçoit jamais les effets des options ni le débrief."""
+    """Vue complète d'un lobby : spec (une simulation n'a pas de réponse cachée) et état public."""
     manager = _manages(user, lobby)
     return {
         "id": str(lobby.id),
@@ -108,8 +106,7 @@ async def _view(session: Session, lobby: Lobby, user: User, member: LobbyMember 
         "is_manager": manager,
         "my_role": member.game_role if member else None,
         "members": await _members(session, lobby.id),
-        "spec": lobby.spec if manager else engine.player_spec(lobby.spec),
-        "world_template": load_world_templates().get(lobby.spec["world"]["template"]),
+        "spec": lobby.spec,
         "state": engine.public_state(lobby.spec, lobby.state),
     }
 
@@ -177,9 +174,10 @@ async def list_lobbies(user: CurrentUser, session: Session) -> list[dict[str, An
             "id": str(lobby.id),
             "name": lobby.name,
             "status": lobby.status,
-            "game_title": lobby.spec["meta"]["title"] if lobby.spec else None,
+            "game_title": (lobby.spec or {}).get("meta", {}).get("title"),
             "join_code": lobby.join_code if _manages(user, lobby) else None,
-            "phase_index": lobby.state.get("phase_index"),
+            "week": lobby.state.get("week"),
+            "weeks": (lobby.spec or {}).get("meta", {}).get("weeks"),
             "game_status": lobby.state.get("status"),
         }
         for lobby in await session.scalars(query)
@@ -238,10 +236,17 @@ async def start_game(lobby_id: uuid.UUID, user: Staff, session: Session, request
 
 
 @router.post("/{lobby_id}/advance")
-async def advance_phase(lobby_id: uuid.UUID, user: Staff, session: Session, request: Request) -> dict[str, Any]:
+async def advance_week(lobby_id: uuid.UUID, user: Staff, session: Session, request: Request) -> dict[str, Any]:
+    """Simule la semaine en cours (livraisons, production, demande, coûts) et ouvre la suivante."""
     lobby, _ = await _access(session, lobby_id, user, lock=True)
     _require_manager(user, lobby)
-    lobby.state = _apply(engine.advance, lobby.spec, lobby.state)
+    week = lobby.state["week"]
+    state = _apply(engine.advance, lobby.spec, lobby.state)
+    # La chronologie (pack usine) est trop lourde pour lobbies.state et pour lobby.state : table à part (ADR 0007)
+    timeline = state["last"].pop("timeline", None)
+    lobby.state = state
+    if timeline is not None:
+        session.add(LobbyTimeline(lobby_id=lobby.id, week=week, timeline=timeline))
     if lobby.state["status"] == "finished":
         lobby.status = LobbyStatus.CLOSED
         request.app.state.game_servers.stop(str(lobby.id))
@@ -249,63 +254,94 @@ async def advance_phase(lobby_id: uuid.UUID, user: Staff, session: Session, requ
     return {"state": await _broadcast_state(request, lobby, user, {"type": "advance"})}
 
 
-@router.post("/{lobby_id}/decisions")
-async def make_decision(
-    lobby_id: uuid.UUID, body: DecisionRequest, user: CurrentUser, session: Session, request: Request
+@router.get("/{lobby_id}/weeks/{week}/timeline", response_model=Timeline)
+async def get_timeline(
+    lobby_id: uuid.UUID, week: Annotated[int, Path(ge=1, le=32767)], user: CurrentUser, session: Session
+) -> Any:
+    """Chronologie du tour `week` (pack usine), rejouée par le client. Même visibilité que le lobby ; 404 aussi
+    pour un tour pas encore simulé ou d'un pack sans chronologie."""
+    lobby, _ = await _access(session, lobby_id, user)
+    row = await session.get(LobbyTimeline, (lobby.id, week))
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Tour non simulé")
+    return row.timeline
+
+
+@router.post("/{lobby_id}/actions")
+async def module_action(
+    lobby_id: uuid.UUID, body: ActionRequest, user: CurrentUser, session: Session, request: Request
 ) -> dict[str, Any]:
+    """Action d'un module (commande, plan, entretien…). Un rôle tenu par un joueur garde la main sur son module ;
+    le formateur peut agir partout."""
     lobby, member = await _access(session, lobby_id, user, lock=True)
-    if member is not None and member.game_role:
-        game_role = member.game_role
-    elif _manages(user, lobby):
-        game_role = None  # le formateur peut trancher à la place d'une équipe
-    else:
-        raise HTTPException(status.HTTP_409_CONFLICT, "Choisissez d'abord un rôle")
-    lobby.state = _apply(
-        engine.decide,
-        lobby.spec,
-        lobby.state,
-        body.decision_id,
-        body.option_id,
-        user_id=str(user.id),
-        game_role=game_role,
+    occupied = set(
+        await session.scalars(
+            select(LobbyMember.game_role).where(LobbyMember.lobby_id == lobby.id, LobbyMember.game_role.is_not(None))
+        )
     )
+    actor = {"user_id": str(user.id), "name": user.display_name, "role": member.game_role if member else None}
+    lobby.state, summary = _apply(
+        engine.act, lobby.spec, lobby.state, body.module, body.action, body.values,
+        actor=actor, manager=_manages(user, lobby), occupied_roles=occupied,
+    )  # fmt: skip
     await session.commit()
-    action = {"type": "decision", "decision_id": body.decision_id, "option_id": body.option_id}
-    return {"state": await _broadcast_state(request, lobby, user, action)}
+    action = {"type": "action", "module": body.module, "summary": summary}
+    return {"state": await _broadcast_state(request, lobby, user, action), "summary": summary}
 
 
 @router.post("/{lobby_id}/npcs/{npc_id}/talk")
-async def talk_to_npc(
+async def talk_to_agent(
     lobby_id: uuid.UUID, npc_id: str, body: TalkRequest, user: CurrentUser, session: Session, request: Request
 ) -> dict[str, Any]:
-    """Réponse complète (pas de streaming en v1) : 1 à 5 s selon le modèle chargé en VRAM."""
+    """Réplique d'un agent : ses informations essentielles de la semaine, son caractère et la mémoire des
+    derniers échanges du lobby avec lui. L'échange est enregistré (npc_memories) sauf si le moteur de dialogue le
+    juge douteux (`remember` faux : injection, hors-sujet) : il ne doit pas être rejoué aux autres joueurs."""
     lobby, _ = await _access(session, lobby_id, user)
-    npc = next((n for n in lobby.spec["npcs"] if n["id"] == npc_id), None)
-    if npc is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "PNJ introuvable")
-    try:
-        result = await npc_reply(
-            request.app.state.llm,
-            session,
-            spec=lobby.spec,
-            state=lobby.state,
-            domain=lobby.spec["meta"]["domain"],
-            npc=npc,
-            message=body.message,
-            history=[turn.model_dump() for turn in body.history],
-        )
-    except (ModelUnavailable, OllamaError, httpx.HTTPError) as exc:
-        detail = f"Le PNJ ne répond pas : IA indisponible ({exc})"
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail) from exc
-    transcript = {"npc_id": npc_id, "message": body.message} | result
-    await publish(
-        request,
-        NPC_TRANSCRIPTS,
-        Envelope(
-            type="npc.exchange", source="api", lobby_id=lobby.id, actor=Actor(user_id=user.id), payload=transcript
-        ),
+    agent = next((a for a in lobby.spec["agents"] if a["id"] == npc_id), None)
+    if agent is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Agent introuvable")
+    rows = await session.scalars(
+        select(NpcMemory)
+        .where(NpcMemory.lobby_id == lobby.id, NpcMemory.npc_id == npc_id)
+        .order_by(NpcMemory.id.desc())
+        .limit(MEMORY_TURNS)
     )
+    memory = [{"speaker": m.speaker, "message": m.message, "reply": m.reply} for m in reversed(list(rows))]
+    view = engine.public_state(lobby.spec, lobby.state)
+    try:
+        result = await agent_reply(
+            request.app.state.llm, session, spec=lobby.spec, view=view, agent=agent, message=body.message,
+            speaker=user.display_name, memory=memory,
+        )  # fmt: skip
+    except (ModelUnavailable, OllamaError, httpx.HTTPError) as exc:
+        detail = f"{agent['name']} ne répond pas : IA indisponible ({exc})"
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail) from exc
+    remember = result.pop("remember")  # décision serveur : le client ne la voit pas
+    if remember:
+        session.add(
+            NpcMemory(lobby_id=lobby.id, npc_id=npc_id, user_id=user.id, speaker=user.display_name,
+                      message=body.message, reply=result["reply"], week=view["week"])
+        )  # fmt: skip
+        await session.commit()
+    transcript = {"npc_id": npc_id, "message": body.message, "remember": remember} | result
+    envelope = Envelope(
+        type="npc.exchange", source="api", lobby_id=lobby.id, actor=Actor(user_id=user.id), payload=transcript
+    )
+    await publish(request, NPC_TRANSCRIPTS, envelope)
     return result
+
+
+@router.get("/{lobby_id}/npcs/{npc_id}/memory")
+async def agent_memory(lobby_id: uuid.UUID, npc_id: str, user: CurrentUser, session: Session) -> list[dict[str, Any]]:
+    """Vos échanges passés avec cet agent dans ce lobby (le fil du dialogue survit à la déconnexion)."""
+    lobby, _ = await _access(session, lobby_id, user)
+    rows = await session.scalars(
+        select(NpcMemory)
+        .where(NpcMemory.lobby_id == lobby.id, NpcMemory.npc_id == npc_id, NpcMemory.user_id == user.id)
+        .order_by(NpcMemory.id.desc())
+        .limit(30)
+    )
+    return [{"message": m.message, "reply": m.reply, "week": m.week} for m in reversed(list(rows))]
 
 
 @router.post("/{lobby_id}/presence")

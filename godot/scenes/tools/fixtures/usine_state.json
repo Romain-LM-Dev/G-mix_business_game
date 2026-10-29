@@ -1,0 +1,477 @@
+{
+ "_note": "Fichier d'exemple tiré de l'annexe de l'ADR 0007 (placement de démonstration, pas la génération du moteur) : état public avec la clé factory (annexe §2)",
+ "status": "running",
+ "week": 3,
+ "weeks": 6,
+ "cash": 88000.0,
+ "overdraft": null,
+ "kpis": {
+  "otif": 88.0,
+  "service": 90.0,
+  "trs": 74.0,
+  "stockouts": 0,
+  "coverage_days": 4.0,
+  "stock_value": 14000,
+  "cash": 88000.0,
+  "margin": 1500
+ },
+ "targets": {
+  "otif": 95,
+  "trs": 80,
+  "stockouts": 0,
+  "cash_final": 110000
+ },
+ "history": [
+  {
+   "week": 1,
+   "otif": 90,
+   "trs": 76,
+   "stockouts": 0,
+   "cash": 90000,
+   "margin": 1200,
+   "event": null
+  },
+  {
+   "week": 2,
+   "otif": 88,
+   "trs": 74,
+   "stockouts": 0,
+   "cash": 88000,
+   "margin": 1500,
+   "event": null
+  }
+ ],
+ "stocks": [],
+ "components": [],
+ "lines": [],
+ "pending": [],
+ "settings": {},
+ "event": null,
+ "last": null,
+ "log": [],
+ "briefings": {
+  "agent_maintenance": {
+   "facts": [
+    "La machine M3 de la ligne 1 est en panne."
+   ],
+   "urgent": true,
+   "line": "M3 de la ligne 1 est en panne, j'y vais."
+  },
+  "agent_pilotage": {
+   "facts": [
+    "Une commande client est ouverte."
+   ],
+   "urgent": false,
+   "line": null
+  }
+ },
+ "factory": {
+  "day": 10,
+  "machines": [
+   {
+    "id": "l1-m1",
+    "line_id": "l1",
+    "rank": 1,
+    "name": "M1 · Découpe des tubes",
+    "state": "marche",
+    "bottleneck": false,
+    "rate_h": 30.0,
+    "availability": 91.5,
+    "produced": 390,
+    "defects": 6,
+    "failures": 0,
+    "downtime_min": 12,
+    "buffer": 6,
+    "buffer_max": 10,
+    "age_h": 17.5,
+    "tool_left": null
+   },
+   {
+    "id": "l1-m2",
+    "line_id": "l1",
+    "rank": 2,
+    "name": "M2 · Cintrage",
+    "state": "sortie_pleine",
+    "bottleneck": false,
+    "rate_h": 40.0,
+    "availability": 91.5,
+    "produced": 370,
+    "defects": 6,
+    "failures": 0,
+    "downtime_min": 12,
+    "buffer": 10,
+    "buffer_max": 10,
+    "age_h": 17.5,
+    "tool_left": null
+   },
+   {
+    "id": "l1-m3",
+    "line_id": "l1",
+    "rank": 3,
+    "name": "M3 · Soudage",
+    "state": "panne",
+    "bottleneck": true,
+    "rate_h": 20.0,
+    "availability": 91.5,
+    "produced": 350,
+    "defects": 6,
+    "failures": 1,
+    "downtime_min": 60,
+    "buffer": 0,
+    "buffer_max": 10,
+    "age_h": 17.5,
+    "tool_left": null
+   },
+   {
+    "id": "l1-m4",
+    "line_id": "l1",
+    "rank": 4,
+    "name": "M4 · Montage de l'assise",
+    "state": "attente_matiere",
+    "bottleneck": false,
+    "rate_h": 60.0,
+    "availability": 91.5,
+    "produced": 330,
+    "defects": 6,
+    "failures": 0,
+    "downtime_min": 12,
+    "buffer": 2,
+    "buffer_max": 10,
+    "age_h": 17.5,
+    "tool_left": null
+   },
+   {
+    "id": "l2-m1",
+    "line_id": "l2",
+    "rank": 1,
+    "name": "M1 · Découpe des tubes",
+    "state": "marche",
+    "bottleneck": false,
+    "rate_h": 30.0,
+    "availability": 91.5,
+    "produced": 390,
+    "defects": 6,
+    "failures": 0,
+    "downtime_min": 12,
+    "buffer": 3,
+    "buffer_max": 10,
+    "age_h": 17.5,
+    "tool_left": null
+   },
+   {
+    "id": "l2-m2",
+    "line_id": "l2",
+    "rank": 2,
+    "name": "M2 · Cintrage",
+    "state": "marche",
+    "bottleneck": false,
+    "rate_h": 40.0,
+    "availability": 91.5,
+    "produced": 370,
+    "defects": 6,
+    "failures": 0,
+    "downtime_min": 12,
+    "buffer": 4,
+    "buffer_max": 10,
+    "age_h": 17.5,
+    "tool_left": null
+   },
+   {
+    "id": "l2-m3",
+    "line_id": "l2",
+    "rank": 3,
+    "name": "M3 · Soudage",
+    "state": "marche",
+    "bottleneck": true,
+    "rate_h": 20.0,
+    "availability": 91.5,
+    "produced": 350,
+    "defects": 6,
+    "failures": 0,
+    "downtime_min": 12,
+    "buffer": 7,
+    "buffer_max": 10,
+    "age_h": 17.5,
+    "tool_left": null
+   },
+   {
+    "id": "l2-m4",
+    "line_id": "l2",
+    "rank": 4,
+    "name": "M4 · Montage de l'assise",
+    "state": "marche",
+    "bottleneck": false,
+    "rate_h": 60.0,
+    "availability": 91.5,
+    "produced": 330,
+    "defects": 6,
+    "failures": 0,
+    "downtime_min": 12,
+    "buffer": 1,
+    "buffer_max": 10,
+    "age_h": 17.5,
+    "tool_left": null
+   },
+   {
+    "id": "l3-m1",
+    "line_id": "l3",
+    "rank": 1,
+    "name": "M1 · Découpe des tubes",
+    "state": "reglage",
+    "bottleneck": false,
+    "rate_h": 30.0,
+    "availability": 91.5,
+    "produced": 390,
+    "defects": 6,
+    "failures": 0,
+    "downtime_min": 12,
+    "buffer": 0,
+    "buffer_max": 10,
+    "age_h": 17.5,
+    "tool_left": null
+   },
+   {
+    "id": "l3-m2",
+    "line_id": "l3",
+    "rank": 2,
+    "name": "M2 · Cintrage",
+    "state": "pause",
+    "bottleneck": false,
+    "rate_h": 40.0,
+    "availability": 91.5,
+    "produced": 370,
+    "defects": 6,
+    "failures": 0,
+    "downtime_min": 12,
+    "buffer": 5,
+    "buffer_max": 10,
+    "age_h": 17.5,
+    "tool_left": null
+   },
+   {
+    "id": "l3-m3",
+    "line_id": "l3",
+    "rank": 3,
+    "name": "M3 · Soudage",
+    "state": "arret",
+    "bottleneck": true,
+    "rate_h": 20.0,
+    "availability": 91.5,
+    "produced": 350,
+    "defects": 6,
+    "failures": 0,
+    "downtime_min": 12,
+    "buffer": 0,
+    "buffer_max": 10,
+    "age_h": 17.5,
+    "tool_left": null
+   },
+   {
+    "id": "l3-m4",
+    "line_id": "l3",
+    "rank": 4,
+    "name": "M4 · Montage de l'assise",
+    "state": "marche",
+    "bottleneck": false,
+    "rate_h": 60.0,
+    "availability": 91.5,
+    "produced": 330,
+    "defects": 6,
+    "failures": 0,
+    "downtime_min": 12,
+    "buffer": 9,
+    "buffer_max": 10,
+    "age_h": 17.5,
+    "tool_left": null
+   }
+  ],
+  "lines": [
+   {
+    "id": "l1",
+    "name": "Ligne 1",
+    "bottleneck_id": "l1-m3",
+    "theoretical_h": 20.0,
+    "expected_h": 17.1,
+    "real_h": 15.8,
+    "production_rate": 92,
+    "wip": 24,
+    "of_id": "of1"
+   },
+   {
+    "id": "l2",
+    "name": "Ligne 2",
+    "bottleneck_id": "l2-m3",
+    "theoretical_h": 20.0,
+    "expected_h": 17.1,
+    "real_h": 15.8,
+    "production_rate": 92,
+    "wip": 24,
+    "of_id": "of2"
+   },
+   {
+    "id": "l3",
+    "name": "Ligne 3",
+    "bottleneck_id": "l3-m3",
+    "theoretical_h": 20.0,
+    "expected_h": 17.1,
+    "real_h": 15.8,
+    "production_rate": 92,
+    "wip": 24,
+    "of_id": "of3"
+   }
+  ],
+  "stocks": {
+   "mp": [
+    {
+     "component_id": "c1",
+     "name": "Kit tubes et assise en acier",
+     "quantity": 1400,
+     "pallets": 14,
+     "capacity_pallets": 24,
+     "reorder_point": 900,
+     "pending": 600
+    }
+   ],
+   "pf": {
+    "quantity": 360,
+    "pallets": 15,
+    "capacity_pallets": 20,
+    "min": 210
+   },
+   "quarantine": 100
+  },
+  "orders": {
+   "production": [
+    {
+     "id": "of1",
+     "line_id": "l1",
+     "quantity": 120,
+     "done": 70,
+     "status": "en_cours"
+    }
+   ],
+   "customer": [
+    {
+     "id": "cc1",
+     "quantity": 210,
+     "due_day": 11,
+     "shipped": 0,
+     "status": "ouverte"
+    }
+   ]
+  },
+  "agents": {
+   "agent_fournisseur": {
+    "state": "disponible",
+    "at": null
+   },
+   "agent_reception": {
+    "state": "occupe",
+    "at": "poste_reception"
+   },
+   "agent_stock_mp": {
+    "state": "disponible",
+    "at": null
+   },
+   "agent_production": {
+    "state": "occupe",
+    "at": "l1-m3"
+   },
+   "agent_qualite": {
+    "state": "occupe",
+    "at": "poste_qualite"
+   },
+   "agent_emballage": {
+    "state": "pause",
+    "at": null
+   },
+   "agent_maintenance": {
+    "state": "deplacement",
+    "at": "l1-m3"
+   },
+   "agent_pilotage": {
+    "state": "occupe",
+    "at": "pilotage"
+   },
+   "agent_entrepot_pf": {
+    "state": "absent",
+    "at": null
+   },
+   "agent_client": {
+    "state": "disponible",
+    "at": null
+   },
+   "op_l1-m1": {
+    "state": "occupe",
+    "at": "l1-m1"
+   },
+   "op_l1-m2": {
+    "state": "disponible",
+    "at": "l1-m2"
+   },
+   "op_l1-m3": {
+    "state": "occupe",
+    "at": "l1-m3"
+   },
+   "op_l1-m4": {
+    "state": "disponible",
+    "at": "l1-m4"
+   },
+   "op_l2-m1": {
+    "state": "occupe",
+    "at": "l2-m1"
+   },
+   "op_l2-m2": {
+    "state": "occupe",
+    "at": "l2-m2"
+   },
+   "op_l2-m3": {
+    "state": "occupe",
+    "at": "l2-m3"
+   },
+   "op_l2-m4": {
+    "state": "occupe",
+    "at": "l2-m4"
+   },
+   "op_l3-m1": {
+    "state": "occupe",
+    "at": "l3-m1"
+   },
+   "op_l3-m2": {
+    "state": "pause",
+    "at": "l3-m2"
+   },
+   "op_l3-m3": {
+    "state": "disponible",
+    "at": "l3-m3"
+   },
+   "op_l3-m4": {
+    "state": "occupe",
+    "at": "l3-m4"
+   },
+   "chauffeur_fournisseur": {
+    "state": "disponible",
+    "at": "fournisseur"
+   },
+   "chauffeur_client": {
+    "state": "disponible",
+    "at": "client"
+   }
+  },
+  "products": {
+   "en_cours": 40,
+   "a_controler": 6,
+   "conforme": 12,
+   "a_retoucher": 0,
+   "rebut": 14,
+   "emballe": 8,
+   "stock_pf": 360,
+   "expedie": 630
+  },
+  "flow": {
+   "nodes": [],
+   "edges": []
+  },
+  "formulas": []
+ }
+}

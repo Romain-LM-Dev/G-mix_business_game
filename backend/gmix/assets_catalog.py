@@ -88,6 +88,10 @@ class AssetCatalog(BaseModel):
     def by_id(self) -> dict[str, AssetSpec]:
         return {a.id: a for a in self.assets}
 
+    def shipped(self) -> list[AssetSpec]:
+        """Assets importés ou fabriqués : un `a_sourcer` (déclaré seulement) n'a ni scène, ni crédit, ni embedding."""
+        return [a for a in self.assets if a.status != "a_sourcer"]
+
     def to_godot(self) -> dict[str, Any]:
         """Données utiles au jeu et au constructeur de scènes (godot/assets/catalog.json)."""
         return {
@@ -107,7 +111,7 @@ class AssetCatalog(BaseModel):
                     "sign": "enseigne" in a.variants,
                     "license": self.packs[a.source.pack].license,
                 }
-                for a in self.assets
+                for a in self.shipped()
             ],
         }
 

@@ -37,8 +37,8 @@ func _rebuild() -> void:
 	if not is_node_ready():
 		return
 	Mesher.clear(self)
-	var upright := Mesher.material(Color(0.17, 0.33, 0.66))
-	var beam := Mesher.material(Color(0.96, 0.52, 0.12))
+	var upright := Mesher.material(Palette.STEEL_DARK, Color.BLACK, "steel")
+	var beam := Mesher.material(Palette.WOOD_DARK, Color.BLACK, "steel")
 	var total_width := bays * BAY_WIDTH
 	var height := levels * LEVEL_HEIGHT + 0.3
 	for i in range(bays + 1):

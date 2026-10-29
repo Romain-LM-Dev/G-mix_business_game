@@ -12,6 +12,8 @@
 #             mais ni importé ni fabriqué : absent de godot/assets/catalog.json, de CREDITS.md et de la table assets.
 #             Passer à importe quand la scène existe (le test_assets vérifie alors sa présence).
 # Scène Godot (convention) : res://assets/<category>/<id>/<id>.tscn
+# Couleurs : palette commune godot/assets/procedural/palette.gd (constantes pour les assets procéduraux ; les modèles
+#            de packs sont ramenés dans la palette à l'exécution par Palette.restyle, sans toucher aux fichiers importés).
 #
 # Chaîne : python -m gmix.tools.assets import <dossier des zips extraits> ; python -m gmix.tools.assets export ;
 #          Godot --headless --script res://tools/build_asset_scenes.gd ; python -m gmix.tools.assets sync-db
@@ -28,6 +30,18 @@ packs:
   kenney-mini-characters: { title: "Kenney Mini Characters (animés)", url: "https://kenney.nl/assets/mini-characters", license: "CC0 1.0", download_dir: mini-characters, models_dir: "Models/GLB format" }
   kenney-nature-kit: { title: "Kenney Nature Kit", url: "https://kenney.nl/assets/nature-kit", license: "CC0 1.0", download_dir: nature-kit, models_dir: "Models/GLTF format" }
   gmix: { title: "Assets G-mix (scènes Godot procédurales)", url: "godot/assets/procedural", license: "propriété du projet" }
+
+# Polices du thème d'interface (godot/assets/fonts/), reprises de la direction artistique du jeu de référence.
+# Tiers sous SIL OFL 1.1 : le texte de licence (OFL-*.txt) accompagne les fichiers. Lues par `export` (CREDITS.md) et
+# vérifiées par test_assets. Manrope.ttf et DMSans.ttf sont variables : Manrope par défaut en graisse 200, le gras
+# passe par les FontVariation (*.tres) ; DMMono est statique (Regular / Medium).
+fonts:
+  - { name: Manrope, role: titres, license: "SIL OFL 1.1", license_file: OFL-Manrope.txt, url: "https://github.com/google/fonts/tree/main/ofl/manrope",
+      files: [Manrope.ttf, ManropeBold.tres, ManropeExtraBold.tres] }
+  - { name: DM Sans, role: corps de texte, license: "SIL OFL 1.1", license_file: OFL-DMSans.txt, url: "https://github.com/google/fonts/tree/main/ofl/dmsans",
+      files: [DMSans.ttf, DMSansBold.tres] }
+  - { name: DM Mono, role: étiquettes, license: "SIL OFL 1.1", license_file: OFL-DMMono.txt, url: "https://github.com/google/fonts/tree/main/ofl/dmmono",
+      files: [DMMono.ttf, DMMonoMedium.ttf] }
 
 assets:
   # --- Bâtiments --------------------------------------------------------------------------------------

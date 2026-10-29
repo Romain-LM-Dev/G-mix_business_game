@@ -149,20 +149,31 @@ func _sims_tour(world: GmixWorld, directory: String) -> void:
 
 ## Fréquence d'images moyenne sur 5 s et pire image (ms), la caméra ne bougeant pas : la mesure du budget de 45 images/s.
 func _measure_fps(view_name := "vue Sims") -> void:
+	# Synchronisation verticale coupée pendant la mesure (sinon la fréquence plafonne à celle de l'écran) et temps GPU mesuré.
+	var viewport := get_viewport().get_viewport_rid()
+	var vsync := DisplayServer.window_get_vsync_mode()
+	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
+	RenderingServer.viewport_set_measure_render_time(viewport, true)
+	await get_tree().process_frame
 	var started := Time.get_ticks_msec()
 	var frames := 0
 	var worst := 0.0
+	var gpu_ms := 0.0
 	var last := started
 	while Time.get_ticks_msec() - started < 5000:
 		await get_tree().process_frame
 		var now := Time.get_ticks_msec()
 		worst = maxf(worst, float(now - last))
+		gpu_ms += RenderingServer.viewport_get_measured_render_time_gpu(viewport)
 		last = now
 		frames += 1
-	print("FPS %s : %.1f en moyenne sur 5 s, pire image %.0f ms, %d appels de rendu, %d objets" % [
+	RenderingServer.viewport_set_measure_render_time(viewport, false)
+	DisplayServer.window_set_vsync_mode(vsync)
+	print("FPS %s : %.1f en moyenne sur 5 s (sans synchro verticale), pire image %.0f ms, GPU %.1f ms par image, %d appels de rendu, %d objets" % [
 		view_name,
 		frames / ((last - started) / 1000.0),
 		worst,
+		gpu_ms / maxf(frames, 1.0),
 		Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME),
 		Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME),
 	])

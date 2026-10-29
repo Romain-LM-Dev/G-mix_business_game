@@ -7,6 +7,14 @@ Chargés par `gmix.llm.prompts.load_prompt()`.
 |---|---|---|
 | `npc.dialogue.md` | 3 | réplique d'un agent PNJ : ses faits (briefings), ses notions, l'historique des échanges |
 | `player.intent.questions.yaml` | 4 | questions fermées du filtre (intention, injection) et seuil d'injection 0,6 |
+| `game.design.concept.md` | 1 | conception du scénario, des mécaniques et des objectifs (ADR 0008, sortie JSON contrainte) |
+| `game.design.cast.md` | 1 | noms, caractères et présentations des personnages |
+| `game.design.journey.md` | 1 | panneaux, outils, didacticiel et questions de débrief |
+
+Les prompts `game.design.*` ont une section `## repair` (variable `errors`, hors `variables`) : pour réparer, le code
+envoie `[system, user, assistant(sortie fautive), user(repair)]` (`PromptTemplate.render_repair`). Leurs variables
+sont des blocs de texte construits par `gmix.game.design.*_variables` (annexe 0008 §4.3) ; le schéma n'est jamais
+recopié dans le prompt, et aucun chiffre n'y figure : les nombres viennent du moteur.
 
 ## Format
 

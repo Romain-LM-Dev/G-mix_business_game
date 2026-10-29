@@ -10,7 +10,10 @@ const GENERATED := &"gmix_generated"
 static var _materials: Dictionary = {}
 
 
-static func material(color: Color, emission := Color.BLACK) -> StandardMaterial3D:
+## `grain` (« concrete », « cardboard », « steel », voir Palette) : matériau à grain léger ; vide : couleur unie.
+static func material(color: Color, emission := Color.BLACK, grain := "") -> StandardMaterial3D:
+	if not grain.is_empty():
+		return Palette.material(color, grain, emission)
 	var key := color.to_html() + emission.to_html()
 	if not _materials.has(key):
 		var mat := StandardMaterial3D.new()
@@ -52,6 +55,10 @@ static func vertex_material(unshaded := false) -> StandardMaterial3D:
 		mat.roughness = 0.85
 		if unshaded:
 			mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		else:  # grain fin (triplanaire) multiplié par la couleur de sommet
+			mat.albedo_texture = Palette.grain("steel")
+			mat.uv1_triplanar = true
+			mat.uv1_scale = Vector3.ONE / float(Palette.GRAIN_TILE["steel"])
 		_materials[key] = mat
 	return _materials[key]
 

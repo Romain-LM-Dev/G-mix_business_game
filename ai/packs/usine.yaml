@@ -127,6 +127,19 @@ difficulties:
     pf_stock_days: 0.5
     cash_weeks: 2.5
 
+# Réglages que la conception par l'IA peut choisir (ADR 0008, annexe §2) : une clé de profil prend la valeur d'un
+# autre profil de `difficulties`, jamais un nombre nouveau ; provenance dans `values` (liste ci-dessus).
+# `cash_weeks` n'est pas réglable : aucune notion du pack ne porte sur la trésorerie (pas de module finance).
+tunables:
+  mtbf_factor: {label: Fréquence des pannes, teaches: [disponibilite, pannes_par_usure, maintenance_preventive]}
+  defect_factor: {label: Défauts des machines, teaches: [rendement_en_cascade, capacite_et_trs]}
+  load: {label: Charge de l'usine, teaches: [charge_et_attente, goulot, loi_de_little]}
+  promised_days: {label: Délai promis au client, teaches: [otif, loi_de_little]}
+  demand_variability: {label: Variabilité de la demande, teaches: [stock_de_securite, charge_et_attente]}
+  reliability_shift: {label: Fiabilité des fournisseurs, teaches: [delai_et_fiabilite, stock_de_securite]}
+  mp_stock_days: {label: Stock de matière au départ, teaches: [point_de_commande, stock_de_securite]}
+  pf_stock_days: {label: Stock de produits finis au départ, teaches: [otif, stock_de_securite]}
+
 targets:
   otif: 95            # % de commandes livrées complètes au plus tard le jour promis
   trs: 80             # % moyen des lignes (voir pilotage.objectif_trs)
@@ -323,6 +336,7 @@ values:
   pilotage.cout_operateur_h: {value: 28, unit: € par heure, status: calibre, note: "Coût employeur d'un opérateur, ordre de grandeur indicatif (à vérifier : INSEE, coût horaire de la main-d'œuvre) ; sert aux heures de relève."}
   pilotage.prix_et_couts: {status: calibre, note: "Prix de vente, coût de transformation (main-d'œuvre comprise, environ 4 opérateurs x 3 min = 0,2 h par produit) et coût de la MP des themes : ordres de grandeur indicatifs, non sourcés."}
   pilotage.effets_aleas: {status: calibre, note: "Ampleur des effets des aléas (events) : indicative, non sourcée."}
+  interface.seuils_attention: {status: calibre, note: "panels[].columns[].warn : 5 points sous la cible (OTIF 90 pour 95, TRS 75 pour 80), écart de l'exemple de l'annexe 0008 §2. Aide à lire la pastille ; n'entre dans aucun calcul, objectif ni verdict."}
 
 # Archétypes de machine : les 4 machines de l'exemple du cahier (§5.2). L'opération affichée vient du produit.
 machine_types:
@@ -841,52 +855,65 @@ events_levels:
   frequents: {label: Aléas fréquents, probability: 0.5}
 
 # Notions dites par les agents et rappelées au débrief, chacune avec sa fiche du corpus (citation lue dans son
-# en-tête). Textes courts, sans chiffre de partie : les chiffres viennent du moteur.
+# en-tête). Textes courts, sans chiffre de partie : les chiffres viennent du moteur. `indicators` (ADR 0008) :
+# indicateurs du débrief où la notion se voit (otif, trs, stockouts = jours-ligne sans MP, cash) ; carte_p et
+# rotation_fifo n'en ont pas (aucun module de la tranche 1 ne les joue).
 notions:
   disponibilite:
     title: Disponibilité, MTBF et MTTR
     text: "La disponibilité est le temps de marche divisé par le temps total. Pour les pannes, avec le MTBF compté en heures de marche entre deux pannes, elle vaut MTBF ÷ (MTBF + MTTR) ; l'attente du technicien et son trajet allongent l'arrêt et la font encore baisser."
     source: wikipedia-en-availability
+    indicators: [trs]
   pannes_par_usure:
     title: Pannes d'usure et pannes au hasard
     text: "Réviser ou remplacer à date fixe ne se justifie que si l'équipement s'use avec l'usage : son risque de panne croît avec l'âge et l'entretien le remet à zéro. Les études des compagnies aériennes des années 1960 ont montré que la plupart des pannes ne sont pas liées à l'âge : contre celles-là, le préventif à date fixe n'aide pas."
     source: wikipedia-en-reliability-centered-maintenance
+    indicators: [trs]
   maintenance_preventive:
     title: Maintenance préventive et corrective
     text: "Le préventif inspecte et entretient l'équipement à intervalles planifiés pour remplacer les pièces usées avant la panne ; le correctif répare après la panne, souvent plus cher à cause des arrêts et des dégâts en chaîne."
     source: wikipedia-en-maintenance
+    indicators: [trs]
   goulot:
     title: Goulot et contrainte
     text: "Dans une ligne en série, le poste le plus lent fixe le débit maximal : augmenter sa capacité augmente le débit de l'ensemble, améliorer les autres ne sert à rien. Tant que la demande reste sous ce débit, c'est le marché qui limite l'usine ; lors d'un pic ou après une panne, ce poste devient la contrainte et chaque heure qu'il perd est perdue pour la ligne."
     source: wikipedia-fr-theorie-des-contraintes
+    indicators: [otif, trs]
   tampon_avant_goulot:
     title: Protéger la contrainte par des tampons
     text: "Un stock tampon placé devant la contrainte lui évite de manquer de travail quand un poste amont s'arrête, et de la place libre derrière elle évite qu'un arrêt en aval la bloque. Le tampon achète du temps ; il doit suffire sans être excessif."
     source: wikipedia-en-theory-of-constraints
+    indicators: [otif, trs]
   rendement_en_cascade:
     title: Rendement cumulé
     text: "La probabilité qu'un produit sorte bon d'un procédé à plusieurs étapes est le produit des rendements de chaque étape : le rendement de la ligne n'est donc jamais meilleur que celui de sa moins bonne machine."
     source: wikipedia-en-rolled-throughput-yield
+    indicators: [trs]
   capacite_et_trs:
     title: Taux de rendement synthétique (TRS)
     text: "Le TRS (OEE en anglais) multiplie trois taux : disponibilité (temps de marche ÷ temps planifié, pauses et pannes comprises), performance (vitesse réelle ÷ vitesse maximale) et qualité (bons ÷ produits). À 100 %, la machine tourne sans arrêt, à pleine vitesse, sans défaut."
     source: wikipedia-en-overall-equipment-effectiveness
+    indicators: [trs]
   loi_de_little:
     title: Loi de Little
     text: "En régime stable, l'encours moyen égale le débit multiplié par le temps moyen passé dans le système : à débit égal, plus d'encours veut dire des produits qui attendent plus longtemps."
     source: wikipedia-en-little-s-law
+    indicators: [otif]
   charge_et_attente:
     title: Charge et attente
     text: "Selon l'approximation de Kingman, l'attente devant un poste croît avec u ÷ (1 − u), u étant son taux d'occupation, et avec la variabilité des arrivées et des temps de service : près de 100 % de charge, elle explose."
     source: wikipedia-en-kingman-s-formula
+    indicators: [otif]
   takt_time:
     title: Takt time
     text: "Le takt time est le temps disponible divisé par le nombre d'unités demandées : le rythme à tenir pour suivre le client. Il ne se confond pas avec le temps de cycle réel, qui compte aussi les pièces défectueuses et les réglages."
     source: wikipedia-fr-takt-time
+    indicators: [otif]
   changement_de_serie:
     title: Changement de série (SMED)
     text: "Le SMED réduit le temps de changement de série pour pouvoir produire en petits lots ; « single minute » veut dire moins de 10 minutes."
     source: wikipedia-en-single-minute-exchange-of-die
+    indicators: [trs]
   carte_p:
     title: Carte p
     text: "La carte p suit la part de produits non conformes d'un échantillon ; sa limite haute vaut p + 3 × racine(p (1 − p) ÷ n). Un lot au-delà signale probablement un changement du procédé plutôt qu'un simple aléa."
@@ -899,20 +926,25 @@ notions:
     title: Point de commande
     text: "On recommande quand le stock, commandes en cours comprises, passe sous le point de commande, égal à la consommation prévue pendant le délai d'approvisionnement plus le stock de sécurité."
     source: wikipedia-en-reorder-point
+    indicators: [stockouts, otif]
   stock_de_securite:
     title: Stock de sécurité
     text: "Le stock de sécurité couvre l'incertitude de la demande et des délais ; plus ils sont imprévisibles et plus le service visé est élevé, plus il doit être important."
     source: wikipedia-fr-stock-de-securite
+    indicators: [stockouts, otif]
   delai_et_fiabilite:
     title: Délai et fiabilité des fournisseurs
     text: "Des délais de réapprovisionnement longs ou aléatoires obligent à commander plus tôt et à garder davantage de stock de sécurité ; le prix n'est qu'un critère de choix parmi d'autres."
     source: wikipedia-fr-stock-de-securite
+    indicators: [stockouts, otif]
   otif:
     title: OTIF (à l'heure et complet)
     text: "Le modèle SCOR mesure la performance de livraison comme la part des produits livrés à temps et en totalité à la date promise."
     source: wikipedia-en-supply-chain-operations-reference
+    indicators: [otif]
 
 # Panneaux (annexe §5). Clé à exposer par le moteur, hors annexe §2 : kpis.good_share (part de bons, 0-100).
+# `better: lower` où moins est mieux ; `warn` : seuil « attention » de la pastille (values.interface.seuils_attention).
 panels:
   - id: bandeau
     type: kpis
@@ -920,8 +952,9 @@ panels:
     placement: bandeau
     source: kpis
     columns:
-      - {key: otif, label: OTIF, format: pct, target: targets.otif}
-      - {key: trs, label: TRS, format: pct, target: targets.trs}
+      - {key: otif, label: OTIF, format: pct, target: targets.otif, warn: 90}
+      - {key: trs, label: TRS, format: pct, target: targets.trs, warn: 75}
+      - {key: stockouts, label: Jours-ligne sans MP, format: int, target: targets.stockouts, better: lower}
       - {key: cash, label: Trésorerie, format: money, target: targets.cash_final}
   - id: bandeau_pf
     type: kpis
@@ -962,8 +995,8 @@ panels:
         labels: {arret: Arrêt, marche: En marche, pause: Pause, reglage: Réglage, panne: En panne, attente_matiere: Attente matière, sortie_pleine: Sortie pleine}
       - {key: availability, label: Disponibilité, format: pct}
       - {key: produced, label: Produits, format: int}
-      - {key: failures, label: Pannes, format: int}
-      - {key: downtime_min, label: Arrêt, format: minutes}
+      - {key: failures, label: Pannes, format: int, better: lower}
+      - {key: downtime_min, label: Arrêt, format: minutes, better: lower}
       - {key: buffer, label: Table d'attente, format: int}
   - id: historique
     type: chart
@@ -1024,8 +1057,8 @@ panels:
     source: factory.machines
     columns:
       - {key: name, label: Machine}
-      - {key: failures, label: Pannes, format: int}
-      - {key: downtime_min, label: Arrêt, format: minutes}
+      - {key: failures, label: Pannes, format: int, better: lower}
+      - {key: downtime_min, label: Arrêt, format: minutes, better: lower}
       - {key: availability, label: Disponibilité, format: pct}
       - {key: age_h, label: Âge (h de marche), format: dec1}
   - id: part_de_bons
@@ -1038,3 +1071,31 @@ panels:
       - {key: good_share, label: Part de bons, format: pct}
     min: 80
     max: 100
+
+# Barre d'actions (ADR 0008, annexe §1 `Tool`, §2) : une entrée par action de module au plus, touche = rang + 1.
+# Tableau de bord et aide d'abord (mêmes touches dans toutes les parties) ; l'ordre des réparations, réglage rare,
+# et la caméra en dernier. Libellés : interface, aucune affirmation métier.
+tools:
+  - {id: tableau, label: Tableau de bord, kind: tableau_de_bord}
+  - {id: aide, label: Aide, kind: aide}
+  - {id: lancement, label: Lancer des OF, kind: action, action_id: lancer_of}
+  - {id: commande, label: Commande MP, kind: action, action_id: commander_mp}
+  - {id: protection, label: Protéger goulot, kind: action, action_id: proteger_goulot}
+  - {id: preventif, label: Préventif, kind: action, action_id: preventif}
+  - {id: reparations, label: Réparations, kind: action, action_id: priorite_reparation}
+  - {id: camera, label: Caméra, kind: camera}
+
+# Didacticiel par défaut (jeu par paramètres, repli de la section journey). Sans chiffre. Ancres du pack :
+# panneau bandeau, postes machine, département production, outils. Provenance : colonnes des panneaux bandeau,
+# poste_machine et lignes ; goulot = notion goulot (wikipedia-fr-theorie-des-contraintes).
+tutorial:
+  - {id: indicateurs, title: Vos indicateurs, anchor: "panel:bandeau",
+     text: "Le bandeau montre l'OTIF, le TRS, les jours-ligne sans matière et la trésorerie face à leur cible."}
+  - {id: machines, title: Chaque machine, anchor: "station:machine",
+     text: "Approchez une machine : son panneau donne son état, sa disponibilité, ses pannes et sa table d'attente."}
+  - {id: goulot, title: Le goulot de chaque ligne, anchor: "dept:production",
+     text: "La machine la plus lente d'une ligne fixe son débit maximal : quand la demande l'atteint, chaque minute qu'elle perd est perdue pour la ligne."}
+  - {id: tableau, title: Le tableau de bord, anchor: "tool:tableau",
+     text: "Il montre le flux, les lignes et les machines : comparez le débit de bons attendu et le débit mesuré de chaque ligne."}
+  - {id: decisions, title: Vos décisions, anchor: "tool:aide",
+     text: "Approchez le poste de votre module ou utilisez la barre d'actions pour décider ; l'aide rouvre ce guide."}

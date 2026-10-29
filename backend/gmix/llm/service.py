@@ -12,7 +12,8 @@ import hashlib
 import json
 import logging
 from collections.abc import AsyncIterator
-from typing import Any
+from dataclasses import dataclass
+from typing import Any, Literal
 
 from sqlalchemy.dialects.postgresql import insert
 
@@ -32,6 +33,15 @@ class ModelUnavailable(RuntimeError):
 
 class BudgetExceeded(ValueError):
     pass
+
+
+@dataclass(slots=True)
+class StructuredResult:
+    data: dict[str, Any] | None  # None si le JSON est invalide ou tronqué
+    raw: str  # sortie brute du modèle (rejouée au modèle pour une réparation)
+    usage: Usage
+    cached: bool
+    error: Literal["json_invalide", "tronque"] | None  # tronque : done_reason == "length" (num_predict atteint)
 
 
 class LLMCacheStore:
@@ -118,6 +128,44 @@ class LLMService:
         if key:
             await self.cache.put(key, task_name, result.usage, {"content": result.content})  # type: ignore[union-attr]
         return result
+
+    async def structured(
+        self, task_name: str, messages: list[dict[str, str]], schema: dict[str, Any], *, seed: int
+    ) -> StructuredResult:
+        """Sortie JSON contrainte par `schema` (format Ollama, décodage contraint) d'une tâche `output: json`.
+
+        La graine rend l'appel reproductible : schéma et graine entrent dans la clé de cache. Une sortie
+        tronquée ou invalide n'est pas mise en cache et n'est jamais levée en exception : à l'appelant de réparer.
+        """
+        task, model = await self.resolve(task_name)
+        if task.output != "json":
+            raise ValueError(f"Tâche {task_name} : sortie '{task.output}', `structured` exige `output: json`")
+        self._check_budget(task_name, task, model, messages)
+        key = self._cache_key(task_name, task, model, messages, extra=[schema, seed])
+        if key and (hit := await self.cache.get(key)) is not None:  # type: ignore[union-attr]
+            log.info("tâche=%s cache=hit", task_name)
+            return StructuredResult(json.loads(hit["content"]), hit["content"], Usage(model=model.name), True, None)
+        result = await self.client.chat(
+            model.name,
+            messages,
+            options={**self._options(task, model), "seed": seed},
+            fmt=schema,
+            think=self._think(task, model),
+            keep_alive=self.catalog.keep_alive,
+        )
+        self._log(task_name, result)
+        data = None
+        error: Literal["json_invalide", "tronque"] | None = "tronque" if result.done_reason == "length" else None
+        if error is None:
+            try:
+                parsed = json.loads(result.content)
+                data = parsed if isinstance(parsed, dict) else None
+            except json.JSONDecodeError:
+                pass
+            error = None if data is not None else "json_invalide"
+        if key and data is not None:
+            await self.cache.put(key, task_name, result.usage, {"content": result.content})  # type: ignore[union-attr]
+        return StructuredResult(data, result.content, result.usage, False, error)
 
     async def stream(self, task_name: str, messages: list[dict[str, str]]) -> AsyncIterator[str | Usage]:
         task, model = await self.resolve(task_name)

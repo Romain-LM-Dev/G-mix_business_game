@@ -13,7 +13,7 @@ const THICKNESS := 0.012  # l'aplat ; le ruban fait 2 cm
 	set(value):
 		title = value
 		_rebuild()
-@export var color := Color(0.95, 0.72, 0.15):
+@export var color := Palette.OCHRE:
 	set(value):
 		color = value
 		_rebuild()
@@ -34,7 +34,7 @@ func _rebuild() -> void:
 	Mesher.clear(self)
 	var w := maxf(size.x, 4.0 * BORDER)
 	var d := maxf(size.y, 4.0 * BORDER)
-	var fill := color.lerp(Color(0.86, 0.87, 0.89), 0.72)
+	var fill := color.lerp(Palette.WALL_LIGHT, 0.72)
 	var batch := Mesher.Batch.new()
 	batch.box(Vector3(w, THICKNESS, d), Vector3(0, THICKNESS / 2.0, 0), fill)
 	for z in [-1.0, 1.0]:
@@ -50,8 +50,8 @@ func _rebuild() -> void:
 	label.font_size = 64
 	label.pixel_size = line / 64.0
 	label.outline_size = 10
-	label.outline_modulate = Color(1, 1, 1)
-	label.modulate = Color(0.1, 0.12, 0.16)
+	label.outline_modulate = Palette.WALL_LIGHT
+	label.modulate = Palette.DARK_TEAL
 	label.double_sided = false
 	label.rotation_degrees = Vector3(-90, 0, 0)  # à plat, lisible depuis +Z
 	label.position = Vector3(0, 0.03, d / 2.0 - BORDER - line * 0.8)

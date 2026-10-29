@@ -20,13 +20,14 @@ const PICK_MASK := 1 | GmixPlayer.NPC_LAYER | PICK_LAYER
 const RAY_LENGTH := 300.0
 const WORLD_LAYER := 1  # décor plein : un agent qu'il cache n'est pas sélectionnable
 const NUDGE := 0.6  # m : un clic sur la paroi d'un obstacle vise le sol devant elle, côté caméra
-const YAW_DEFAULT := 35.0  # degrés ; 0 = la caméra est au sud (+Z) et regarde vers le nord
+const FOV := 38.0  # degrés (jeu de référence) : perspective resserrée, effet diorama
+const YAW_DEFAULT := 28.0  # degrés ; 0 = la caméra est au sud (+Z) et regarde vers le nord
 const PITCH_DEFAULT := 52.0  # degrés sous l'horizon
 const PITCH_MIN := 30.0
 const PITCH_MAX := 80.0
-const DISTANCE_DEFAULT := 34.0
-const DISTANCE_MIN := 6.0
-const DISTANCE_MAX := 55.0
+const DISTANCE_DEFAULT := 30.0  # m : à FOV 38, ~19 m de haut et ~34 m de large au point suivi, soit le hall de 32 m
+const DISTANCE_MIN := 8.0
+const DISTANCE_MAX := 62.0  # le hall et sa pelouse tiennent à l'écran (FOV 38 : 62 m équivalent à 51 m en FOV 45)
 const ZOOM_STEP := 0.9
 const PAN_SPEED := 0.9  # m/s par mètre de distance
 const ROTATE_SPEED := 1.6  # rad/s aux touches
@@ -55,7 +56,7 @@ var _highlight := _make_highlight()
 
 
 func _ready() -> void:
-	camera.fov = 45.0
+	camera.fov = FOV
 	camera.near = 0.5
 	camera.far = 250.0
 	camera.position = Vector3(0, 0, _distance)
@@ -216,7 +217,7 @@ static func _make_highlight() -> StandardMaterial3D:
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	material.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	material.albedo_color = Color(0.25, 0.6, 1.0, 0.55)
+	material.albedo_color = Color(UiTokens.LIME, 0.55)
 	material.grow = true
 	material.grow_amount = 0.02
 	return material

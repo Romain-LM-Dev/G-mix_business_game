@@ -4,9 +4,9 @@ extends RefCounted
 ## spec) en BBCode pour RichTextLabel. Tout texte venant de l'API ou de l'IA passe par esc() : un « [ » ne doit
 ## jamais être lu comme une balise.
 
-const GREEN := "#7fd98a"
-const ORANGE := "#ffb84d"
-const GREY := "#9aa3b2"
+const GREEN := UiTokens.OK_HEX
+const ORANGE := UiTokens.WARN_HEX
+const GREY := UiTokens.MUTED_HEX
 ## Indicateurs de l'état public : [id, nom, unité, clé de l'objectif dans targets ("" : aucun), plus haut = mieux].
 const KPIS := [
 	["otif", "OTIF", "%", "otif", true],

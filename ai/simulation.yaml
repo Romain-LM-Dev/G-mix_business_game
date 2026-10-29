@@ -40,6 +40,28 @@ difficulties:
     demand_noise: 0.12
     cash_weeks: 2.5
 
+# Réglages que la conception par l'IA peut choisir (ADR 0008, annexe §2) : une clé de profil prend la valeur d'un
+# autre profil de `difficulties`, jamais un nombre nouveau. `teaches` : notions que le réglage rend visibles.
+# Provenance de chaque valeur : `values` ci-dessous.
+tunables:
+  stock_weeks: {label: Stocks de départ, teaches: [stock_de_securite, rupture_de_stock, cout_de_possession]}
+  trs: {label: Rendement de départ des lignes (TRS), teaches: [capacite_et_trs, maintenance_preventive]}
+  reliability_shift: {label: Fiabilité des fournisseurs, teaches: [delai_et_fiabilite, stock_de_securite]}
+  defect_rate: {label: Taux de défauts, teaches: [qualite_a_la_source]}
+  demand_noise: {label: Variabilité de la demande, teaches: [stock_de_securite, planification_mrp]}
+  cash_weeks: {label: Trésorerie de départ, teaches: [cout_de_possession, rotation_des_stocks]}
+
+# Provenance des valeurs des profils (même format que ai/packs/usine.yaml) : `calibre` = choisi pour la jouabilité
+# (le pilote automatique atteint les objectifs en découverte et peine en expert, docs/game-design.md), la note dit
+# pourquoi. Profils de difficulté repris du jeu de référence (ADR 0006) ; ordres de grandeur indicatifs, non sourcés.
+values:
+  stock.semaines_initiales: {status: calibre, note: "difficulties.stock_weeks (2,5 ; 1,8 ; 1,2 semaines de demande) : stock de départ de chaque produit et de son composant (gmix.game.generation)."}
+  ligne.trs_initial: {status: calibre, note: "difficulties.trs (90 ; 85 ; 76 %), ± 2 points tirés par ligne, borné à 50-96 ; la capacité vaut demande x 1,12 / 0,85, donc 76 % couvre tout juste la demande. La fiche wikipedia-en-overall-equipment-effectiveness réfute une cible universelle de 85 %."}
+  fournisseur.ecart_fiabilite: {status: calibre, note: "difficulties.reliability_shift (+4 ; 0 ; -8 points) ajouté à la fiabilité des trois profils (97, 92, 84 %), borné à 50-99."}
+  qualite.taux_defauts: {status: calibre, note: "difficulties.defect_rate (2 ; 3 ; 5 % des unités produites), avant contrôle ; l'aléa lot_defectueux en ajoute 4 points."}
+  demande.bruit: {status: calibre, note: "difficulties.demand_noise (5 ; 8 ; 12 %) : écart tiré uniformément autour de la demande de chaque semaine (gmix.game.engine._demand)."}
+  finance.tresorerie_initiale_semaines: {status: calibre, note: "difficulties.cash_weeks (6 ; 4 ; 2,5 semaines d'achats de composants)."}
+
 targets:
   otif: 95            # % de livraisons à l'heure et complètes
   trs: 85             # % moyen des lignes
@@ -312,60 +334,107 @@ events_levels:
   frequents: {label: Aléas fréquents, probability: 0.5}
 
 # Notions transmises par les agents et rappelées au débrief. `source` : fiche du corpus knowledge/supply-chain
-# (la citation exacte est lue dans son en-tête « > Source : ») ou `citation` écrite ici.
+# (la citation exacte est lue dans son en-tête « > Source : ») ou `citation` écrite ici. `indicators` (ADR 0008) :
+# indicateurs du débrief (otif, trs, stockouts, cash) où la notion se voit, d'après les règles de gmix.game.engine
+# (OTIF = bons servis / demande x ponctualité du transport ; coûts de maintenance, contrôle, possession dans cash).
 notions:
   point_de_commande:
     title: Point de commande
     text: On recommande quand le stock, commandes en cours comprises, passe sous le point de commande, égal à la consommation prévue pendant le délai d'approvisionnement plus le stock de sécurité.
     source: wikipedia-en-reorder-point
+    indicators: [stockouts, otif]
   stock_de_securite:
     title: Stock de sécurité
     text: Le stock de sécurité couvre l'incertitude de la demande et des délais ; plus ils sont imprévisibles et plus le service visé est élevé, plus il doit être important.
     source: wikipedia-fr-stock-de-securite
+    indicators: [stockouts, otif]
   delai_et_fiabilite:
     title: Délai et fiabilité des fournisseurs
     text: Des délais de réapprovisionnement longs ou aléatoires obligent à commander plus tôt et à garder davantage de stock de sécurité ; le prix n'est qu'un critère de choix parmi d'autres.
     source: wikipedia-fr-stock-de-securite
+    indicators: [stockouts, otif]
   planification_mrp:
     title: Calcul des besoins (MRP)
     text: Le calcul des besoins part de la demande prévue pour planifier la production et les composants nécessaires ; une ligne sans composant s'arrête.
     source: wikipedia-en-material-requirements-planning
+    indicators: [stockouts, otif]
   capacite_et_trs:
     title: Taux de rendement synthétique (TRS)
     text: Le TRS (OEE en anglais) rapporte la production de pièces bonnes à ce que la ligne produirait sans arrêt, à pleine cadence ; pannes, ralentissements et rebuts le font baisser, et la capacité réelle avec lui.
     source: wikipedia-en-overall-equipment-effectiveness   # NF E60-182 : norme payante non lue, retirée (28/10/2026)
+    indicators: [trs, otif]
   maintenance_preventive:
     title: Maintenance préventive
     text: Le lean classe les pannes parmi les gaspillages ; entretenir avant la panne a un coût, mais préserve la capacité réelle des lignes.
     source: wikipedia-fr-lean-production
+    indicators: [trs, cash]
   qualite_a_la_source:
     title: Qualité à la source
     text: Le lean vise à arrêter la production au premier défaut (andon) et à intégrer la qualité dès la conception ; un défaut non détecté part chez le client et revient en retour.
     source: wikipedia-fr-lean-production
+    indicators: [otif, cash]
   prix_et_demande:
     title: Prix, promotions et effet coup de fouet
     text: Les variations de prix et les promotions font varier la demande et amplifient l'effet coup de fouet (bullwhip) le long de la chaîne logistique.
     source: wikipedia-en-bullwhip-effect
+    indicators: [stockouts, cash]
   rupture_de_stock:
     title: Rupture de stock
     text: Une rupture rend la référence indisponible à la vente ; la vente est perdue et le taux de service baisse.
     source: wikipedia-fr-rupture-de-stock
+    indicators: [stockouts, otif]
   otif:
     title: OTIF (à l'heure et complet)
     text: Le modèle SCOR mesure la performance de livraison comme la part des produits livrés à temps et en totalité à la date promise.
     source: wikipedia-en-supply-chain-operations-reference
+    indicators: [otif]
   transport_cout_delai:
     title: Transport, coût et délai
     text: La logistique externe (transport, livraison) doit maîtriser à la fois les coûts et les délais ; un transport plus rapide et plus sûr coûte plus cher.
     source: wikipedia-fr-logistique
+    indicators: [otif, cash]
   cout_de_possession:
     title: Coût de possession du stock
     text: Garder du stock coûte, proportionnellement au stock moyen ; la formule de Wilson met ce coût en balance avec le coût de passation des commandes.
     source: wikipedia-fr-formule-de-wilson
+    indicators: [cash]
   rotation_des_stocks:
     title: Rotation des stocks
     text: La rotation des stocks (coût des ventes divisé par le stock moyen) montre si l'entreprise garde trop de stock par rapport à ses ventes.
     source: wikipedia-en-inventory-turnover
+    indicators: [cash]
+
+# Barre d'actions (ADR 0008, annexe §1 `Tool`, §2) : une entrée par action de module au plus, touche = rang + 1.
+# Tableau de bord et aide d'abord, pour garder les mêmes touches dans toutes les parties ; caméra (vue Sims) en
+# dernier. Libellés : interface, aucune affirmation métier.
+tools:
+  - {id: tableau, label: Tableau de bord, kind: tableau_de_bord}
+  - {id: aide, label: Aide, kind: aide}
+  - {id: commande, label: Commander, kind: action, action_id: commander}
+  - {id: plan, label: Planifier, kind: action, action_id: planifier}
+  - {id: entretien, label: Entretien, kind: action, action_id: entretenir}
+  - {id: controle, label: Contrôle, kind: action, action_id: controler}
+  - {id: prix, label: Prix de vente, kind: action, action_id: fixer_prix}
+  - {id: transport, label: Transport, kind: action, action_id: choisir_mode}
+  - {id: decouvert, label: Découvert, kind: action, action_id: decouvert}
+  - {id: camera, label: Caméra, kind: camera}
+
+# Didacticiel par défaut (jeu par paramètres, repli de la section journey). Sans chiffre. Ancres présentes dans
+# toute partie atelier (tous les postes sont posés, gmix.game.generation._layout). Provenance des affirmations :
+# kpis du moteur (engine.INDICATORS) ; « une ligne sans composant s'arrête » = notion planification_mrp ; « une
+# ligne mal entretenue perd du rendement » = notions capacite_et_trs et maintenance_preventive ; contenu du
+# tableau de bord = godot GameText.dashboard_bbcode ; postes sans module = « géré automatiquement » (hud.gd).
+tutorial:
+  - {id: indicateurs, title: Vos indicateurs, anchor: "station:ecran_kpi",
+     text: "L'écran des indicateurs montre l'OTIF, le TRS, les ruptures et la trésorerie face à leur cible, semaine après semaine."}
+  - {id: flux, title: Le flux de l'atelier, anchor: "station:quai_reception",
+     text: "Les composants arrivent au quai de réception, passent sur les lignes, puis repartent en produits finis par le quai d'expédition."}
+  - {id: lignes, title: Les lignes, anchor: "station:ligne",
+     text: "Une ligne sans composant s'arrête, une ligne mal entretenue perd du rendement : surveillez les stocks et le TRS."}
+  - {id: tableau, title: Le tableau de bord, anchor: "tool:tableau",
+     text: "Il détaille stocks, composants sous leur point de commande, TRS des lignes et commandes en cours : lisez-le avant de décider."}
+  - {id: decisions, title: Vos décisions, anchor: "tool:aide",
+     text: "Approchez un poste de votre module ou utilisez la barre d'actions pour décider ; l'aide rouvre ce guide."}
 
 themes:
   industrie:

@@ -19,7 +19,7 @@ const HELP_THIRD := "ZQSD (WASD en QWERTY) : se déplacer · Maj : courir · Esp
 const TALK_TIMEOUT_S := 90.0  # premier message : le modèle de dialogue peut devoir se charger en VRAM
 const SOURCE_KEYS := {"offers": "component_id", "lines": "id", "products": "id"}
 const HUD_FONT := 16  # indicateurs et semaine : l'atelier reste visible derrière
-const GLASS_ALPHA := 0.86  # panneaux du bandeau : lisibles, mais ils laissent deviner l'atelier
+const GLASS_ALPHA := UiTokens.GLASS_ALPHA  # panneaux du bandeau : lisibles, mais ils laissent deviner l'atelier
 const MENU_WIDTH := 320
 const HOVER_WIDTH := 360
 const BREAK_EVERY := 28  # un mot plus long (chemin, message d'erreur) reçoit des points de coupure invisibles
@@ -95,6 +95,7 @@ func _ready() -> void:
 	var help_panel := _glass(Ui.panel(bottom))
 	var help_box := Ui.vbox(help_panel, 2)
 	_view_label = Ui.label("", 16, Ui.ACCENT, true)
+	_view_label.theme_type_variation = "MonoLabel"
 	help_box.add_child(_view_label)
 	_help = Ui.label("", Ui.MIN_FONT, Ui.MUTED, true)
 	help_box.add_child(_help)
@@ -105,9 +106,16 @@ func _ready() -> void:
 	_hover_label = Ui.label("", 16, Color.WHITE, true)
 	_hover.add_child(_hover_label)
 
+	var dim := ColorRect.new()  # voile derrière les panneaux modaux, comme les modales du jeu de référence
+	dim.color = Color(UiTokens.BACKDROP, 0.6)
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	dim.visible = false
+	_root.add_child(dim)
 	_overlay = CenterContainer.new()
 	_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_overlay.visible = false
+	_overlay.visibility_changed.connect(func() -> void: dim.visible = _overlay.visible)
 	_root.add_child(_overlay)
 	_build_station()
 	_build_dialogue()
@@ -576,13 +584,15 @@ func _passthrough(control: Control) -> Control:
 func _glass(panel: PanelContainer) -> PanelContainer:
 	var box := StyleBoxFlat.new()
 	box.bg_color = Color(Ui.PANEL, GLASS_ALPHA)
-	box.set_corner_radius_all(8)
+	box.set_corner_radius_all(UiTokens.RADIUS_PANEL)
 	box.border_color = Ui.EDGE
 	box.set_border_width_all(1)
 	box.content_margin_left = 12
 	box.content_margin_right = 12
 	box.content_margin_top = 8
 	box.content_margin_bottom = 8
+	box.shadow_color = Color(UiTokens.BACKDROP, 0.3)  # ombre douce du verre
+	box.shadow_size = 8
 	panel.add_theme_stylebox_override("panel", box)
 	return panel
 

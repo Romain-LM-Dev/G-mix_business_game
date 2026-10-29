@@ -5,6 +5,7 @@ choisit celles qu'il neutralise (pannes, pauses, réglages, tables) pour isoler 
 import copy
 import hashlib
 import json
+import statistics
 import time
 from typing import Any
 
@@ -533,5 +534,6 @@ def test_the_timeline_follows_the_contract_and_the_budgets() -> None:
             assert len(checked.frames) == 481 and checked.machines == plant.mids
             assert len(json.dumps(timeline)) < 200_000
             assert len(json.dumps(fs)) < 64_000
-    assert min(durations) < 0.150, durations  # advance < 150 ms (3 lignes x 4 machines, charge pleine)
+    # budget de l'ADR : 150 ms par tour (3 lignes, charge pleine) ; la médiane ignore les pointes de charge
+    assert statistics.median(durations) < 0.150, durations
     assert fs["day"] == 60

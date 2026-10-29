@@ -14,10 +14,10 @@ from pydantic import BaseModel, Field, model_validator
 from gmix.settings import get_settings
 
 ModelKind = Literal["chat", "embedding", "decision"]
-OutputKind = Literal["text", "decision", "embedding"]
+OutputKind = Literal["text", "json", "decision", "embedding"]  # json : LLMService.structured (schéma imposé)
 
 _OUTPUTS_BY_KIND: dict[str, set[str]] = {
-    "chat": {"text"},
+    "chat": {"text", "json"},
     "embedding": {"embedding"},
     "decision": {"decision"},
 }
@@ -85,7 +85,8 @@ class AICatalog(BaseModel):
                     errors.append(f"{name} : repli inconnu '{t.fallback}'")
                 elif fb.kind != primary.kind and not (primary.kind == "decision" and fb.kind == "chat"):
                     errors.append(f"{name} : repli {fb.kind} impossible pour un modèle {primary.kind}")
-            if t.cache and t.options.get("temperature") != 0:
+            # json : la graine passée à l'appel rend la sortie reproductible, et la clé de cache l'inclut
+            if t.cache and t.output != "json" and t.options.get("temperature") != 0:
                 errors.append(f"{name} : `cache: true` exige `temperature: 0` (sortie déterministe)")
             if "num_ctx" in t.options:
                 errors.append(f"{name} : num_ctx se règle sur le modèle, pas sur la tâche (sinon rechargements)")

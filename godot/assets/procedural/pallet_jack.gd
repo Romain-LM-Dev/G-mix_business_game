@@ -21,9 +21,9 @@ func _rebuild() -> void:
 	if not is_node_ready():
 		return
 	Mesher.clear(self)
-	var yellow := Color(0.97, 0.76, 0.12)
-	var dark := Color(0.17, 0.18, 0.2)
-	var steel := Color(0.5, 0.52, 0.56)
+	var yellow := Palette.FORKLIFT
+	var dark := Palette.DARK
+	var steel := Palette.STEEL
 	var batch := Mesher.Batch.new()
 	for x in [-0.2, 0.2]:
 		batch.box(Vector3(0.16, 0.06, 1.15), Vector3(x, 0.06, 0.2), steel)  # fourche

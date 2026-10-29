@@ -2,7 +2,7 @@ import re
 
 from gmix.llm.tokens import estimate_tokens
 from gmix.messaging.envelope import Envelope
-from gmix.messaging.topics import ALL_TOPICS
+from gmix.messaging.topics import ALL_TOPICS, DAY_MS, GENERATION_COMMANDS, GENERATION_EVENTS
 from gmix.rag.chunking import split_into_chunks
 from gmix.rag.retrieval import Hit, build_context
 
@@ -55,6 +55,15 @@ def test_topics_are_unique_and_follow_naming_convention() -> None:
     names = [topic.name for topic in ALL_TOPICS]
     assert len(names) == len(set(names))
     assert all(re.fullmatch(r"gmix(\.[a-z_]+)+", name) for name in names)
+
+
+def test_generation_topics_are_single_partition() -> None:
+    """Annexe 0008 §5 : un seul GPU, un job à la fois, ordre garanti -> une partition, 7 jours."""
+    assert GENERATION_COMMANDS.name == "gmix.generation.commands"
+    assert GENERATION_EVENTS.name == "gmix.generation.events"
+    for topic in (GENERATION_COMMANDS, GENERATION_EVENTS):
+        assert topic in ALL_TOPICS
+        assert (topic.partitions, topic.retention_ms) == (1, 7 * DAY_MS)
 
 
 def test_envelope_roundtrip_and_reply_keep_correlation() -> None:

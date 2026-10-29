@@ -17,6 +17,7 @@ import shutil
 from collections import defaultdict
 from pathlib import Path
 
+import yaml
 from sqlalchemy.dialects.postgresql import insert
 
 from gmix.assets_catalog import CATALOG_JSON, GODOT_ASSETS_DIR, SOURCES_DIR, load_assets_catalog
@@ -49,7 +50,24 @@ def export_credits() -> str:
     for pack_id, ids in sorted(used.items()):
         pack = catalog.packs[pack_id]
         lines.append(f"| {pack.title} | {pack.license} | {pack.url} | {len(ids)} |")
+    lines += [
+        "",
+        "# Crédits des polices (godot/assets/fonts)",
+        "",
+        "Polices tierces sous SIL Open Font License 1.1 : le texte de chaque licence accompagne les fichiers.",
+        "",
+        "| Police | Usage | Licence | Source | Fichiers |",
+        "|---|---|---|---|---|",
+    ]
+    for font in load_fonts():
+        files = ", ".join(font["files"]) + f", {font['license_file']}"
+        lines.append(f"| {font['name']} | {font['role']} | {font['license']} | {font['url']} | {files} |")
     return "\n".join(lines) + "\n"
+
+
+def load_fonts() -> list[dict]:
+    """Section `fonts` de ai/assets.yaml (polices du thème d'interface, hors modèles 3D)."""
+    return yaml.safe_load((get_settings().gmix_ai_dir / "assets.yaml").read_text(encoding="utf-8"))["fonts"]
 
 
 async def evaluate(ks: tuple[int, ...] = (4, 8, 15)) -> list[str]:

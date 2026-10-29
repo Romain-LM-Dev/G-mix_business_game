@@ -74,9 +74,10 @@ function Invoke-UiCheck {
         $scenario = 'tour'
         if ($Flow) { $scenario = 'flow' }
         Write-StepFull 'Comptes jetables'
-        $raw = & $VenvPython -m gmix.tools.ui_accounts create --scenario $scenario
-        if ($LASTEXITCODE -ne 0) { throw 'création des comptes jetables impossible (voir ci-dessus)' }
-        $accounts = ($raw | Select-Object -Last 1) | ConvertFrom-Json
+        $created = Invoke-Captured $VenvPython @('-m', 'gmix.tools.ui_accounts', 'create', '--scenario', $scenario) $journal 'comptes jetables'
+        if ($Full) { Write-Raw $created }
+        if ($created.Code -ne 0) { Write-Capped @($created.Err | Select-Object -Last 3) 3; throw 'création des comptes jetables impossible (voir le journal)' }
+        $accounts = ($created.Out | Select-Object -Last 1) | ConvertFrom-Json
         foreach ($variable in $accounts.env.PSObject.Properties) { Set-Item -Path ('env:' + $variable.Name) -Value $variable.Value }
         if ($Flow) {
             Write-StepFull 'Parcours formateur de bout en bout (flow_test, headless)'
@@ -105,8 +106,9 @@ function Invoke-UiCheck {
         }
     } finally {
         if ($accounts) {
-            & $VenvPython -m gmix.tools.ui_accounts cleanup @($accounts.ids) | Out-Host
-            if ($LASTEXITCODE -ne 0) { Write-Ko ('nettoyage en échec, à relancer : ui_accounts cleanup ' + ($accounts.ids -join ' ')); $code = 1 }
+            $cleaned = Invoke-Captured $VenvPython (@('-m', 'gmix.tools.ui_accounts', 'cleanup') + @($accounts.ids)) $journal 'nettoyage'
+            if ($Full) { Write-Raw $cleaned } else { $cleaned.Out | Select-Object -Last 1 | ForEach-Object { Write-Host $_ } }
+            if ($cleaned.Code -ne 0) { Write-Ko ('nettoyage en échec, à relancer : ui_accounts cleanup ' + ($accounts.ids -join ' ')); Write-Capped @($cleaned.Err | Select-Object -Last 3) 3; $code = 1 }
             foreach ($variable in $accounts.env.PSObject.Properties) { Remove-Item -Path ('env:' + $variable.Name) -ErrorAction SilentlyContinue }
         }
         if ($apiProcess) { & taskkill.exe /PID $apiProcess.Id /T /F *> $null; Write-Ok 'API temporaire arrêtée' }

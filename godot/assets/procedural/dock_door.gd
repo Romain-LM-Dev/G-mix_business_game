@@ -13,7 +13,7 @@ const WIDTH := 3.0
 const HEIGHT := 3.6
 const JAMB := 0.15
 const OPENING_HEIGHT := 2.7
-const LIT := {"libre": Color(0.2, 0.95, 0.35), "occupe": Color(1.0, 0.2, 0.15)}
+const LIT := {"libre": Palette.OK, "occupe": Palette.ALERT}
 
 @export_enum("libre", "occupe") var state := "libre":
 	set(value):
@@ -36,10 +36,10 @@ func _rebuild() -> void:
 		return
 	Mesher.clear(self)
 	_lamps = null
-	var gray := Color(0.52, 0.55, 0.6)
-	var light := Color(0.84, 0.86, 0.88)
-	var dark := Color(0.22, 0.24, 0.27)
-	var yellow := Color(0.98, 0.78, 0.1)
+	var gray := Palette.STEEL_LIGHT
+	var light := Palette.WALL_LIGHT
+	var dark := Palette.DARK
+	var yellow := Palette.OCHRE
 	var batch := Mesher.Batch.new()
 	for side in [-1.0, 1.0]:
 		var x: float = side * (WIDTH - JAMB) / 2.0
@@ -52,7 +52,7 @@ func _rebuild() -> void:
 	batch.box(Vector3(WIDTH, 0.9, 0.4), Vector3(0, OPENING_HEIGHT + 0.45, -0.05), light)  # caisson du tablier relevé
 	for y in [2.95, 3.2, 3.45]:
 		batch.box(Vector3(WIDTH - 2.0 * JAMB, 0.03, 0.02), Vector3(0, y, 0.16), gray)  # lames du tablier
-	batch.box(Vector3(WIDTH - 2.0 * JAMB, 0.04, 0.35), Vector3(0, 0.02, 0.075), Color(0.4, 0.42, 0.46))  # tablier de mise à niveau
+	batch.box(Vector3(WIDTH - 2.0 * JAMB, 0.04, 0.35), Vector3(0, 0.02, 0.075), Palette.STEEL)  # tablier de mise à niveau
 	batch.box(Vector3(WIDTH - 2.0 * JAMB, 0.045, 0.04), Vector3(0, 0.0225, 0.23), yellow)
 	batch.build(self)
 	Mesher.collider(self, [

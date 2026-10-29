@@ -1,6 +1,7 @@
 """Gabarits de prompts versionnés : ai/prompts/<tâche>.md.
 
-Format : front matter YAML (task, version, variables) puis sections « ## system » et « ## user ».
+Format : front matter YAML (task, version, variables) puis sections « ## system » et « ## user », et pour les
+sorties JSON une section « ## repair » (variable `errors`, hors `variables`) : message de réparation.
 Variables en $nom / ${nom} (string.Template), compatible avec du JSON dans le texte ; « $$ » pour un « $ ».
 """
 
@@ -14,7 +15,7 @@ import yaml
 
 from gmix.settings import get_settings
 
-_SECTION = re.compile(r"^##\s+(system|user)\s*$", re.MULTILINE | re.IGNORECASE)
+_SECTION = re.compile(r"^##\s+(system|user|repair)\s*$", re.MULTILINE | re.IGNORECASE)
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,6 +25,7 @@ class PromptTemplate:
     variables: tuple[str, ...]
     system: str
     user: str
+    repair: str = ""
 
     def render(self, **values: object) -> list[dict[str, str]]:
         missing = set(self.variables) - values.keys()
@@ -34,6 +36,16 @@ class PromptTemplate:
             messages.append({"role": "system", "content": Template(self.system).substitute(values)})
         messages.append({"role": "user", "content": Template(self.user).substitute(values)})
         return messages
+
+    def render_repair(self, messages: list[dict[str, str]], raw: str, errors: str) -> list[dict[str, str]]:
+        """Réparation : [system, user, assistant(sortie fautive), user(erreurs à corriger)]."""
+        if not self.repair:
+            raise KeyError(f"Prompt {self.task} v{self.version} : pas de section « ## repair »")
+        return [
+            *messages,
+            {"role": "assistant", "content": raw},
+            {"role": "user", "content": Template(self.repair).substitute(errors=errors)},
+        ]
 
 
 @lru_cache
@@ -49,6 +61,7 @@ def load_prompt(name: str) -> PromptTemplate:
         variables=tuple(meta.get("variables") or ()),
         system=sections.get("system", ""),
         user=sections["user"],
+        repair=sections.get("repair", ""),
     )
 
 

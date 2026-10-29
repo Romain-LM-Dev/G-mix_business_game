@@ -1,6 +1,10 @@
 # 0006 : business games simulés, générés par paramètres, agents PNJ à mémoire
 
 Date : 2026-10-22. Statut : accepté. Remplace la génération narrative par LLM (worker `generation`).
+Amendé par l'ADR 0008 (2026-10-29, proposé) : le moteur reste déterministe et seul juge, mais l'IA redevient la couche
+de conception, avec des choix dans les catalogues et réglages du pack, des textes sans chiffre et l'interface. Elle
+tourne en tâche asynchrone : worker `generation` et topics de génération réintroduits. La génération par paramètres
+ci-dessous reste et sert de repli.
 
 Contexte : la génération par qwen2.5:7b prenait 7 à 9 min, occupait le GPU et donnait des scénarios à
 relire (sens des effets, KPI mal choisis, montants non calibrés). Le jeu de référence

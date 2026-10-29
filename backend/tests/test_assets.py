@@ -3,7 +3,9 @@
 import re
 
 from gmix.assets_catalog import CATALOG_JSON, GODOT_ASSETS_DIR, SOURCES_DIR, load_assets_catalog
-from gmix.tools.assets import export_json
+from gmix.tools.assets import export_json, load_fonts
+
+FONTS_DIR = GODOT_ASSETS_DIR / "fonts"
 
 # ADR 0007, annexe §5 : les 14 assets du monde usine, référencés par id par le pack `usine` et la génération.
 FACTORY_ASSETS = (
@@ -52,6 +54,16 @@ def test_godot_catalog_is_up_to_date() -> None:
     assert CATALOG_JSON.read_text(encoding="utf-8") == export_json(), (
         "godot/assets/catalog.json est périmé : .\\scripts\\assets.ps1 (ou python -m gmix.tools.assets export)"
     )
+
+
+def test_fonts_are_shipped_with_their_open_font_license() -> None:
+    fonts = load_fonts()
+    assert {f["name"] for f in fonts} >= {"Manrope", "DM Sans", "DM Mono"}
+    for font in fonts:
+        assert font["license"].startswith("SIL OFL"), font["name"]
+        assert "SIL OPEN FONT LICENSE Version 1.1" in (FONTS_DIR / font["license_file"]).read_text(encoding="utf-8")
+        for name in font["files"]:
+            assert (FONTS_DIR / name).exists(), name
 
 
 def test_every_asset_has_its_scene_and_licensed_source() -> None:

@@ -45,6 +45,9 @@ const LABEL_PX := Vector2(15.0, 26.0)  # taille d'une lettre en vue Sims (px de 
 const REFERENCE_HEIGHT := 720.0
 const DECLUTTER_S := 0.2  # période du tri des étiquettes qui se recouvrent (vue Sims)
 const DENIED_PAUSE_MS := 1500
+const FOG_BEGIN := 70.0  # m depuis la caméra : le hall entier reste net, la pelouse se fond dans l'horizon sauge
+const FOG_END := 170.0
+const LAWN_SIZE := 420.0  # plus loin que FOG_END : le bord du sol n'est jamais visible
 
 var _catalog: Dictionary = {}
 var _factory := false  # gabarit usine (spec.world.template)
@@ -528,8 +531,11 @@ func _update_cutaway(delta: float) -> void:
 ## et sans portée ; à la troisième personne, réglages d'origine (mémorisés au premier passage).
 func _style_labels(sims: bool, root: Node) -> void:
 	var tan_half := tan(deg_to_rad(_sims.camera.fov) / 2.0)
+	var font := load(UiTokens.FONT_BODY_BOLD) as Font  # étiquettes en DM Sans gras (la police par défaut des Label3D n'est pas celle de la DA)
 	for node: Node in root.find_children("*", "Label3D", true, false):
 		var label := node as Label3D
+		if label.font == null:
+			label.font = font
 		if label.billboard == BaseMaterial3D.BILLBOARD_DISABLED:
 			continue  # texte collé sur un objet (écran des indicateurs) : il suit la perspective
 		if not label.has_meta("third_pixel_size"):
@@ -790,27 +796,46 @@ func _finish_navigation(navmesh: NavigationMesh) -> void:
 
 
 func _build_environment() -> void:
+	# Diorama de jour clair (jetons de la DA, ui_tokens.gd) : le ciel sert d'hémisphère (ciel pâle, sol vert-gris) et se
+	# fond dans le brouillard sauge ; l'horizon et le brouillard ont la même couleur, sans raccord visible.
+	var sky_material := ProceduralSkyMaterial.new()
+	sky_material.sky_top_color = UiTokens.SKY_TOP
+	sky_material.sky_horizon_color = UiTokens.SKY_HORIZON
+	sky_material.ground_horizon_color = UiTokens.SKY_HORIZON
+	sky_material.ground_bottom_color = UiTokens.GROUND
 	var sky := Sky.new()
-	sky.sky_material = ProceduralSkyMaterial.new()
+	sky.sky_material = sky_material
 	var environment := Environment.new()
 	environment.background_mode = Environment.BG_SKY
 	environment.sky = sky
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	environment.ambient_light_energy = UiTokens.AMBIENT_ENERGY
+	environment.tonemap_mode = Environment.TONE_MAPPER_ACES
+	environment.tonemap_exposure = UiTokens.TONE_EXPOSURE
+	environment.fog_enabled = true
+	environment.fog_mode = Environment.FOG_MODE_DEPTH
+	environment.fog_light_color = UiTokens.FOG
+	environment.fog_depth_begin = FOG_BEGIN
+	environment.fog_depth_end = FOG_END
+	environment.fog_sky_affect = 0.0
 	var world_environment := WorldEnvironment.new()
 	world_environment.environment = environment
 	add_child(world_environment)
 	var sun := DirectionalLight3D.new()
-	sun.rotation_degrees = Vector3(-55, 30, 0)
+	sun.rotation_degrees = Vector3(-55, 40, 0)
+	sun.light_color = UiTokens.SUN
+	sun.light_energy = UiTokens.SUN_ENERGY
+	sun.sky_mode = DirectionalLight3D.SKY_MODE_LIGHT_ONLY  # pas de disque solaire dans le ciel
 	sun.shadow_enabled = true
+	sun.shadow_blur = 1.6  # ombres douces
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS  # 6 Go de VRAM partagés avec Ollama
 	sun.directional_shadow_max_distance = 90.0
 	add_child(sun)
 	var grass := MeshInstance3D.new()
 	var plane := PlaneMesh.new()
-	plane.size = Vector2(160, 140)
+	plane.size = Vector2(LAWN_SIZE, LAWN_SIZE)
 	grass.mesh = plane
-	grass.material_override = Mesher.material(Color(0.61, 0.68, 0.56))
+	grass.material_override = Mesher.material(UiTokens.LAWN)
 	grass.position.y = -0.03
 	add_child(grass)
 	var floor_body := StaticBody3D.new()
@@ -861,19 +886,19 @@ func _build_hall() -> void:
 	if _factory:
 		_build_factory_hall()
 		return
-	var paint := Mesher.material(Color(0.9, 0.85, 0.68))
-	var steel := Mesher.material(Color(0.35, 0.4, 0.38))
-	var panel := Mesher.material(Color(0.84, 0.83, 0.78))
-	var curb := Mesher.material(Color(0.27, 0.4, 0.36))
+	var paint := Mesher.material(Palette.MARK_PALE)
+	var steel := Palette.material(Palette.STEEL, "steel")
+	var panel := Palette.material(Palette.WALL, "concrete")
+	var curb := Palette.material(Palette.CURB, "concrete")
 	var half := _hall / 2.0
 	_roof = Node3D.new()
 	add_child(_roof)
-	Mesher.box(self, Vector3(_hall.x, 0.04, _hall.y), Vector3(0, -0.02, 0), Mesher.material(Color(0.71, 0.72, 0.68)))
-	Mesher.box(self, Vector3(_hall.x, 0.03, 8), Vector3(0, -0.025, half.y + 4), Mesher.material(Color(0.62, 0.66, 0.6)))
+	Mesher.box(self, Vector3(_hall.x, 0.04, _hall.y), Vector3(0, -0.02, 0), Palette.material(Palette.CONCRETE, "concrete"))
+	Mesher.box(self, Vector3(_hall.x, 0.03, 8), Vector3(0, -0.025, half.y + 4), Palette.material(Palette.FORECOURT, "concrete"))
 	for x in [-13.7, -8.5, -2.9, 2.7, 8.3, 13.8]:  # allées
 		Mesher.box(self, Vector3(0.075, 0.01, 20), Vector3(x, 0.005, -1), paint)
 	for x in range(-14, 15, 4):  # limite des quais
-		Mesher.box(self, Vector3(1.5, 0.012, 0.12), Vector3(x, 0.006, half.y - 0.2), Mesher.material(Color(0.91, 0.8, 0.47)))
+		Mesher.box(self, Vector3(1.5, 0.012, 0.12), Vector3(x, 0.006, half.y - 0.2), Mesher.material(Palette.MARK_YELLOW))
 	Mesher.box(self, Vector3(_hall.x, 0.28, 0.28), Vector3(0, 0.14, -half.y), curb)
 	for x in [-half.x, half.x]:
 		Mesher.box(self, Vector3(0.28, 0.28, _hall.y), Vector3(x, 0.14, 0), curb)
@@ -881,7 +906,7 @@ func _build_hall() -> void:
 	for x in [-half.x + 0.1, half.x - 0.1]:
 		_wall(Vector3(0.22, 5.7, _hall.y - 0.5), Vector3(x, 2.85, 0), Vector3(signf(x), 0, 0), panel)  # murs latéraux
 	for y in range(5):  # joints des panneaux isolés
-		Mesher.box(back, Vector3(_hall.x - 0.2, 0.025, 0.05), Vector3(0, 0.5 + y * 1.2, 0.13), Mesher.material(Color(0.72, 0.72, 0.67)))
+		Mesher.box(back, Vector3(_hall.x - 0.2, 0.025, 0.05), Vector3(0, 0.5 + y * 1.2, 0.13), Mesher.material(Palette.WALL.darkened(0.1)))
 	for x in [-15.5, -10.5, -5.5, -0.5, 4.5, 9.5, 15.5]:  # portiques
 		for z in [-half.y + 0.1, half.y]:
 			_solid(Vector3(0.24, 7.2, 0.24), Vector3(x, 3.6, z))
@@ -894,7 +919,7 @@ func _build_hall() -> void:
 				var brace := Mesher.box(_roof, Vector3(0.07, 0.07, 7.1), Vector3(x + 2.5, 6.86, z + 2.5), steel)
 				brace.rotation.y = angle
 	for x in [-11, -4, 3, 10]:  # luminaires : le tube est dans la charpente, la lumière reste allumée en vue Sims
-		Mesher.box(_roof, Vector3(2.5, 0.12, 0.42), Vector3(x, 6.45, -0.5), Mesher.material(Color(0.95, 0.92, 0.82), Color(0.55, 0.53, 0.43)))
+		Mesher.box(_roof, Vector3(2.5, 0.12, 0.42), Vector3(x, 6.45, -0.5), Mesher.material(Palette.WALL_LIGHT, Color(0.55, 0.53, 0.43)))
 		var lamp := OmniLight3D.new()
 		lamp.light_color = Color(1.0, 0.93, 0.81)
 		lamp.light_energy = 1.4
@@ -908,15 +933,15 @@ func _build_hall() -> void:
 ## comme celle de l'atelier. Mêmes matériaux et mêmes règles que l'atelier : charpente et luminaires dans `_roof` (cachés
 ## en vue Sims), murs abaissables côté caméra. Les zones peintes sont celles des départements (`_zone`).
 func _build_factory_hall() -> void:
-	var steel := Mesher.material(Color(0.35, 0.4, 0.38))
-	var panel := Mesher.material(Color(0.84, 0.83, 0.78))
-	var curb := Mesher.material(Color(0.27, 0.4, 0.36))
+	var steel := Palette.material(Palette.STEEL, "steel")
+	var panel := Palette.material(Palette.WALL, "concrete")
+	var curb := Palette.material(Palette.CURB, "concrete")
 	var half := _hall / 2.0
 	var opening := _dock_opening()
 	_roof = Node3D.new()
 	add_child(_roof)
-	Mesher.box(self, Vector3(_hall.x, 0.04, _hall.y), Vector3(0, -0.02, 0), Mesher.material(Color(0.71, 0.72, 0.68)))
-	Mesher.box(self, Vector3(_hall.x, 0.03, 8), Vector3(0, -0.025, half.y + 4), Mesher.material(Color(0.62, 0.66, 0.6)))  # aire des camions
+	Mesher.box(self, Vector3(_hall.x, 0.04, _hall.y), Vector3(0, -0.02, 0), Palette.material(Palette.CONCRETE, "concrete"))
+	Mesher.box(self, Vector3(_hall.x, 0.03, 8), Vector3(0, -0.025, half.y + 4), Palette.material(Palette.FORECOURT, "concrete"))  # aire des camions
 	Mesher.box(self, Vector3(_hall.x, 0.28, 0.28), Vector3(0, 0.14, -half.y), curb)
 	for x in [-half.x, half.x]:
 		Mesher.box(self, Vector3(0.28, 0.28, _hall.y), Vector3(x, 0.14, 0), curb)
@@ -924,7 +949,7 @@ func _build_factory_hall() -> void:
 	for x in [-half.x + 0.1, half.x - 0.1]:
 		_wall(Vector3(0.22, 5.7, _hall.y - 0.5), Vector3(x, 2.85, 0), Vector3(signf(x), 0, 0), panel)
 	for y in range(5):  # joints des panneaux isolés
-		Mesher.box(back, Vector3(_hall.x - 0.2, 0.025, 0.05), Vector3(0, 0.5 + y * 1.2, 0.13), Mesher.material(Color(0.72, 0.72, 0.67)))
+		Mesher.box(back, Vector3(_hall.x - 0.2, 0.025, 0.05), Vector3(0, 0.5 + y * 1.2, 0.13), Mesher.material(Palette.WALL.darkened(0.1)))
 	var front: Array[Vector2] = []  # morceaux du mur avant (x de début, x de fin) ; aucune porte : façade ouverte
 	if opening != Vector2.ZERO:
 		front = [Vector2(-half.x, opening.x), Vector2(opening.y, half.x)]
@@ -949,7 +974,7 @@ func _build_factory_hall() -> void:
 				brace.rotation.y = angle
 	for x in range(int(-half.x + 6), int(half.x - 3), 12):  # luminaires : la lumière reste allumée en vue Sims
 		for z in [-half.y / 2.0, half.y / 2.0]:
-			Mesher.box(_roof, Vector3(2.5, 0.12, 0.42), Vector3(x, 6.45, z), Mesher.material(Color(0.95, 0.92, 0.82), Color(0.55, 0.53, 0.43)))
+			Mesher.box(_roof, Vector3(2.5, 0.12, 0.42), Vector3(x, 6.45, z), Mesher.material(Palette.WALL_LIGHT, Color(0.55, 0.53, 0.43)))
 			var lamp := OmniLight3D.new()
 			lamp.light_color = Color(1.0, 0.93, 0.81)
 			lamp.light_energy = 1.4
@@ -1082,7 +1107,7 @@ func _station_marker(station: Dictionary, point: Vector3) -> Node3D:
 	mesh.height = 0.02
 	var disc := MeshInstance3D.new()
 	disc.mesh = mesh
-	disc.material_override = Mesher.material(Color(0.3, 0.62, 1.0), Color(0.15, 0.3, 0.5))
+	disc.material_override = Mesher.material(UiTokens.LIME, UiTokens.LIME.darkened(0.6))  # marqueur de destination lime
 	disc.position.y = 0.011
 	node.add_child(disc)
 	var label := Label3D.new()

@@ -12,13 +12,13 @@ const MODEL_SCALE := 1.4  # 1,2 x 1,3 x 1,5 m d'origine -> 1,68 x 1,82 x 2,10 m
 const BODY := Vector3(1.68, 1.82, 2.1)
 ## état -> [texte affiché, couleur du voyant, voyant allumé]
 const STATES := {
-	"arret": ["ARRÊT", Color(0.42, 0.44, 0.48), false],
-	"marche": ["MARCHE", Color(0.2, 0.85, 0.3), true],
-	"pause": ["PAUSE", Color(0.92, 0.93, 0.98), true],
-	"reglage": ["RÉGLAGE", Color(0.25, 0.45, 1.0), true],
-	"panne": ["PANNE", Color(1.0, 0.15, 0.12), true],
-	"attente_matiere": ["ATTENTE MATIÈRE", Color(1.0, 0.8, 0.1), true],
-	"sortie_pleine": ["SORTIE PLEINE", Color(1.0, 0.5, 0.08), true],
+	"arret": ["ARRÊT", Palette.STEEL_LIGHT, false],
+	"marche": ["MARCHE", Palette.OK, true],
+	"pause": ["PAUSE", Palette.WALL_LIGHT, true],
+	"reglage": ["RÉGLAGE", Palette.BLUE, true],
+	"panne": ["PANNE", Palette.ALERT, true],
+	"attente_matiere": ["ATTENTE MATIÈRE", Palette.WARN, true],
+	"sortie_pleine": ["SORTIE PLEINE", Palette.OCHRE, true],
 }
 
 @export var title := "":
@@ -51,7 +51,9 @@ func _rebuild() -> void:
 		var model := packed.instantiate() as Node3D
 		model.scale = Vector3.ONE * MODEL_SCALE
 		Mesher.adopt(self, model)
-	var steel := Color(0.3, 0.32, 0.36)
+		if not Engine.is_editor_hint():
+			Palette.restyle(model)
+	var steel := Palette.STEEL_DARK
 	var batch := Mesher.Batch.new()
 	batch.cylinder(0.035, 0.22, Vector3(0, BODY.y + 0.11, -0.4), steel)  # mât de la colonne
 	batch.cylinder(0.11, 0.05, Vector3(0, BODY.y + 0.02, -0.4), steel)  # platine
@@ -71,7 +73,8 @@ func _rebuild() -> void:
 	_label.font_size = 48
 	_label.pixel_size = 0.006
 	_label.outline_size = 12
-	_label.outline_modulate = Color(0.08, 0.1, 0.16)
+	_label.outline_modulate = Palette.LABEL_OUTLINE
+	_label.modulate = Palette.LABEL_TEXT
 	_label.position = Vector3(0, BODY.y + 0.95, -0.4)
 	Mesher.adopt(self, _label)
 	Mesher.collider(self, [[BODY, Vector3(0, BODY.y / 2.0, 0)]])

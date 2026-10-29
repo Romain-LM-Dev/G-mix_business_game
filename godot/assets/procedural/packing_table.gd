@@ -16,11 +16,11 @@ func _rebuild() -> void:
 	if not is_node_ready():
 		return
 	Mesher.clear(self)
-	var steel := Color(0.78, 0.8, 0.84)
-	var frame := Color(0.45, 0.48, 0.53)
-	var kraft := Color(0.76, 0.58, 0.38)
-	var kraft_dark := Color(0.6, 0.44, 0.27)
-	var dark := Color(0.17, 0.18, 0.2)
+	var steel := Palette.STEEL_PALE
+	var frame := Palette.STEEL
+	var kraft := Palette.CARDBOARD
+	var kraft_dark := Palette.CARDBOARD_DARK
+	var dark := Palette.DARK
 	var batch := Mesher.Batch.new()
 	batch.box(Vector3(2.0, 0.04, 0.9), Vector3(0, TOP - 0.02, 0), steel)  # plan de travail
 	for x in [-0.94, 0.94]:
@@ -37,9 +37,9 @@ func _rebuild() -> void:
 	batch.box(Vector3(0.5, 0.04, 0.38), Vector3(0.12, TOP + 0.12, 0.04), kraft_dark, Vector3(0, 8, 0))
 	batch.box(Vector3(0.14, 0.04, 0.22), Vector3(0.62, TOP + 0.02, 0.15), dark)  # dévidoir : socle
 	batch.box(Vector3(0.1, 0.16, 0.03), Vector3(0.62, TOP + 0.1, 0.24), dark)  # flasque
-	batch.cylinder(0.075, 0.1, Vector3(0.62, TOP + 0.13, 0.17), Color(0.92, 0.85, 0.55), Vector3.AXIS_X, 10)  # rouleau de ruban
+	batch.cylinder(0.075, 0.1, Vector3(0.62, TOP + 0.13, 0.17), Palette.MARK_YELLOW, Vector3.AXIS_X, 10)  # rouleau de ruban
 	batch.box(Vector3(0.32, 0.05, 0.3), Vector3(0.82, TOP + 0.025, -0.18), frame)  # balance : base
 	batch.box(Vector3(0.28, 0.02, 0.26), Vector3(0.82, TOP + 0.06, -0.18), steel)  # plateau
-	batch.box(Vector3(0.12, 0.06, 0.03), Vector3(0.82, TOP + 0.04, -0.03), Color(0.25, 0.55, 0.35))  # afficheur
+	batch.box(Vector3(0.12, 0.06, 0.03), Vector3(0.82, TOP + 0.04, -0.03), Palette.OK)  # afficheur
 	batch.build(self)
 	Mesher.collider(self, [[Vector3(2.0, 0.85, 0.9), Vector3(0, 0.425, 0)]])

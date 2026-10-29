@@ -13,16 +13,18 @@ func _rebuild() -> void:
 	if not is_node_ready():
 		return
 	Mesher.clear(self)
-	Mesher.box(self, Vector3(3.3, 2.7, 3.0), Vector3(0, 1.35, 0), Mesher.material(Color(0.89, 0.85, 0.74)))
-	Mesher.box(self, Vector3(3.5, 0.15, 3.2), Vector3(0, 2.78, 0), Mesher.material(Color(0.33, 0.46, 0.42)))
-	Mesher.box(self, Vector3(0.9, 1.0, 0.06), Vector3(0.6, 1.55, 1.53), Mesher.material(Color(0.55, 0.72, 0.71), Color(0.08, 0.12, 0.12)))
-	Mesher.box(self, Vector3(0.8, 2.0, 0.06), Vector3(-0.8, 1.0, 1.53), Mesher.material(Color(0.33, 0.4, 0.38)))
+	Mesher.box(self, Vector3(3.3, 2.7, 3.0), Vector3(0, 1.35, 0), Mesher.material(Palette.WALL_WARM, Color.BLACK, "concrete"))
+	Mesher.box(self, Vector3(3.5, 0.15, 3.2), Vector3(0, 2.78, 0), Mesher.material(Palette.STATION_CONTROL, Color.BLACK, "steel"))
+	Mesher.box(self, Vector3(0.9, 1.0, 0.06), Vector3(0.6, 1.55, 1.53), Mesher.material(Palette.GLASS, Palette.GLASS * 0.15))
+	Mesher.box(self, Vector3(0.8, 2.0, 0.06), Vector3(-0.8, 1.0, 1.53), Mesher.material(Palette.STEEL_DARK, Color.BLACK, "steel"))
 	var sign := Label3D.new()
 	sign.name = "Sign"
 	sign.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	sign.font_size = 64
 	sign.pixel_size = 0.01
 	sign.outline_size = 12
+	sign.outline_modulate = Palette.LABEL_OUTLINE
+	sign.modulate = Palette.LABEL_TEXT
 	sign.position = Vector3(0, 3.35, 0)
 	Mesher.adopt(self, sign)
 	var body := StaticBody3D.new()

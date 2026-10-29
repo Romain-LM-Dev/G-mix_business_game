@@ -1,7 +1,7 @@
 @tool
 extends GmixAsset
 ## Établi de maintenance (plan en bois à 0,88 m, tablette basse, étau, caisse à outils, clé et marteau) et servante
-## d'outils rouge à roulettes à sa droite (+X). Le technicien se tient côté +Z.
+## d'outils rouille à roulettes à sa droite (+X). Le technicien se tient côté +Z.
 ## Emprise : 2,6 (X) x 0,8 (Z) x 1,05 m. Un seul maillage fusionné ; collision : l'établi et la servante.
 
 const TOP := 0.88
@@ -16,11 +16,11 @@ func _rebuild() -> void:
 	if not is_node_ready():
 		return
 	Mesher.clear(self)
-	var wood := Color(0.7, 0.54, 0.34)
-	var frame := Color(0.28, 0.36, 0.46)
-	var steel := Color(0.62, 0.65, 0.7)
-	var red := Color(0.76, 0.15, 0.12)
-	var dark := Color(0.16, 0.17, 0.2)
+	var wood := Palette.WOOD
+	var frame := Palette.STEEL_DARK
+	var steel := Palette.STEEL_PALE
+	var red := Palette.RUST
+	var dark := Palette.DARK
 	var batch := Mesher.Batch.new()
 	batch.box(Vector3(1.9, 0.05, 0.75), Vector3(-0.35, TOP - 0.025, 0), wood)  # plan de travail
 	for x in [-1.25, 0.55]:
@@ -29,8 +29,8 @@ func _rebuild() -> void:
 	batch.box(Vector3(1.8, 0.04, 0.68), Vector3(-0.35, 0.25, 0), frame)  # tablette basse
 	batch.box(Vector3(1.8, 0.06, 0.04), Vector3(-0.35, TOP - 0.08, 0.34), frame)  # traverses
 	batch.box(Vector3(1.8, 0.06, 0.04), Vector3(-0.35, TOP - 0.08, -0.34), frame)
-	batch.box(Vector3(0.18, 0.12, 0.22), Vector3(-1.1, TOP + 0.06, 0.18), Color(0.3, 0.34, 0.42))  # étau : corps
-	batch.box(Vector3(0.18, 0.1, 0.04), Vector3(-1.1, TOP + 0.17, 0.3), Color(0.3, 0.34, 0.42))  # mâchoire
+	batch.box(Vector3(0.18, 0.12, 0.22), Vector3(-1.1, TOP + 0.06, 0.18), Palette.FRAME)  # étau : corps
+	batch.box(Vector3(0.18, 0.1, 0.04), Vector3(-1.1, TOP + 0.17, 0.3), Palette.FRAME)  # mâchoire
 	batch.box(Vector3(0.2, 0.025, 0.025), Vector3(-1.1, TOP + 0.1, 0.34), steel, Vector3(0, 25, 0))  # vis de serrage
 	batch.box(Vector3(0.45, 0.14, 0.22), Vector3(-0.35, TOP + 0.07, -0.05), red)  # caisse à outils
 	batch.box(Vector3(0.3, 0.025, 0.03), Vector3(-0.35, TOP + 0.16, -0.05), dark)  # poignée

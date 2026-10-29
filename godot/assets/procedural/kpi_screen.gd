@@ -36,8 +36,8 @@ func _rebuild() -> void:
 	if not is_node_ready():
 		return
 	Mesher.clear(self)
-	var frame := Mesher.material(Color(0.12, 0.13, 0.16))
-	var screen := Mesher.material(Color(0.05, 0.1, 0.22), Color(0.03, 0.07, 0.18))
+	var frame := Mesher.material(Palette.DARK_TEAL, Color.BLACK, "steel")
+	var screen := Mesher.material(Palette.LABEL_OUTLINE, Palette.LABEL_OUTLINE * 0.5)
 	var center_y := BOTTOM + PANEL.y / 2.0
 	for x in [-1.2, 1.2]:
 		Mesher.box(self, Vector3(0.1, BOTTOM + 0.2, 0.1), Vector3(x, (BOTTOM + 0.2) / 2.0, 0), frame)  # pieds
@@ -55,7 +55,7 @@ func _label(font_size: int, at: Vector3) -> Label3D:
 	label.pixel_size = 0.005
 	label.outline_size = 0
 	label.double_sided = false  # vu de dos, l'écran reste muet au lieu d'afficher le texte en miroir
-	label.modulate = Color(0.92, 0.96, 1.0)
+	label.modulate = Palette.LABEL_TEXT
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

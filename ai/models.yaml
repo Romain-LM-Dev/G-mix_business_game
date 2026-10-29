@@ -7,7 +7,7 @@
 # => un seul modèle "main" (~5 Go) tient en VRAM ; Godot en 3D consomme aussi de la VRAM.
 # => les petits modèles (nano, embed, decide-fast) peuvent cohabiter.
 #
-# Champs d'une tâche : model, fallback, output (text|decision|embedding),
+# Champs d'une tâche : model, fallback, output (text|json|decision|embedding),
 # options Ollama (num_predict, temperature…), max_input_tokens, rag, cache, stream, think.
 #
 # num_ctx est FIXÉ PAR MODÈLE, jamais par tâche : mesuré sur ce poste, alterner 512 / 4096 sur
@@ -48,7 +48,9 @@ models:
     kind: chat
     vram_gb: 2.3
     num_ctx: 6144
-    notes: "Dialogues des agents PNJ (faits du moteur, mémoire, RAG). Candidat d'upgrade : qwen3.5:4b."
+    notes: >-
+      Dialogues des agents PNJ (faits du moteur, mémoire, RAG). Candidat d'upgrade : qwen3.5:4b. Sert aussi,
+      PROVISOIREMENT, aux tâches game.design.* (ADR 0008) : le modèle de conception sera tranché par l'éval de l'étape 11.
   main:
     name: "qwen2.5:7b"
     kind: chat
@@ -116,6 +118,36 @@ tasks:
     description: "Embeddings des passages (ingestion) et des requêtes (recherche)."
     model: embed
     output: embedding
+
+  # --- Conception d'un business game par l'IA (ADR 0008) : un job = 3 appels, un seul modèle chargé -----------
+  # Sortie JSON contrainte par un schéma construit depuis le pack (LLMService.structured), sans RAG ni tev1 :
+  # les notions du pack tiennent dans le prompt. cache + graine : une reprise retrouve les appels déjà faits.
+  # Le modèle (small = celui du dialogue, donc rien n'est délogé de la VRAM) est provisoire, avant l'éval de l'étape 11.
+  # num_predict : plafond au-dessus de la taille maximale des schémas (testé par backend/tests/test_design.py).
+  game.design.concept:
+    description: "Conception du scénario et des mécaniques depuis la demande du formateur ; JSON contraint par un schéma construit depuis le pack, aucun chiffre libre."
+    model: small
+    fallback: main
+    output: json
+    cache: true
+    options: { num_predict: 1500, temperature: 0.4 }
+    max_input_tokens: 3800
+  game.design.cast:
+    description: "Personnages du jeu (nom, caractère du pack, présentation) ; JSON contraint, aucun chiffre libre."
+    model: small
+    fallback: main
+    output: json
+    cache: true
+    options: { num_predict: 1000, temperature: 0.6 }
+    max_input_tokens: 3000
+  game.design.journey:
+    description: "Interface (panneaux et outils du pack), didacticiel et questions de débrief ; JSON contraint, aucun chiffre libre."
+    model: small
+    fallback: main
+    output: json
+    cache: true
+    options: { num_predict: 1100, temperature: 0.4 }
+    max_input_tokens: 3500
 
   # --- Évaluation et débrief -------------------------------------------------------------------
   answer.grading:

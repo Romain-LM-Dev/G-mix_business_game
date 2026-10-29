@@ -13,20 +13,30 @@ from gmix.game import engine
 from gmix.game.spec import (
     COUNTERS,
     EVENT_DATA,
+    FORBIDDEN_IN_TEXT,
     PUBLIC_ROOTS,
+    UI_LIMITS,
     Clock,
     Customer,
+    Design,
+    DesignEdit,
+    DesignRequest,
     EventKind,
     Factory,
     GameParams,
     MachineState,
+    Panel,
+    PanelColumn,
     Provenance,
     SimSpec,
     Timeline,
+    Tool,
+    default_params,
     frame_times,
     load_pack,
     load_sim_catalog,
     pack_station_kinds,
+    panel_errors,
 )
 from gmix.settings import get_settings
 
@@ -40,15 +50,35 @@ PACK = {
     ],
     "themes": {"industrie": {"label": "Industrie"}},
     "modules": {
-        "pilotage": {"stations": ["pilotage"]},
-        "maintenance": {"stations": ["maintenance"]},
+        "pilotage": {"stations": ["pilotage"], "actions": [{"id": "lancer_of"}, {"id": "commander_mp"}]},
+        "maintenance": {"stations": ["maintenance"], "actions": [{"id": "preventif"}]},
     },
     "extra_agents": {"client": {}},
     "departments": [{"id": "production", "stations": [{"kind": "tableau_ligne", "label": "Tableau de ligne"}]}],
     "notions": {
-        "goulot": {"title": "Goulot", "text": "...", "source": TOUCHSTONE},
+        "goulot": {"title": "Goulot", "text": "...", "source": TOUCHSTONE, "indicators": ["otif", "trs"]},
         "weibull": {"title": "Weibull", "text": "..."},  # « à sourcer » : ni source ni citation
+        "pannes_par_usure": {"title": "Pannes", "text": "...", "indicators": ["trs"]},
     },
+    # ADR 0008 : réglages, aléas, barre d'actions et didacticiel du pack
+    "difficulties": {d: {"label": d, "load": load} for d, load in (("decouverte", 0.8), ("equilibre", 0.85),
+                                                                    ("expert", 0.9))},
+    "tunables": {"load": {"label": "Charge de l'usine", "teaches": ["goulot"]}},
+    "events": {"panne_grave": {"title": "Panne", "modules": ["maintenance"]},
+               "retard": {"title": "Retard", "modules": ["pilotage"]},
+               "greve": {"title": "Grève", "modules": ["transport"]}},  # module que ces parties ne jouent pas
+    "panels": [{"id": "otif", "type": "kpis", "title": "OTIF", "placement": "bandeau", "source": "kpis"}],
+    "tools": [
+        {"id": "commande", "label": "Commande", "kind": "action", "action_id": "commander_mp"},
+        {"id": "tableau", "label": "Tableau", "kind": "tableau_de_bord"},
+        {"id": "aide", "label": "Aide", "kind": "aide"},
+    ],
+    "tutorial": [
+        {"id": "bandeau", "title": "Vos indicateurs", "text": "Le bandeau montre les indicateurs face à leur cible.",
+         "anchor": "panel:otif"},
+        {"id": "poste", "title": "Le bureau", "text": "Ce bureau ouvre les formulaires du pilotage.",
+         "anchor": "station:pilotage"},
+    ],
 }  # fmt: skip
 
 
@@ -233,7 +263,8 @@ def test_load_pack(usine_pack) -> None:
 
 
 def test_load_pack_refuses_a_source_without_citation(usine_pack, tmp_path) -> None:
-    broken = copy.deepcopy(PACK) | {"id": "casse", "notions": {"n": {"title": "n", "text": "n", "source": "absente"}}}
+    notions = {"n": {"title": "n", "text": "n", "source": "absente"}}
+    broken = copy.deepcopy(PACK) | {"id": "casse", "notions": notions, "tunables": {}, "tutorial": []}
     (tmp_path / "packs" / "casse.yaml").write_text(yaml.safe_dump(broken), encoding="utf-8")
     with pytest.raises(FileNotFoundError):  # une fiche citée qui n'existe pas est une erreur, pas un « à sourcer »
         load_pack("casse")
@@ -514,3 +545,444 @@ def test_every_event_kind_has_its_data_keys_and_agent_nulls_are_allowed() -> Non
     assert set(EVENT_DATA) == set(get_args(EventKind))
     event = [1, "agent", "chauffeur_client", {"state": "disponible", "at": None, "until": None}]
     assert Timeline.model_validate(timeline(events=[event])).events[0][3]["at"] is None
+
+
+# --- Conception par l'IA (ADR 0008, annexe §1 et §2) -------------------------------------------------------------
+
+
+def test_real_packs_keep_loading_and_their_panel_catalogue_stays_readable() -> None:
+    """Les vrais packs (game-designer) passent le chargeur et leur catalogue de panneaux tient dans UI_LIMITS."""
+    load_pack.cache_clear()
+    try:
+        for pack_id in ("atelier", "usine"):
+            pack = load_pack(pack_id)
+            assert panel_errors([Panel.model_validate(p) for p in pack.get("panels", [])]) == [], pack_id
+            assert len(pack.get("tutorial", [])) <= UI_LIMITS["tutorial_steps"], pack_id
+    finally:
+        load_pack.cache_clear()
+
+
+def test_real_pack_tutorials_carry_no_digit_and_no_link() -> None:
+    """Le didacticiel par défaut d'un pack est copié dans la spec : un chiffre le ferait refuser."""
+    for pack_id in ("atelier", "usine"):
+        for step_ in load_pack(pack_id).get("tutorial", []):
+            assert not FORBIDDEN_IN_TEXT.search(step_["title"] + " " + step_["text"]), (pack_id, step_["id"])
+
+
+def test_real_packs_give_valid_default_params() -> None:
+    assert GameParams(**default_params("atelier")).modules == list(load_pack("atelier")["modules"])[:7]
+    assert GameParams(**default_params("usine")).pack == "usine"
+
+
+def test_local_pack_with_design_keys_loads(usine_pack) -> None:
+    pack = load_pack("usine")
+    assert pack["tunables"]["load"]["teaches"] == ["goulot"]
+    assert pack["notions"]["goulot"]["indicators"] == ["otif", "trs"]
+
+
+def step(anchor: str, **extra: Any) -> dict[str, Any]:
+    return {"id": "etape", "title": "Titre", "text": "Texte assez long.", "anchor": anchor} | extra
+
+
+def profiles(load: Any, *, drop: str | None = None) -> dict[str, Any]:
+    return {d: {"label": d, "load": load} for d in ("decouverte", "equilibre", "expert") if d != drop}
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"tunables": {"load": {"label": "Charge"}, "absente": {"label": "Clé sans valeur"}}},  # absente des profils
+        {"difficulties": profiles("0.8")},  # texte, pas nombre
+        {"difficulties": profiles(True)},  # un booléen n'est pas un nombre
+        {"difficulties": profiles(0.8, drop="expert")},  # un profil manque : tunings accepte les trois
+        {"tunables": {"load": {"label": "x" * 41}}},
+        {"tunables": {"load": {"label": ""}}},
+        {"tunables": {"load": {"label": "Charge", "teaches": ["inconnue"]}}},
+        {"notions": {"goulot": {"title": "G", "text": "t", "source": TOUCHSTONE, "indicators": "otif"}}},
+        {"notions": {"goulot": {"title": "G", "text": "t", "source": TOUCHSTONE, "indicators": [1]}}},
+        {"tools": [{"id": "x_y", "label": "Outil", "kind": "robot"}]},
+        {"tools": [{"id": "x_y", "label": "Outil", "kind": "action"}]},  # action sans action_id
+        {"tools": [{"id": "x_y", "label": "Outil", "kind": "action", "action_id": "inconnue"}]},
+        {"tools": [{"id": "x_y", "label": "L" * 17, "kind": "aide"}]},
+        {"tools": [{"id": "x_y", "label": "Aide", "kind": "aide"}] * 2},  # identifiant en double
+        {"tools": [{"id": f"x_{c}", "label": "Cde", "kind": "action", "action_id": "lancer_of"} for c in "ab"]},
+        {"tutorial": [step("panel:otif")] * 6},
+        {"tutorial": [step("panel:absent")]},
+        {"tutorial": [step("tool:absent")]},
+        {"tutorial": [step("dept:absent")]},
+        {"tutorial": [step("station:hangar")]},
+        {"tutorial": [step("agent:agent_pilotage")]},  # les agents n'existent pas dans le pack
+        {"tutorial": [step("Panel:Otif")]},
+        {"tutorial": [step("panel:otif", text="court")]},
+    ],
+)  # fmt: skip
+def test_load_pack_refuses_broken_design_keys(usine_pack, tmp_path, changes: dict[str, Any]) -> None:
+    write_pack(tmp_path, **changes)
+    with pytest.raises(ValueError, match="pack casse"):
+        load_pack("casse")
+
+
+# --- GameParams : réglages et plan d'aléas ------------------------------------------------------------------------
+
+
+def test_game_params_accept_tunings_and_an_event_plan(usine_pack) -> None:
+    plan = [{"week": 2, "event_id": "retard"}, {"week": 5, "event_id": "panne_grave"}]
+    chosen = GameParams(**params(modules=["pilotage", "maintenance"], tunings={"load": "expert"}, event_plan=plan))
+    assert chosen.tunings == {"load": "expert"} and [e.week for e in chosen.event_plan] == [2, 5]
+    plain = GameParams(**params())
+    assert (plain.tunings, plain.event_plan) == ({}, [])  # facultatifs : une ancienne demande reste valide
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        {"tunings": {"inconnu": "expert"}},  # clé absente de pack["tunables"]
+        {"tunings": {"load": "difficile"}},  # profil inconnu
+        {"event_plan": [{"week": 7, "event_id": "retard"}]},  # après la dernière semaine (6)
+        {"event_plan": [{"week": 1, "event_id": "retard"}]},  # aucun aléa la première semaine
+        {"event_plan": [{"week": 13, "event_id": "retard"}]},
+        {"event_plan": [{"week": 2, "event_id": "retard"}, {"week": 2, "event_id": "retard"}]},  # même semaine
+        {"event_plan": [{"week": 2, "event_id": "inconnu"}]},
+        {"event_plan": [{"week": 2, "event_id": "panne_grave"}]},  # module maintenance non joué
+        {"event_plan": [{"week": w, "event_id": "retard"} for w in (2, 3, 4, 5)]},  # trois au plus
+    ],
+)
+def test_game_params_refuse_a_bad_tuning_or_event_plan(usine_pack, bad: dict[str, Any]) -> None:
+    with pytest.raises(ValidationError):
+        GameParams(**params(**bad))
+
+
+def test_real_packs_accept_only_the_tunings_they_declare() -> None:
+    for pack_id in ("atelier", "usine"):
+        pack = load_pack(pack_id)
+        base = default_params(pack_id)
+        with pytest.raises(ValidationError, match="réglage inconnu"):
+            GameParams(**base | {"tunings": {"inconnu_x": "expert"}})
+        for key in pack.get("tunables", {}):
+            assert GameParams(**base | {"tunings": {key: "expert"}}).tunings == {key: "expert"}
+
+
+# --- Demande et édition d'une conception -------------------------------------------------------------------------
+
+
+def test_default_params_and_design_request(usine_pack) -> None:
+    defaults = default_params("usine")
+    assert defaults == {
+        "pack": "usine", "theme": "industrie", "modules": list(load_pack("usine")["modules"]), "extra_agents": [],
+        "agent_tone": "mixte", "difficulty": "equilibre", "weeks": 6, "products": 1, "events": "rares",
+        "options": {"lines": 2, "plan": "u"},
+    }  # fmt: skip
+    assert sorted(defaults["modules"]) == ["maintenance", "pilotage"]  # tous les modules du pack, dans son ordre
+    assert GameParams(**defaults).pack == "usine"
+    brief = "Former des BTS au goulot de la ligne."
+    request = DesignRequest(pack="usine", brief=brief, fixed={"difficulty": "expert", "weeks": 8}, players_max=4)
+    assert (request.audience, request.seed, request.players_min) == ("licence", None, 2)
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        {"brief": "trop court"},
+        {"fixed": {"seed": 3}},  # pas imposable
+        {"fixed": {"theme": "spatial"}},  # GameParams refuse
+        {"fixed": {"modules": ["finance"]}},  # module d'un autre pack
+        {"fixed": {"tunings": {"load": "expert"}}},  # les réglages restent à l'IA
+        {"pack": "absent"},
+        {"audience": "cm2"},
+        {"players_min": 5, "players_max": 2},
+    ],
+)
+def test_design_request_refuses_what_the_pack_or_the_trainer_cannot_fix(usine_pack, bad: dict[str, Any]) -> None:
+    with pytest.raises(ValidationError):
+        DesignRequest(**{"pack": "usine", "brief": "Former des BTS au goulot de la ligne."} | bad)
+
+
+def test_design_edit_fields_are_optional_and_bounded() -> None:
+    assert DesignEdit().model_dump(exclude_none=True) == {}
+    assert DesignEdit(title="Un titre assez long", ui_theme="gmix", tunings={"load": "decouverte"}).ui_theme == "gmix"
+    for bad in ({"title": "court"}, {"pitch": "x" * 39}, {"ui_theme": "Bad Theme"}, {"tunings": {"load": "dur"}},
+                {"event_plan": [{"week": 1, "event_id": "retard"}]}):  # fmt: skip
+        with pytest.raises(ValidationError):
+            DesignEdit(**bad)
+
+
+# --- Modèles de l'interface ---------------------------------------------------------------------------------------
+
+
+def test_tool_panel_and_column_bounds() -> None:
+    assert Tool(id="aide", label="Aide", kind="aide").action_id is None
+    for bad in (
+        {"id": "x_y", "label": "Cde", "kind": "action"},  # action sans action_id
+        {"id": "x_y", "label": "L" * 17, "kind": "aide"},
+        {"id": "x_y", "label": "A", "kind": "aide"},
+        {"id": "X", "label": "Aide", "kind": "aide"},
+        {"id": "x_y", "label": "Aide", "kind": "robot"},
+    ):
+        with pytest.raises(ValidationError):
+            Tool(**bad)
+    column = {"key": "otif", "label": "O" * 24, "format": "state", "labels": {"a": "a" * 20}}
+    assert PanelColumn(**column).better == "higher" and PanelColumn(**column).warn is None
+    assert PanelColumn(**column | {"better": "lower", "warn": 90}).warn == 90
+    for bad in ({"label": "O" * 25}, {"labels": {"a": "a" * 21}}, {"better": "equal"}):
+        with pytest.raises(ValidationError):
+            PanelColumn(**column | bad)
+    panel = {"id": "jauge", "type": "gauge", "title": "T" * 40, "placement": "poste", "source": "kpis",
+             "min": 80, "max": 100}  # fmt: skip
+    assert Panel(**panel).max == 100
+    for bad in ({"title": "T" * 41}, {"min": None}, {"max": None}, {"min": 100}, {"min": 120}):
+        with pytest.raises(ValidationError):
+            Panel(**panel | bad)
+    assert Panel(**panel | {"type": "table", "min": None, "max": None}).min is None  # min et max : jauges seulement
+
+
+def ui_panel(panel_id: str, kind: str, placement: str, columns: int, **extra: Any) -> dict[str, Any]:
+    cells = [{"key": "otif", "label": "c" * UI_LIMITS["column_label"]}] * columns
+    return {"id": panel_id, "type": kind, "title": "T" * UI_LIMITS["panel_title"], "placement": placement,
+            "source": "kpis", "columns": cells} | extra  # fmt: skip
+
+
+def at_ui_limits(spec: dict[str, Any]) -> None:
+    """Chaque limite de UI_LIMITS atteinte, pas dépassée (c'est aussi le jeu de test du -Tour de Godot)."""
+    spec["panels"] = [
+        ui_panel("bandeau_a", "kpis", "bandeau", 3), ui_panel("bandeau_b", "kpis", "bandeau", 3),
+        *[ui_panel(f"table_{c}", "table", "tableau_de_bord", 7) for c in "abcde"],
+        ui_panel("courbes", "chart", "tableau_de_bord", 3),
+        ui_panel("poste_a", "table", "poste", 7, station_kinds=["machine"]),
+        ui_panel("poste_b", "table", "poste", 7, station_kinds=["machine"]),
+        ui_panel("chiffres", "kpis", "poste", 6, station_kinds=["pilotage"]),
+    ]  # fmt: skip
+    spec["panels"][-3]["columns"][0] = {"key": "state", "label": "État", "format": "state",
+                                        "labels": {"marche": "m" * UI_LIMITS["state_label"]}}  # fmt: skip
+    label = "L" * UI_LIMITS["tool_label"]
+    spec["tools"] = [
+        {"id": f"outil_{c}", "label": label, **kind}
+        for c, kind in zip("abcdef", [
+            {"kind": "action", "action_id": "lancer_of"}, {"kind": "action", "action_id": "commander_mp"},
+            {"kind": "action", "action_id": "preventif"}, {"kind": "tableau_de_bord"}, {"kind": "camera"},
+            {"kind": "aide"},
+        ], strict=True)
+    ]  # fmt: skip
+    anchors = ["panel:bandeau_a", "tool:outil_a", "station:pilotage", "agent:agent_pilotage", "dept:production"]
+    spec["tutorial"] = [{"id": f"etape_{c}", "title": "t" * 40, "text": "x" * 160, "anchor": a}
+                        for c, a in zip("abcde", anchors, strict=True)]  # fmt: skip
+    spec["agents"][0]["backstory"] = "b" * 160
+
+
+def test_spec_at_every_ui_limit_is_valid(usine_pack) -> None:
+    spec = SimSpec.model_validate(designed(at_ui_limits))
+    assert (len(spec.tools), len(spec.tutorial), len(spec.panels)) == (6, 5, 11)
+
+
+@pytest.mark.parametrize(
+    ("mutation", "words"),
+    [
+        (lambda s: s["panels"].append(ui_panel("bandeau_c", "kpis", "bandeau", 0)), ("bandeau : 2 panneaux au plus",)),
+        (lambda s: s["panels"][0]["columns"].append(s["panels"][0]["columns"][0]), ("6 colonnes au plus en tout",)),
+        (
+            lambda s: s["panels"].append(ui_panel("table_f", "table", "tableau_de_bord", 1)),
+            ("tableau de bord : 6 panneaux au plus",),
+        ),
+        (
+            lambda s: s["panels"].append(ui_panel("poste_c", "table", "poste", 1, station_kinds=["machine"])),
+            ("poste machine : 2 panneaux au plus",),
+        ),
+        (lambda s: s["panels"][2]["columns"].append(s["panels"][2]["columns"][0]), ("panneau table_a : 7 colonnes",)),
+        (
+            lambda s: s["panels"][-1]["columns"].append(s["panels"][-1]["columns"][0]),
+            ("panneau chiffres : 6 colonnes",),
+        ),
+        (lambda s: s["panels"][7]["columns"].append(s["panels"][7]["columns"][0]), ("panneau courbes : 3 colonnes",)),
+        (lambda s: s["tools"].append({"id": "outil_g", "label": "Aide", "kind": "aide"}), ("outils : 6 au plus",)),
+        (lambda s: s["tutorial"].append(s["tutorial"][0]), ("didacticiel : 5 étapes au plus",)),
+        (lambda s: s["panels"][0].update(title="T" * 41), ("title",)),
+        (lambda s: s["panels"][0]["columns"][0].update(label="c" * 25), ("label",)),
+        (lambda s: s["panels"][-3]["columns"][0]["labels"].update(marche="m" * 21), ("libellé d'état",)),
+        (lambda s: s["tools"][0].update(label="L" * 17), ("label",)),
+        (lambda s: s["tutorial"][0].update(text="x" * 161), ("text",)),
+        (lambda s: s["tutorial"][0].update(title="t" * 41), ("title",)),
+    ],
+)
+def test_one_more_than_a_ui_limit_is_refused(usine_pack, mutation, words: tuple[str, ...]) -> None:
+    spec = designed(at_ui_limits)
+    mutation(spec)
+    refused(spec, *words)
+
+
+# --- Spec conçue ---------------------------------------------------------------------------------------------------
+
+
+def designed_spec() -> dict[str, Any]:
+    """Exemple de l'annexe 0008 §7, transposé aux modules (pilotage, maintenance) et au panneau (otif) du pack local."""
+    spec = factory_spec()
+    spec["notions"].append({"id": "pannes_par_usure", "title": "Pannes", "text": "...", "citation": "Weibull"})
+    spec["modules"][1]["notions"] = ["pannes_par_usure"]
+    offer = {"id": "offer", "label": "Offre", "type": "choice", "source": "offers"}
+    spec["modules"][0]["actions"].append({"id": "commander_mp", "label": "Commander", "fields": [offer]})
+    spec["params"] |= {"tunings": {"load": "expert"}, "event_plan": [{"week": 2, "event_id": "retard"}]}
+    spec["agents"][0]["backstory"] = "Responsable de la production depuis des années, elle connaît chaque machine."
+    spec["tools"] = [{"id": "commande", "label": "Commande", "kind": "action", "action_id": "commander_mp"},
+                     {"id": "tableau", "label": "Tableau", "kind": "tableau_de_bord"}]  # fmt: skip
+    spec["tutorial"] = [{"id": "bandeau", "title": "Vos indicateurs", "anchor": "panel:otif",
+                         "text": "Le bandeau montre l'OTIF, le TRS et la trésorerie face à leur cible."}]  # fmt: skip
+    spec["design"] = {
+        "version": 1, "brief": "Former des BTS au goulot et à la maintenance préventive.", "audience": "bac_plus_2",
+        "context": "Une PME soude des équipements en acier ; le client se plaint des retards.",
+        "objectives": [
+            {"id": "goulot", "verb": "identifier", "text": "le goulot de chaque ligne", "notion_ids": ["goulot"],
+             "indicator": "otif", "module_ids": ["pilotage"]},
+            {"id": "preventif", "verb": "arbitrer", "text": "où faire le préventif avec un seul technicien",
+             "notion_ids": ["pannes_par_usure"], "indicator": "trs", "module_ids": ["maintenance"]},
+        ],
+        "debrief": [
+            {"id": "q_goulot", "text": "Quelle machine fixait le débit de votre ligne, et comment l'avez-vous vu ?",
+             "objective_id": "goulot", "notion_id": "goulot"},
+            {"id": "q_preventif", "text": "Où avez-vous placé le préventif, et qu'est-ce que cela a changé ?",
+             "objective_id": "preventif", "notion_id": "pannes_par_usure"},
+        ],
+        "fixed": {}, "unmet": [], "rationale": {},
+        "origin": {"sections": {"concept": "ia", "cast": "ia", "journey": "ia"}, "model": "qwen2.5:7b", "seed": 42,
+                   "brief_sha256": "a" * 64, "pack_sha256": "b" * 64, "duration_ms": 150000},
+    }  # fmt: skip
+    return spec
+
+
+def designed(mutation) -> dict[str, Any]:
+    spec = designed_spec()
+    mutation(spec)
+    return spec
+
+
+def test_designed_spec_is_valid_and_round_trips(usine_pack) -> None:
+    spec = SimSpec.model_validate(designed_spec())
+    assert spec.design is not None and [o.id for o in spec.design.objectives] == ["goulot", "preventif"]
+    assert (spec.version, spec.meta.ui_theme, spec.params.tunings) == (2, "gmix", {"load": "expert"})
+    assert spec.agents[0].backstory and [t.id for t in spec.tools] == ["commande", "tableau"]
+    assert Design.model_validate(spec.design.model_dump()) == spec.design
+    assert SimSpec.model_validate(spec.model_dump(mode="json")) == spec
+
+
+def test_old_specs_have_empty_design_fields(usine_pack, sim_spec) -> None:
+    for raw in (sim_spec, factory_spec()):
+        spec = SimSpec.model_validate(raw)
+        assert (spec.tools, spec.tutorial, spec.design, spec.params.tunings, spec.params.event_plan) == (
+            [], [], None, {}, [],
+        )  # fmt: skip
+        assert spec.meta.ui_theme == "gmix" and all(a.backstory is None for a in spec.agents)
+
+
+# Annexe 0008 §9, critère 1 : dix cas que la spec refuse (les specs v2 existantes et l'exemple du §7 restent valides)
+CRITERION_1 = {
+    "chiffre dans un texte": (
+        lambda s: s["design"].update(context="Une PME soude 12 équipements en acier pour un client."),
+        ("contexte", "ni chiffre ni lien"),
+    ),
+    "notion inconnue": (
+        lambda s: s["design"]["objectives"][0].update(notion_ids=["inconnue_x"]),
+        ("objectif goulot", "notion inconnue", "inconnue_x"),
+    ),
+    "notion hors des modules de l'objectif": (
+        lambda s: s["design"]["objectives"][0].update(notion_ids=["pannes_par_usure"]),  # celle du module maintenance
+        ("objectif goulot", "n'appartient à aucun de ses modules"),
+    ),
+    "indicateur inconnu": (
+        lambda s: s["design"]["objectives"][0].update(indicator="bonheur"),
+        ("objectif goulot", "indicateur inconnu"),
+    ),
+    "aléa planifié après la dernière semaine": (
+        lambda s: s["params"].update(event_plan=[{"week": 7, "event_id": "retard"}]),  # 6 semaines
+        ("plan d'aléas", "après la dernière"),
+    ),
+    "aléa planifié sans module joué": (
+        lambda s: s["params"].update(event_plan=[{"week": 3, "event_id": "greve"}]),  # module transport non joué
+        ("plan d'aléas", "ne touche aucun module joué"),
+    ),
+    "outil d'un module inactif": (
+        lambda s: (
+            s["modules"].pop(1),  # maintenance n'est plus joué : son action « preventif » n'existe plus dans la spec
+            s["tools"].append({"id": "entretien", "label": "Entretien", "kind": "action", "action_id": "preventif"}),
+        ),
+        ("outil entretien", "absente des modules joués"),
+    ),
+    "ancre inconnue": (
+        lambda s: s["tutorial"][0].update(anchor="panel:inconnu"),
+        ("didacticiel bandeau", "ancre inconnue"),
+    ),
+    "limite d'interface dépassée": (
+        lambda s: s["tools"].extend({"id": f"t_{c}", "label": "Aide", "kind": "aide"} for c in "abcde"),  # 7 outils
+        ("outils : 6 au plus",),
+    ),
+    "question sans objectif": (
+        lambda s: s["design"]["debrief"][0].update(objective_id="absent"),
+        ("question q_goulot", "objectif inconnu"),
+    ),
+}
+
+
+def test_annex_criterion_1_accepts_the_old_specs_and_the_annex_example(usine_pack, sim_spec) -> None:
+    for raw in (sim_spec, factory_spec(), designed_spec()):
+        SimSpec.model_validate(raw)
+
+
+@pytest.mark.parametrize(("mutation", "words"), list(CRITERION_1.values()), ids=list(CRITERION_1))
+def test_annex_criterion_1_refuses(usine_pack, mutation, words: tuple[str, ...]) -> None:
+    refused(designed(mutation), *words)
+
+
+def test_annex_example_as_written_lacks_a_question_for_its_second_objective(usine_pack) -> None:
+    """L'exemple du §7 n'a qu'une question pour deux objectifs : le contrôle du §1 (une question par objectif tant
+    que journey n'est pas en repli) le refuse. Ambiguïté signalée à l'architecte."""
+    for journey in ("ia", "edition"):
+        spec = designed_spec()
+        spec["design"]["debrief"].pop()
+        spec["design"]["origin"]["sections"]["journey"] = journey
+        refused(spec, "objectif preventif sans question de débrief")
+    spec["design"]["origin"]["sections"]["journey"] = "repli"  # parcours en repli : aucune question exigée
+    assert [q.id for q in SimSpec.model_validate(spec).design.debrief] == ["q_goulot"]
+
+
+@pytest.mark.parametrize(
+    ("mutation", "words"),
+    [
+        (lambda s: s["design"].update(unmet=["voir https://exemple.fr pour la suite"]), ("non couvert", "lien")),
+        (lambda s: s["design"]["rationale"].update(modules="2 modules"), ("justification modules", "ni chiffre")),
+        (lambda s: s["design"]["objectives"][0].update(text="le goulot de 3 lignes"), ("objectif goulot", "chiffre")),
+        (lambda s: s["design"]["debrief"][0].update(text="Quelle machine fixait le débit en semaine 3 ?"),
+         ("question q_goulot", "chiffre")),
+        (lambda s: s["agents"][0].update(backstory="Elle travaille ici depuis 20 ans, chaque jour."),
+         ("fiche de agent_pilotage", "chiffre")),
+        (lambda s: s["tutorial"][0].update(title="Étape 1"), ("didacticiel bandeau", "chiffre")),
+        (lambda s: s["tutorial"][0].update(text="Regardez https://exemple.fr pour voir."), ("didacticiel", "lien")),
+        # références de la conception
+        (lambda s: s["design"]["objectives"][1].update(id="goulot"), ("identifiants d'objectif en double",)),
+        (lambda s: s["design"]["debrief"][1].update(id="q_goulot"), ("identifiants de question en double",)),
+        (lambda s: s["design"]["objectives"][0].update(module_ids=["transport"]), ("module inactif transport",)),
+        (lambda s: s["design"]["objectives"][0].update(indicator="cash"), ("l'indicateur cash n'illustre aucune",)),
+        (lambda s: s["design"]["objectives"][1].update(indicator="otif"), ("objectif preventif", "n'illustre")),
+        (lambda s: s["design"]["debrief"][0].update(notion_id="pannes_par_usure"), ("question q_goulot", "pas celle")),
+        # outils et didacticiel
+        (lambda s: s["tools"].append(s["tools"][0]), ("identifiants d'outil en double",)),
+        (lambda s: s["tools"][0].update(action_id=None), ("action_id",)),
+        (lambda s: s["tools"][0].update(action_id="inconnue"), ("outil commande", "absente des modules joués")),
+        (lambda s: s["tutorial"][0].update(anchor="tool:absent"), ("ancre inconnue tool:absent",)),
+        (lambda s: s["tutorial"][0].update(anchor="station:hangar"), ("ancre inconnue",)),
+        (lambda s: s["tutorial"][0].update(anchor="agent:inconnu"), ("ancre inconnue",)),
+        (lambda s: s["tutorial"][0].update(anchor="dept:inconnu"), ("ancre inconnue",)),
+        (lambda s: s["tutorial"][0].update(anchor="Panel:otif"), ("anchor",)),
+        # champs de Design
+        (lambda s: s["design"]["fixed"].update(seed=3), ("contrainte non imposable : seed",)),
+        (lambda s: s["design"]["rationale"].update(budget="Pas permis"), ("justification inconnue : budget",)),
+        (lambda s: s["design"]["rationale"].update(modules="m" * 161), ("justification modules : 160",)),
+        (lambda s: s["design"].update(unmet=["u" * 121]), ("non couvert : 120",)),
+        (lambda s: s["design"].update(objectives=s["design"]["objectives"][:1]), ("objectives",)),
+        (lambda s: s["design"]["origin"].update(brief_sha256="xyz"), ("brief_sha256",)),
+        (lambda s: s["agents"][0].update(backstory="b" * 161), ("backstory",)),
+        (lambda s: s["meta"].update(ui_theme="Gmix 2"), ("ui_theme",)),
+    ],
+)  # fmt: skip
+def test_designed_spec_refuses_each_rule(usine_pack, mutation, words: tuple[str, ...]) -> None:
+    refused(designed(mutation), *words)
+
+
+def test_forbidden_in_text_matches_digits_and_links_only() -> None:
+    assert FORBIDDEN_IN_TEXT.search("3 lignes") and FORBIDDEN_IN_TEXT.search("voir http://x") is not None
+    assert FORBIDDEN_IN_TEXT.search("Le goulot fixe le débit de la ligne ; l'OTIF suit.") is None

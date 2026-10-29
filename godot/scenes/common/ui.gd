@@ -4,20 +4,21 @@ extends RefCounted
 ## thème et les mêmes couleurs partout. Fenêtre de référence 1280x720 (project.godot : étirement `canvas_items`,
 ## aspect `expand`) : la zone visible fait toujours au moins 1280x720, quelle que soit la fenêtre. Règles : tout contenu
 ## long dans un ScrollContainer, textes à retour automatique, corps 18 px, jamais sous 15 px, aucune largeur fixe qui
-## dépasse la zone visible.
+## dépasse la zone visible. Couleurs, rayons, espacements et polices : jetons de ui_tokens.gd (UiTokens).
 
-const OK := Color(0.45, 0.85, 0.5)
-const WARN := Color(1.0, 0.72, 0.3)
-const ERROR := Color(1.0, 0.45, 0.4)
-const MUTED := Color(0.68, 0.72, 0.8)
-const ACCENT := Color(0.45, 0.7, 1.0)
-const TEXT := Color(0.93, 0.95, 0.98)
-const BACKDROP := Color(0.07, 0.08, 0.11)  # fond des écrans avant-jeu
-const PANEL := Color(0.12, 0.135, 0.175)
-const FIELD := Color(0.055, 0.065, 0.09)
-const EDGE := Color(0.32, 0.38, 0.5)
-const BODY_FONT := 18
-const MIN_FONT := 15
+# Alias historiques des jetons de ui_tokens.gd (seul endroit où l'on règle la direction artistique).
+const OK := UiTokens.OK
+const WARN := UiTokens.WARN
+const ERROR := UiTokens.ERROR
+const MUTED := UiTokens.MUTED
+const ACCENT := UiTokens.LIME
+const TEXT := UiTokens.INK
+const BACKDROP := UiTokens.BACKDROP  # fond des écrans avant-jeu
+const PANEL := UiTokens.PANEL
+const FIELD := UiTokens.FIELD
+const EDGE := UiTokens.EDGE
+const BODY_FONT := UiTokens.BODY_SIZE
+const MIN_FONT := UiTokens.MIN_SIZE
 const DIALOG_MAX := Vector2i(1000, 600)  # taille souhaitée d'une fenêtre de lecture, réduite à 85 % de la zone visible
 const DIALOG_RATIO := 0.85  # la barre de titre déborde au-dessus de la fenêtre : il faut de la marge
 
@@ -25,14 +26,45 @@ const DIALOG_RATIO := 0.85  # la barre de titre déborde au-dessus de la fenêtr
 static func make_theme() -> Theme:
 	var theme := Theme.new()
 	theme.default_font_size = BODY_FONT
-	theme.set_stylebox("panel", "PanelContainer", _box(PANEL, 8, EDGE, 1, 16, 14))
+	var body := _font(UiTokens.FONT_BODY)
+	if body != null:
+		theme.default_font = body
+	theme.set_stylebox("panel", "PanelContainer", _box(PANEL, UiTokens.RADIUS_PANEL, EDGE, 1, UiTokens.PANEL_PAD.x, UiTokens.PANEL_PAD.y))
 	theme.set_color("font_color", "Label", TEXT)
 	theme.set_color("default_color", "RichTextLabel", TEXT)
+	_style_fonts(theme)
 	_style_buttons(theme)
 	_style_fields(theme)
 	_style_tabs(theme)
 	_style_popups(theme)
+	_style_scrollbars(theme)
 	return theme
+
+
+## Police déposée dans assets/fonts (absente : null, donc police par défaut).
+static func _font(path: String) -> Font:
+	return load(path) as Font if ResourceLoader.exists(path) else null
+
+
+## Titres en Manrope (`label` dès HEADING_FROM px), étiquettes en DM Mono (`theme_type_variation = "MonoLabel"`), corps en DM Sans.
+static func _style_fonts(theme: Theme) -> void:
+	theme.add_type("HeadingLabel")
+	theme.set_type_variation("HeadingLabel", "Label")
+	theme.add_type("MonoLabel")
+	theme.set_type_variation("MonoLabel", "Label")
+	var display := _font(UiTokens.FONT_DISPLAY)
+	if display != null:
+		theme.set_font("font", "HeadingLabel", display)
+		theme.set_font("font", "TabContainer", display)
+		theme.set_font("title_font", "Window", display)
+	var mono := _font(UiTokens.FONT_MONO)
+	if mono != null:
+		theme.set_font("font", "MonoLabel", mono)
+		theme.set_font("mono_font", "RichTextLabel", mono)
+	var bold := _font(UiTokens.FONT_BODY_BOLD)
+	if bold != null:
+		theme.set_font("bold_font", "RichTextLabel", bold)
+		theme.set_font("font", "PrimaryButton", bold)
 
 
 static func _box(bg: Color, radius: int, border: Color, border_width: int, margin_x: int, margin_y: int) -> StyleBoxFlat:
@@ -49,28 +81,32 @@ static func _box(bg: Color, radius: int, border: Color, border_width: int, margi
 
 
 static func _style_buttons(theme: Theme) -> void:
+	var pad := UiTokens.CONTROL_PAD
+	var radius := UiTokens.RADIUS_CONTROL
+	var hover_edge := Color(UiTokens.LIME, 0.55)
 	var states := {
-		"normal": [Color(0.2, 0.25, 0.34), EDGE],
-		"hover": [Color(0.27, 0.34, 0.47), ACCENT],
-		"pressed": [Color(0.14, 0.18, 0.26), ACCENT],
-		"hover_pressed": [Color(0.14, 0.18, 0.26), ACCENT],
-		"disabled": [Color(0.12, 0.14, 0.19), Color(0.2, 0.23, 0.3)],
+		"normal": [UiTokens.BUTTON, EDGE],
+		"hover": [UiTokens.BUTTON_HOVER, hover_edge],
+		"pressed": [UiTokens.BUTTON_PRESSED, UiTokens.LIME],
+		"hover_pressed": [UiTokens.BUTTON_PRESSED, UiTokens.LIME],
+		"disabled": [UiTokens.BUTTON_OFF, UiTokens.BUTTON],
 	}
 	for state: String in states:
-		theme.set_stylebox(state, "Button", _box(states[state][0], 6, states[state][1], 1, 14, 7))
-	var focus := _box(Color.TRANSPARENT, 6, ACCENT, 2, 14, 7)
+		theme.set_stylebox(state, "Button", _box(states[state][0], radius, states[state][1], 1, pad.x, pad.y))
+	var focus := _box(Color.TRANSPARENT, radius, UiTokens.LIME, 2, pad.x, pad.y)
 	focus.draw_center = false
 	theme.set_stylebox("focus", "Button", focus)
 	for key in ["font_color", "font_focus_color", "font_pressed_color", "font_hover_color", "font_hover_pressed_color"]:
-		theme.set_color(key, "Button", TEXT if key != "font_hover_color" else Color.WHITE)
-	theme.set_color("font_disabled_color", "Button", Color(0.58, 0.61, 0.69))
-	# Bouton de l'action principale d'un écran (`Ui.button(…, true)`).
+		theme.set_color(key, "Button", TEXT)
+	theme.set_color("font_disabled_color", "Button", UiTokens.TEXT_OFF)
+	# Bouton de l'action principale d'un écran (`Ui.button(…, true)`) : lime plein, texte vert foncé.
 	theme.add_type("PrimaryButton")
 	theme.set_type_variation("PrimaryButton", "Button")
-	var primary := {"normal": Color(0.16, 0.36, 0.68), "hover": Color(0.22, 0.45, 0.8), "pressed": Color(0.12, 0.28, 0.55), "hover_pressed": Color(0.12, 0.28, 0.55)}
+	var primary := {"normal": UiTokens.LIME, "hover": UiTokens.LIME_HOVER, "pressed": UiTokens.LIME_PRESSED, "hover_pressed": UiTokens.LIME_PRESSED}
 	for state: String in primary:
-		theme.set_stylebox(state, "PrimaryButton", _box(primary[state], 6, Color(0.4, 0.65, 0.95), 1, 14, 7))
-	theme.set_color("font_color", "PrimaryButton", Color.WHITE)
+		theme.set_stylebox(state, "PrimaryButton", _box(primary[state], radius, UiTokens.LIME_PRESSED, 1, pad.x, pad.y))
+	for key in ["font_color", "font_focus_color", "font_pressed_color", "font_hover_color", "font_hover_pressed_color"]:
+		theme.set_color(key, "PrimaryButton", UiTokens.ON_LIME)
 	# Cases à cocher : sans cadre de bouton (leur type hérite sinon des styles de Button).
 	var plain := StyleBoxEmpty.new()
 	plain.content_margin_left = 4
@@ -84,19 +120,26 @@ static func _style_buttons(theme: Theme) -> void:
 
 
 static func _style_fields(theme: Theme) -> void:
-	theme.set_stylebox("normal", "LineEdit", _box(FIELD, 6, EDGE, 1, 10, 7))
-	theme.set_stylebox("focus", "LineEdit", _box(FIELD, 6, ACCENT, 2, 10, 7))
-	theme.set_stylebox("read_only", "LineEdit", _box(PANEL, 6, EDGE, 1, 10, 7))
+	var pad := UiTokens.FIELD_PAD
+	var radius := UiTokens.RADIUS_CONTROL
+	theme.set_stylebox("normal", "LineEdit", _box(FIELD, radius, EDGE, 1, pad.x, pad.y))
+	theme.set_stylebox("focus", "LineEdit", _box(FIELD, radius, UiTokens.LIME, 2, pad.x, pad.y))
+	theme.set_stylebox("read_only", "LineEdit", _box(PANEL, radius, EDGE, 1, pad.x, pad.y))
 	theme.set_color("font_color", "LineEdit", TEXT)
-	theme.set_color("font_placeholder_color", "LineEdit", Color(0.55, 0.6, 0.7))
-	theme.set_color("caret_color", "LineEdit", ACCENT)
-	theme.set_color("selection_color", "LineEdit", Color(0.25, 0.45, 0.8, 0.6))
+	theme.set_color("font_placeholder_color", "LineEdit", UiTokens.PLACEHOLDER)
+	theme.set_color("caret_color", "LineEdit", UiTokens.LIME)
+	theme.set_color("selection_color", "LineEdit", Color(UiTokens.LIME, 0.35))
 
 
 static func _style_tabs(theme: Theme) -> void:
-	var styles := {"tab_selected": [PANEL, ACCENT], "tab_unselected": [Color(0.09, 0.1, 0.14), EDGE], "tab_hovered": [Color(0.17, 0.2, 0.28), ACCENT], "tab_disabled": [Color(0.09, 0.1, 0.14), EDGE]}
+	var styles := {
+		"tab_selected": [PANEL, UiTokens.LIME],
+		"tab_unselected": [UiTokens.TAB_OFF, EDGE],
+		"tab_hovered": [UiTokens.BUTTON_HOVER, Color(UiTokens.LIME, 0.55)],
+		"tab_disabled": [UiTokens.TAB_OFF, EDGE],
+	}
 	for style: String in styles:
-		var tab := _box(styles[style][0], 8, styles[style][1], 0, 20, 9)
+		var tab := _box(styles[style][0], UiTokens.RADIUS_PANEL, styles[style][1], 0, UiTokens.TAB_PAD.x, UiTokens.TAB_PAD.y)
 		tab.corner_radius_bottom_left = 0
 		tab.corner_radius_bottom_right = 0
 		tab.border_width_top = 3
@@ -104,21 +147,45 @@ static func _style_tabs(theme: Theme) -> void:
 	var panel := StyleBoxEmpty.new()
 	panel.content_margin_top = 8
 	theme.set_stylebox("panel", "TabContainer", panel)
-	theme.set_color("font_selected_color", "TabContainer", Color.WHITE)
-	theme.set_color("font_unselected_color", "TabContainer", Color(0.78, 0.82, 0.9))
-	theme.set_color("font_hovered_color", "TabContainer", Color.WHITE)
-	theme.set_font_size("font_size", "TabContainer", 20)
+	theme.set_color("font_selected_color", "TabContainer", TEXT)
+	theme.set_color("font_unselected_color", "TabContainer", MUTED)
+	theme.set_color("font_hovered_color", "TabContainer", TEXT)
+	theme.set_font_size("font_size", "TabContainer", UiTokens.TAB_SIZE)
 
 
 static func _style_popups(theme: Theme) -> void:
-	theme.set_stylebox("panel", "AcceptDialog", _box(PANEL, 0, EDGE, 0, 16, 14))
-	theme.set_stylebox("panel", "PopupMenu", _box(Color(0.1, 0.115, 0.15), 6, EDGE, 1, 8, 8))
-	theme.set_stylebox("hover", "PopupMenu", _box(Color(0.22, 0.3, 0.45), 4, Color.TRANSPARENT, 0, 4, 4))
+	theme.set_stylebox("panel", "AcceptDialog", _box(PANEL, 0, EDGE, 0, UiTokens.PANEL_PAD.x, UiTokens.PANEL_PAD.y))
+	theme.set_stylebox("panel", "PopupMenu", _box(FIELD, UiTokens.RADIUS_CONTROL, EDGE, 1, 8, 8))
+	theme.set_stylebox("hover", "PopupMenu", _box(UiTokens.MENU_HOVER, 4, Color.TRANSPARENT, 0, 4, 4))
+	theme.set_color("font_color", "PopupMenu", TEXT)
+	theme.set_color("font_hover_color", "PopupMenu", TEXT)
 	theme.set_constant("v_separation", "PopupMenu", 10)
-	theme.set_stylebox("panel", "TooltipPanel", _box(Color(0.1, 0.115, 0.15, 0.98), 6, EDGE, 1, 10, 6))
-	theme.set_font_size("font_size", "TooltipLabel", 16)
+	theme.set_stylebox("panel", "TooltipPanel", _box(Color(UiTokens.BACKDROP, 0.98), UiTokens.RADIUS_CONTROL, EDGE, 1, 10, 6))
+	theme.set_font_size("font_size", "TooltipLabel", UiTokens.TIP_SIZE)
 	theme.set_color("font_color", "TooltipLabel", TEXT)
+	# Fenêtres intégrées : cadre du thème par défaut (il réserve la place de la barre de titre), repeint aux couleurs de la DA.
+	theme.set_color("title_color", "Window", TEXT)
+	theme.set_font_size("title_font_size", "Window", UiTokens.WINDOW_TITLE_SIZE)
+	for kind in ["embedded_border", "embedded_unfocused_border"]:
+		var base := ThemeDB.get_default_theme().get_stylebox(kind, "Window") as StyleBoxFlat
+		if base == null:
+			continue
+		var frame := base.duplicate() as StyleBoxFlat
+		frame.bg_color = PANEL
+		frame.border_color = EDGE
+		frame.set_corner_radius_all(UiTokens.RADIUS_MODAL)
+		theme.set_stylebox(kind, "Window", frame)
 
+
+## Ascenseurs fins aux couleurs de la DA (le style par défaut est bleu-gris).
+static func _style_scrollbars(theme: Theme) -> void:
+	for kind in ["VScrollBar", "HScrollBar"]:
+		var track := _box(FIELD, 4, Color.TRANSPARENT, 0, 6 if kind == "VScrollBar" else 0, 6 if kind == "HScrollBar" else 0)
+		theme.set_stylebox("scroll", kind, track)
+		theme.set_stylebox("scroll_focus", kind, track)
+		theme.set_stylebox("grabber", kind, _box(EDGE.lightened(0.25), 4, Color.TRANSPARENT, 0, 0, 0))
+		theme.set_stylebox("grabber_highlight", kind, _box(EDGE.lightened(0.5), 4, Color.TRANSPARENT, 0, 0, 0))
+		theme.set_stylebox("grabber_pressed", kind, _box(UiTokens.LIME, 4, Color.TRANSPARENT, 0, 0, 0))
 
 ## Texte d'interface. `wrap` : retour à la ligne automatique, la colonne prend la largeur disponible. La police n'est
 ## jamais inférieure à MIN_FONT.
@@ -130,6 +197,8 @@ static func label(text: String, font_size := 0, color := Color.WHITE, wrap := fa
 		node.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	if font_size > 0:
 		node.add_theme_font_size_override("font_size", maxi(font_size, MIN_FONT))
+		if font_size >= UiTokens.HEADING_FROM:
+			node.theme_type_variation = "HeadingLabel"  # titres en Manrope
 	if color != Color.WHITE:
 		node.add_theme_color_override("font_color", color)
 	return node

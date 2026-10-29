@@ -27,6 +27,10 @@ func _initialize() -> void:
 	var stretch := "%s/%s" % [ProjectSettings.get_setting("display/window/stretch/mode"), ProjectSettings.get_setting("display/window/stretch/aspect")]
 	if base != Vector2i(1280, 720) or stretch != "canvas_items/expand":
 		failures.append("project.godot : fenêtre de référence 1280x720, étirement canvas_items, aspect expand (trouvé %s, %s)" % [base, stretch])
+	# Lisibilité : chaque texte de la DA atteint 4,5:1 sur son fond (jetons de scenes/common/ui_tokens.gd).
+	var tokens: GDScript = load("res://scenes/common/ui_tokens.gd")
+	for low: String in tokens.call("contrast_failures"):
+		failures.append("contraste insuffisant (< 4,5:1) : " + low)
 	print("Fichiers vérifiés : %d, en échec : %d" % [files.size(), failures.size()])
 	for path in failures:
 		printerr("ÉCHEC %s" % path)

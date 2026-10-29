@@ -32,17 +32,17 @@ func _rebuild() -> void:
 	if not is_node_ready():
 		return
 	Mesher.clear(self)
-	var frame := Color(0.2, 0.22, 0.26)
+	var frame := Palette.DARK
 	var batch := Mesher.Batch.new()
 	for x in [-0.8, 0.8]:
 		batch.box(Vector3(0.06, 0.85, 0.06), Vector3(x, 0.425, 0), frame)  # pieds
 		batch.box(Vector3(0.1, 0.05, 0.5), Vector3(x, 0.025, 0), frame)  # semelles
 	batch.box(Vector3(1.8, 1.0, 0.06), Vector3(0, 1.35, 0), frame)  # cadre
-	batch.box(Vector3(1.7, 0.9, 0.02), Vector3(0, 1.35, 0.035), Color(0.96, 0.97, 0.98))  # surface blanche
-	batch.box(Vector3(1.7, 0.2, 0.022), Vector3(0, 1.7, 0.036), Color(0.15, 0.5, 0.45))  # bandeau-titre
+	batch.box(Vector3(1.7, 0.9, 0.02), Vector3(0, 1.35, 0.035), Palette.WALL_LIGHT)  # surface blanche
+	batch.box(Vector3(1.7, 0.2, 0.022), Vector3(0, 1.7, 0.036), Palette.STATION_CONTROL)  # bandeau-titre
 	batch.build(self)
-	_title_label = _label(56, Vector3(-0.8, 1.7, 0.05), Color.WHITE, 0.0032)
-	_body_label = _label(34, Vector3(-0.8, 1.55, 0.05), Color(0.1, 0.12, 0.16), 0.0028)
+	_title_label = _label(56, Vector3(-0.8, 1.7, 0.05), Palette.LABEL_TEXT, 0.0032)
+	_body_label = _label(34, Vector3(-0.8, 1.55, 0.05), Palette.DARK_TEAL, 0.0028)
 	Mesher.collider(self, [
 		[Vector3(1.8, 1.9, 0.12), Vector3(0, 0.95, 0)],
 		[Vector3(0.1, 0.1, 0.5), Vector3(-0.8, 0.05, 0)],

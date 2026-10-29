@@ -21,9 +21,10 @@ func _rebuild() -> void:
 	if not is_node_ready():
 		return
 	Mesher.clear(self)
-	var yellow := Mesher.material(Color(0.98, 0.74, 0.12))
-	var dark := Mesher.material(Color(0.16, 0.16, 0.18))
-	var steel := Mesher.material(Color(0.56, 0.58, 0.62))
+	var yellow := Mesher.material(Palette.FORKLIFT, Color.BLACK, "steel")
+	var dark := Mesher.material(Palette.DARK_TEAL)
+	var steel := Mesher.material(Palette.STEEL, Color.BLACK, "steel")
+	var forks := Mesher.material(Palette.FORKLIFT_FORKS, Color.BLACK, "steel")
 	# Géométrie décrite fourches vers -Z, puis pivotée d'un demi-tour : avant vers +Z.
 	var body := Mesher.adopt(self, Node3D.new()) as Node3D
 	body.rotation.y = PI
@@ -43,7 +44,7 @@ func _rebuild() -> void:
 	_carriage = Mesher.adopt(body, Node3D.new()) as Node3D
 	Mesher.box(_carriage, Vector3(0.9, 0.5, 0.06), Vector3(0, 0.25, 0), dark)  # tablier
 	for x in [-0.28, 0.28]:
-		Mesher.box(_carriage, Vector3(0.12, 0.045, 1.15), Vector3(x, 0.02, -0.6), steel)  # fourches
+		Mesher.box(_carriage, Vector3(0.12, 0.045, 1.15), Vector3(x, 0.02, -0.6), forks)  # fourches
 	_place_forks()
 
 

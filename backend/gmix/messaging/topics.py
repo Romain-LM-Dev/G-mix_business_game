@@ -29,6 +29,18 @@ NPC_TRANSCRIPTS = Topic(
 )
 RAG_COMMANDS = Topic("gmix.rag.commands", 1, 7 * DAY_MS, "Ingestion / réindexation de documents de connaissance")
 RAG_EVENTS = Topic("gmix.rag.events", 1, 7 * DAY_MS, "Résultats d'ingestion RAG")
+GENERATION_COMMANDS = Topic(
+    "gmix.generation.commands",
+    1,
+    7 * DAY_MS,
+    "Conception d'un business game par l'IA : demandes (API -> worker generation)",
+)
+GENERATION_EVENTS = Topic(
+    "gmix.generation.events",
+    1,
+    7 * DAY_MS,
+    "Progression et résultat des conceptions (worker -> API -> WebSocket du demandeur)",
+)
 AUDIT = Topic("gmix.audit", 1, 90 * DAY_MS, "Journal d'audit des actions formateur / admin")
 DLQ = Topic("gmix.dlq", 1, 30 * DAY_MS, "Messages en échec (dead letter queue) avec l'erreur")
 
@@ -39,6 +51,8 @@ ALL_TOPICS: tuple[Topic, ...] = (
     NPC_TRANSCRIPTS,
     RAG_COMMANDS,
     RAG_EVENTS,
+    GENERATION_COMMANDS,
+    GENERATION_EVENTS,
     AUDIT,
     DLQ,
 )

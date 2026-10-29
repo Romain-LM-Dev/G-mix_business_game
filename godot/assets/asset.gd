@@ -15,6 +15,9 @@ extends Node3D
 
 func _ready() -> void:
 	_apply_sign()
+	var model := get_node_or_null("Model")  # modèle de pack tiers importé : ramené dans la palette du jeu (Palette.restyle)
+	if model != null and not Engine.is_editor_hint():
+		Palette.restyle(model, asset_id)
 
 
 func _apply_sign() -> void:

@@ -6,7 +6,7 @@ extends GmixAsset
 ## Emprise : 2,7 x 2,7 m, hauteur 2,4 m (voyants compris).
 
 const STATES := ["ok", "alerte", "arret"]
-const LIGHT_COLORS := [Color(0.46, 0.82, 0.55), Color(0.9, 0.72, 0.31), Color(0.85, 0.4, 0.35)]
+const LIGHT_COLORS := [Palette.OK, Palette.WARN, Palette.ALERT]
 const Z0 := -0.5  # le bâti recule pour centrer bâti + tapis sur l'origine
 
 @export var title := "Ligne":
@@ -17,7 +17,7 @@ const Z0 := -0.5  # le bâti recule pour centrer bâti + tapis sur l'origine
 	set(value):
 		state = value
 		_refresh()
-@export var accent := Color(0.47, 0.66, 0.61):
+@export var accent := Palette.MACHINE_ACCENTS[0]:
 	set(value):
 		accent = value
 		_rebuild()
@@ -36,14 +36,14 @@ func _rebuild() -> void:
 		return
 	Mesher.clear(self)
 	_lights.clear()
-	var frame := Mesher.material(Color(0.27, 0.36, 0.35))
-	var dark := Mesher.material(Color(0.16, 0.24, 0.23))
-	var steel := Mesher.material(Color(0.75, 0.77, 0.7))
+	var frame := Mesher.material(Palette.FRAME, Color.BLACK, "steel")
+	var dark := Mesher.material(Palette.DARK_TEAL)
+	var steel := Mesher.material(Palette.STEEL_PALE, Color.BLACK, "steel")
 	Mesher.box(self, Vector3(2.65, 1.1, 1.7), Vector3(0, 0.72, Z0), frame)
-	Mesher.box(self, Vector3(2.3, 0.72, 1.32), Vector3(0, 1.42, Z0), Mesher.material(Color(0.45, 0.54, 0.49)))
-	Mesher.box(self, Vector3(2.35, 0.18, 1.36), Vector3(0, 1.88, Z0), Mesher.material(accent))
+	Mesher.box(self, Vector3(2.3, 0.72, 1.32), Vector3(0, 1.42, Z0), Mesher.material(Palette.COVER, Color.BLACK, "steel"))
+	Mesher.box(self, Vector3(2.35, 0.18, 1.36), Vector3(0, 1.88, Z0), Mesher.material(accent, Color.BLACK, "steel"))
 	Mesher.box(self, Vector3(0.55, 0.38, 0.035), Vector3(0.55, 1.43, Z0 + 0.68), dark)
-	Mesher.box(self, Vector3(0.35, 0.2, 0.045), Vector3(0.55, 1.44, Z0 + 0.71), Mesher.material(Color(0.55, 0.76, 0.55), Color(0.15, 0.33, 0.17)))
+	Mesher.box(self, Vector3(0.35, 0.2, 0.045), Vector3(0.55, 1.44, Z0 + 0.71), Mesher.material(Palette.SCREEN, Palette.SCREEN_GLOW))
 	for px in [-0.85, 0.85]:
 		for pz in [-0.9, 0.9]:
 			Mesher.cylinder(self, 0.22, 0.14, Vector3(px, 0.2, Z0 + pz), dark, true)
@@ -66,6 +66,8 @@ func _rebuild() -> void:
 	_label.font_size = 40
 	_label.pixel_size = 0.007
 	_label.outline_size = 10
+	_label.outline_modulate = Palette.LABEL_OUTLINE
+	_label.modulate = Palette.LABEL_TEXT
 	_label.position = Vector3(0, 2.6, Z0)
 	Mesher.adopt(self, _label)
 	var body := StaticBody3D.new()

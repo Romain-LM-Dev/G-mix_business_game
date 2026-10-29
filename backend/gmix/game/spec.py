@@ -1,7 +1,10 @@
 """Business game simulé (docs/decisions/0006 et 0007) : paramètres de génération, spec produite par
 gmix.game.generation et packs de domaine (ai/simulation.yaml = pack « atelier », ai/packs/<id>.yaml). Les modèles
 valident aussi une spec importée ou modifiée à la main : toute référence croisée (offre, ligne, agent, poste,
-machine, département) doit exister et les modules, secteurs et postes sont vérifiés contre le pack."""
+machine, département) doit exister et les modules, secteurs et postes sont vérifiés contre le pack.
+ADR 0008 : la spec porte aussi la conception par l'IA (design, tools, tutorial, réglages, plan d'aléas). Elle ne
+contient que des choix dans les listes du pack ; ici sont refusés tout chiffre ou lien dans un texte conçu, toute
+référence inconnue et toute interface au-delà des limites de lisibilité `UI_LIMITS`."""
 
 import re
 from functools import lru_cache
@@ -44,6 +47,32 @@ ATELIER_STATION_KINDS = frozenset(
      "quai_expedition"}
 )  # fmt: skip
 
+# Conception par l'IA (ADR 0008, annexe 0008 §1)
+Audience = Literal["lycee", "bac_plus_2", "licence", "master", "formation_continue"]
+Bloom = Literal["identifier", "expliquer", "calculer", "appliquer", "comparer", "arbitrer", "evaluer"]
+Section = Literal["concept", "cast", "journey"]  # scénario et objectifs ; personnages ; interface et débrief
+SectionMode = Literal["ia", "repli", "edition"]
+FIXABLE = frozenset(
+    {"theme", "modules", "extra_agents", "agent_tone", "difficulty", "weeks", "events", "products", "options",
+     "company_name"}
+)  # fmt: skip  # champs de GameParams que le formateur peut imposer
+FORBIDDEN_IN_TEXT = re.compile(r"\d|https?://")  # textes conçus : ni chiffre ni lien (les chiffres viennent du moteur)
+RATIONALE_KEYS = frozenset({"modules", "difficulty", "tunings", "events", "agents", "panels", "tutorial", "debrief"})
+UI_LIMITS = {  # lisibilité garantie (godot.ps1 -Tour à 4 tailles de fenêtre)
+    "bandeau_panels": 2, "bandeau_columns": 6,  # colonnes : total des panneaux du bandeau
+    "dashboard_panels": 6, "station_panels": 2,  # station : par type de poste
+    "table_columns": 7, "kpis_columns": 6, "chart_series": 3,
+    "tools": 6, "tutorial_steps": 5,
+    "panel_title": 40, "column_label": 24, "state_label": 20, "tool_label": 16,
+}  # fmt: skip
+
+
+class PlannedEvent(BaseModel):
+    """Aléa imposé une semaine donnée (annoncé une semaine à l'avance par le moteur)."""
+
+    week: int = Field(ge=2, le=12)
+    event_id: str
+
 
 class GameParams(BaseModel):
     """Tout ce que choisit le formateur : aucun texte libre, la génération est entièrement paramétrée."""
@@ -62,6 +91,10 @@ class GameParams(BaseModel):
     players_min: int = Field(default=2, ge=1, le=60)
     players_max: int = Field(default=6, ge=1, le=60)
     seed: int | None = Field(default=None, ge=0, le=2**31 - 1)
+    tunings: dict[str, Difficulty] = Field(
+        default_factory=dict, description="clé de pack['tunables'] -> profil de difficulté qui fournit sa valeur"
+    )
+    event_plan: list[PlannedEvent] = Field(default_factory=list, max_length=3)
 
     @model_validator(mode="before")
     @classmethod
@@ -104,6 +137,19 @@ class GameParams(BaseModel):
                     errors.append(f"option {key} : entier entre {field.min} et {field.max} attendu")
             elif value not in {o.id for o in field.options or []}:
                 errors.append(f"option {key} : valeur inconnue {value}")
+        tunables = pack.get("tunables", {})
+        errors += [f"réglage inconnu du pack {self.pack} : {k}" for k in self.tunings if k not in tunables]
+        weeks = [e.week for e in self.event_plan]
+        if len(set(weeks)) != len(weeks):
+            errors.append("plan d'aléas : une semaine ne porte qu'un aléa")
+        for planned in self.event_plan:
+            event = pack.get("events", {}).get(planned.event_id)
+            if planned.week > self.weeks:
+                errors.append(f"plan d'aléas : semaine {planned.week} après la dernière ({self.weeks})")
+            if event is None:
+                errors.append(f"plan d'aléas : aléa inconnu du pack {self.pack} : {planned.event_id}")
+            elif not set(event["modules"]) & set(self.modules):
+                errors.append(f"plan d'aléas : {planned.event_id} ne touche aucun module joué")
         if errors:
             raise ValueError("; ".join(errors[:10]))
         return self
@@ -222,6 +268,7 @@ class Agent(BaseModel):
     zone: str
     route: list[Point] = Field(min_length=1)
     notions: list[str]
+    backstory: str | None = Field(default=None, max_length=160, description="fiche ; jamais dans npc.dialogue")
 
 
 class Station(BaseModel):
@@ -301,6 +348,7 @@ class Meta(BaseModel):
     language: Literal["fr"] = "fr"
     domain: str = "supply-chain"  # slug de ai/domains.yaml (RAG des agents, menu)
     pack: Code = "atelier"
+    ui_theme: Code = "gmix"  # jeu de jetons godot/themes/<id>.json ; inconnu -> gmix côté client
 
 
 class Provenance(BaseModel):
@@ -452,16 +500,25 @@ class Factory(BaseModel):
 
 class PanelColumn(BaseModel):
     key: str  # clé d'un élément (table), d'un indicateur (kpis) ou de history (chart)
-    label: str
+    label: str = Field(max_length=UI_LIMITS["column_label"])
     format: Literal["text", "int", "dec1", "pct", "money", "minutes", "state"] = "text"
     labels: dict[str, str] = Field(default_factory=dict, description="format state : code -> libellé affiché")
     target: str | None = Field(default=None, description="chemin de la cible, ex. targets.otif")
+    better: Literal["higher", "lower"] = Field(default="higher", description="sens de la pastille (ruptures : lower)")
+    warn: float | None = Field(default=None, description="seuil « attention » entre la cible et l'alerte")
+
+    @model_validator(mode="after")
+    def _labels(self) -> "PanelColumn":
+        too_long = [v for v in self.labels.values() if len(v) > UI_LIMITS["state_label"]]
+        if too_long:
+            raise ValueError(f"colonne {self.key} : libellé d'état de {UI_LIMITS['state_label']} caractères au plus")
+        return self
 
 
 class Panel(BaseModel):
     id: Code
     type: Literal["kpis", "table", "gauge", "chart", "flow"]
-    title: str
+    title: str = Field(max_length=UI_LIMITS["panel_title"])
     placement: Literal["bandeau", "tableau_de_bord", "poste"]
     station_kinds: list[StationKind] = Field(default_factory=list, description="placement « poste »")
     source: str = Field(pattern=r"^[a-z_]+(\.[a-z_]+)*$", description="racine dans PUBLIC_ROOTS")
@@ -469,6 +526,34 @@ class Panel(BaseModel):
     columns: list[PanelColumn] = Field(default_factory=list)
     min: float | None = None  # gauge
     max: float | None = None
+
+    @model_validator(mode="after")
+    def _gauge(self) -> "Panel":
+        if self.type == "gauge" and (self.min is None or self.max is None or self.min >= self.max):
+            raise ValueError(f"panneau {self.id} : une jauge a un min et un max, avec min < max")
+        return self
+
+
+def panel_errors(panels: list[Panel]) -> list[str]:
+    """Limites de lisibilité `UI_LIMITS` d'un ensemble de panneaux (spec, ou catalogue d'un pack)."""
+    lim, errors = UI_LIMITS, []
+    bandeau = [p for p in panels if p.placement == "bandeau"]
+    if len(bandeau) > lim["bandeau_panels"]:
+        errors.append(f"bandeau : {lim['bandeau_panels']} panneaux au plus ({len(bandeau)})")
+    if sum(len(p.columns) for p in bandeau) > lim["bandeau_columns"]:
+        errors.append(f"bandeau : {lim['bandeau_columns']} colonnes au plus en tout")
+    dashboard = [p for p in panels if p.placement == "tableau_de_bord"]
+    if len(dashboard) > lim["dashboard_panels"]:
+        errors.append(f"tableau de bord : {lim['dashboard_panels']} panneaux au plus ({len(dashboard)})")
+    for kind in sorted({k for p in panels if p.placement == "poste" for k in p.station_kinds}):
+        count = sum(1 for p in panels if p.placement == "poste" and kind in p.station_kinds)
+        if count > lim["station_panels"]:
+            errors.append(f"poste {kind} : {lim['station_panels']} panneaux au plus ({count})")
+    for p in panels:
+        limit = {"table": "table_columns", "kpis": "kpis_columns", "chart": "chart_series"}.get(p.type)
+        if limit and len(p.columns) > lim[limit]:
+            errors.append(f"panneau {p.id} : {lim[limit]} colonnes au plus ({len(p.columns)})")
+    return errors
 
 
 COUNTERS = ["mp", *get_args(ProductState)]  # ordre fixe des compteurs d'un instantané (C = 9)
@@ -540,6 +625,158 @@ class Timeline(BaseModel):
         return self
 
 
+class Tool(BaseModel):
+    """Barre d'actions du HUD ; la touche est le rang dans spec.tools + 1."""
+
+    id: Code
+    label: str = Field(min_length=2, max_length=UI_LIMITS["tool_label"])
+    kind: Literal["action", "tableau_de_bord", "camera", "aide"]  # aide : rouvre le didacticiel
+    action_id: str | None = None  # obligatoire si kind == "action" : action d'un module de la spec
+
+    @model_validator(mode="after")
+    def _action(self) -> "Tool":
+        if self.kind == "action" and not self.action_id:
+            raise ValueError(f"outil {self.id} : un outil « action » désigne une action de module (action_id)")
+        return self
+
+
+class TutorialStep(BaseModel):
+    id: Code
+    title: str = Field(min_length=2, max_length=40)
+    text: str = Field(min_length=10, max_length=160)
+    anchor: str = Field(pattern=r"^(panel|tool|station|agent|dept):[a-z0-9_-]+$")
+    # panel:<Panel.id>, tool:<Tool.id>, station:<Station.kind>, agent:<Agent.id>, dept:<Department.id>
+
+
+class DesignObjective(BaseModel):
+    id: Code
+    verb: Bloom
+    text: str = Field(min_length=10, max_length=140)  # complément du verbe : « le goulot de chaque ligne »
+    notion_ids: list[str] = Field(min_length=1, max_length=3)
+    indicator: str  # dans engine.indicator_ids(spec)
+    module_ids: list[ModuleId] = Field(min_length=1, max_length=3)
+
+
+class DebriefQuestion(BaseModel):
+    id: Code
+    text: str = Field(min_length=15, max_length=200)
+    objective_id: str
+    notion_id: str  # une notion de l'objectif
+
+
+class CastAgent(BaseModel):
+    """Sortie de la section cast, et édition d'un personnage."""
+
+    agent_id: str
+    name: str = Field(min_length=2, max_length=30)
+    personality: str  # id de pack["personalities"], du ton retenu
+    backstory: str = Field(min_length=20, max_length=160)
+
+
+class DesignOrigin(BaseModel):
+    sections: dict[Section, SectionMode]
+    model: str | None = None  # nom Ollama réellement servi (repli compris)
+    prompts: dict[str, int] = Field(default_factory=dict)  # tâche -> version du prompt
+    seed: int
+    brief_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")  # brief normalisé (strip, espaces réduits)
+    pack_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")  # octets du fichier du pack
+    duration_ms: int = Field(ge=0)
+    tokens: dict[str, int] = Field(default_factory=dict)  # prompt, completion (somme des appels)
+    repairs: list[str] = Field(default_factory=list, max_length=30)
+    warnings: list[str] = Field(default_factory=list, max_length=30)
+    edits: int = 0
+
+
+class Design(BaseModel):
+    """spec.design : présent seulement si le concept vient de l'IA (ADR 0008)."""
+
+    version: Literal[1] = 1
+    brief: str = Field(min_length=20, max_length=2000)
+    audience: Audience
+    fixed: dict[str, Any] = Field(default_factory=dict)  # contraintes du formateur (clés de FIXABLE)
+    context: str = Field(min_length=20, max_length=700)
+    objectives: list[DesignObjective] = Field(min_length=2, max_length=4)
+    debrief: list[DebriefQuestion] = Field(default_factory=list, max_length=6)  # vide si journey est en repli
+    unmet: list[str] = Field(default_factory=list, max_length=3)  # chacune <= 120 caractères
+    rationale: dict[str, str] = Field(default_factory=dict)  # clés RATIONALE_KEYS, <= 160 caractères
+    playability: dict[str, Any] = Field(default_factory=dict)  # sortie de design.playability
+    origin: DesignOrigin
+
+    @model_validator(mode="after")
+    def _shape(self) -> "Design":
+        errors = [f"contrainte non imposable : {k}" for k in sorted(set(self.fixed) - FIXABLE)]
+        errors += [f"justification inconnue : {k}" for k in sorted(set(self.rationale) - RATIONALE_KEYS)]
+        errors += [f"justification {k} : 160 caractères au plus" for k, v in self.rationale.items() if len(v) > 160]
+        errors += [f"non couvert : 120 caractères au plus ({u[:20]}…)" for u in self.unmet if len(u) > 120]
+        if errors:
+            raise ValueError("; ".join(errors[:10]))
+        return self
+
+
+class DesignRequest(BaseModel):
+    """Corps de POST /games/designs."""
+
+    pack: Code
+    brief: str = Field(min_length=20, max_length=2000)
+    audience: Audience = "licence"
+    fixed: dict[str, Any] = Field(default_factory=dict)
+    players_min: int = Field(default=2, ge=1, le=60)
+    players_max: int = Field(default=6, ge=1, le=60)
+    seed: int | None = Field(default=None, ge=0, le=2**31 - 1)
+
+    @model_validator(mode="after")
+    def _check(self) -> "DesignRequest":
+        unknown = sorted(set(self.fixed) - FIXABLE)
+        if unknown:
+            raise ValueError(f"contrainte non imposable : {', '.join(unknown)}")
+        players = {"players_min": self.players_min, "players_max": self.players_max}
+        GameParams(**(default_params(self.pack) | self.fixed | players))  # ValueError si le pack ou une valeur refuse
+        return self
+
+
+class DesignEdit(BaseModel):
+    """Corps de PUT /games/{id}/design ; un champ absent reste inchangé."""
+
+    title: str | None = Field(default=None, min_length=10, max_length=80)
+    pitch: str | None = Field(default=None, min_length=40, max_length=500)
+    context: str | None = Field(default=None, min_length=20, max_length=700)
+    objectives: list[DesignObjective] | None = None
+    debrief: list[DebriefQuestion] | None = None
+    agents: list[CastAgent] | None = None
+    panels: list[str] | None = None  # ids du catalogue du pack, dans l'ordre d'affichage
+    tools: list[str] | None = None  # idem
+    tutorial: list[TutorialStep] | None = None
+    tunings: dict[str, Difficulty] | None = None
+    event_plan: list[PlannedEvent] | None = None
+    ui_theme: Code | None = None
+
+
+def default_params(pack_id: str) -> dict[str, Any]:
+    """GameParams d'un pack sans aucun choix : premier secteur, tous les modules (7 au plus), aucun agent en plus,
+    ton « mixte » (sinon le premier), « equilibre », défauts de `limits`, aléas « rares », défaut de chaque option."""
+    pack = load_pack(pack_id)
+    tones = list(pack.get("agent_tones", ["mixte"]))
+    options: dict[str, int | str] = {}
+    for raw in pack.get("params", []):
+        field = ActionField.model_validate(raw)
+        if field.type == "int":
+            options[field.id] = field.default if field.default is not None else field.min or 0
+        else:
+            options[field.id] = (field.options or [Option(id="", label="")])[0].id
+    return {
+        "pack": pack_id,
+        "theme": next(iter(pack["themes"])),
+        "modules": list(pack["modules"])[:7],
+        "extra_agents": [],
+        "agent_tone": "mixte" if "mixte" in tones else tones[0],
+        "difficulty": "equilibre",
+        "weeks": pack.get("limits", {}).get("weeks", ATELIER_LIMITS["weeks"])[2],
+        "products": pack.get("limits", {}).get("products", ATELIER_LIMITS["products"])[2],
+        "events": "rares",
+        "options": options,
+    }
+
+
 class SimSpec(BaseModel):
     kind: Literal["simulation"] = "simulation"
     version: Literal[2] = 2
@@ -566,6 +803,9 @@ class SimSpec(BaseModel):
     provenance: dict[str, Provenance] = Field(
         default_factory=dict, description="clé « famille.paramètre », ex. machine.mtbf_h"
     )
+    tools: list[Tool] = Field(default_factory=list)
+    tutorial: list[TutorialStep] = Field(default_factory=list)
+    design: Design | None = None
 
     @model_validator(mode="after")
     def _references(self) -> "SimSpec":
@@ -644,9 +884,90 @@ class SimSpec(BaseModel):
                 if c.target and c.target.split(".")[0] not in PUBLIC_ROOTS
             ]
             errors += [f"panneau {panel.id} : aucun poste de type {k}" for k in panel.station_kinds if k not in posted]
+        errors += panel_errors(self.panels) + self._ui_errors(ids) + self._text_errors()
+        if self.design:
+            errors += self._design_errors(pack, ids)
         if errors:
             raise ValueError("; ".join(errors[:10]))
         return self
+
+    def _ui_errors(self, ids: dict[str, set[str]]) -> list[str]:
+        """Barre d'actions et didacticiel : limites de lisibilité, actions des modules joués, ancres existantes."""
+        errors = []
+        if len(self.tools) > UI_LIMITS["tools"]:
+            errors.append(f"outils : {UI_LIMITS['tools']} au plus ({len(self.tools)})")
+        if len({t.id for t in self.tools}) != len(self.tools):
+            errors.append("identifiants d'outil en double")
+        actions = {a.id for m in self.modules for a in m.actions}
+        errors += [
+            f"outil {t.id} : action {t.action_id} absente des modules joués"
+            for t in self.tools
+            if t.kind == "action" and t.action_id not in actions
+        ]
+        if len(self.tutorial) > UI_LIMITS["tutorial_steps"]:
+            errors.append(f"didacticiel : {UI_LIMITS['tutorial_steps']} étapes au plus ({len(self.tutorial)})")
+        anchors = {
+            "panel": {p.id for p in self.panels}, "tool": {t.id for t in self.tools},
+            "station": {s.kind for s in self.stations}, "agent": {a.id for a in self.agents},
+            "dept": ids["departments"],
+        }  # fmt: skip
+        for step in self.tutorial:
+            kind, _, target = step.anchor.partition(":")
+            if target not in anchors[kind]:
+                errors.append(f"didacticiel {step.id} : ancre inconnue {step.anchor}")
+        return errors
+
+    def _text_errors(self) -> list[str]:
+        """Aucun chiffre ni lien dans un texte conçu : les nombres viennent du moteur, les sources du pack."""
+        texts = [(f"fiche de {a.id}", a.backstory) for a in self.agents if a.backstory]
+        texts += [(f"didacticiel {s.id}", f"{s.title} {s.text}") for s in self.tutorial]
+        if self.design:
+            d = self.design
+            texts += [("contexte", d.context)] + [(f"objectif {o.id}", o.text) for o in d.objectives]
+            texts += [(f"question {q.id}", q.text) for q in d.debrief] + [("non couvert", u) for u in d.unmet]
+            texts += [(f"justification {k}", v) for k, v in d.rationale.items()]
+        return [f"{where} : ni chiffre ni lien dans un texte conçu" for where, text in texts
+                if FORBIDDEN_IN_TEXT.search(text)]  # fmt: skip
+
+    def _design_errors(self, pack: dict[str, Any], ids: dict[str, set[str]]) -> list[str]:
+        """Cohérence de spec.design avec les modules, notions et indicateurs de la spec et du pack."""
+        design = self.design
+        assert design is not None
+        pack_notions = pack.get("notions", {})
+        indicators = _engine_indicators(self.model_dump(mode="json"))
+        errors = []
+        objective_ids = [o.id for o in design.objectives]
+        if len(set(objective_ids)) != len(objective_ids):
+            errors.append("identifiants d'objectif en double")
+        question_ids = [q.id for q in design.debrief]
+        if len(set(question_ids)) != len(question_ids):
+            errors.append("identifiants de question en double")
+        for o in design.objectives:
+            errors += [f"objectif {o.id} : module inactif {m}" for m in o.module_ids if m not in ids["modules"]]
+            own = {n for m in self.modules if m.id in o.module_ids for n in m.notions}
+            own |= {n for a in self.agents if a.module_id in o.module_ids for n in a.notions}
+            for n in o.notion_ids:
+                if n not in ids["notions"] | pack_notions.keys():
+                    errors.append(f"objectif {o.id} : notion inconnue {n}")
+                elif n not in own:
+                    errors.append(f"objectif {o.id} : la notion {n} n'appartient à aucun de ses modules")
+            if o.indicator not in indicators:
+                errors.append(f"objectif {o.id} : indicateur inconnu {o.indicator}")
+                continue
+            declared = [pack_notions[n]["indicators"] for n in o.notion_ids if "indicators" in pack_notions.get(n, {})]
+            if declared and o.indicator not in {i for allowed in declared for i in allowed}:
+                errors.append(f"objectif {o.id} : l'indicateur {o.indicator} n'illustre aucune de ses notions")
+        by_id = {o.id: o for o in design.objectives}
+        for q in design.debrief:
+            objective = by_id.get(q.objective_id)
+            if objective is None:
+                errors.append(f"question {q.id} : objectif inconnu {q.objective_id}")
+            elif q.notion_id not in objective.notion_ids:
+                errors.append(f"question {q.id} : la notion {q.notion_id} n'est pas celle de l'objectif {objective.id}")
+        if design.origin.sections.get("journey") != "repli":
+            asked = {q.objective_id for q in design.debrief}
+            errors += [f"objectif {o.id} sans question de débrief" for o in design.objectives if o.id not in asked]
+        return errors
 
     def _factory_errors(self, ids: dict[str, set[str]]) -> list[str]:
         factory = self.factory
@@ -695,6 +1016,15 @@ class SimSpec(BaseModel):
         return errors
 
 
+def _engine_indicators(spec: dict[str, Any]) -> set[str]:
+    """Indicateurs du débrief que le moteur de cette spec calcule (`engine.indicator_ids`)."""
+    from gmix.game import engine  # import tardif : engine importera factory, qui importe ce module
+
+    # shortcut: engine.indicator_ids arrive avec l'étape 5 (moteur-jeu) ; d'ici là, les 4 indicateurs de l'atelier
+    indicator_ids = getattr(engine, "indicator_ids", None)
+    return set(indicator_ids(spec)) if indicator_ids else {"otif", "trs", "stockouts", "cash"}
+
+
 def _resolve_citations(notions: dict[str, Any], domain: str) -> None:
     """Citation de chaque notion qui désigne une fiche (`source:`), lue dans son en-tête « > Source : »."""
     for notion in notions.values():
@@ -710,6 +1040,7 @@ def _resolve_citations(notions: dict[str, Any], domain: str) -> None:
 def load_sim_catalog() -> dict[str, Any]:
     """ai/simulation.yaml (pack « atelier »), avec la citation de chaque notion lue dans sa fiche du corpus."""
     catalog = yaml.safe_load((get_settings().gmix_ai_dir / "simulation.yaml").read_text(encoding="utf-8"))
+    _check_pack("atelier", catalog)
     _resolve_citations(catalog["notions"], "supply-chain")
     return catalog
 
@@ -745,6 +1076,53 @@ def _check_pack(pack_id: str, pack: dict[str, Any]) -> None:
     names = [s["kind"] for s in stations]
     if len(set(names)) != len(names) or "machine" in names:
         raise ValueError(f"pack {pack_id} : type de poste en double ou réservé (« machine » est créé par machine)")
+    try:
+        _check_design_keys(pack_id, pack)
+    except ValueError as exc:  # ValidationError de Tool ou TutorialStep : message préfixé par le pack
+        if str(exc).startswith(f"pack {pack_id}"):
+            raise
+        raise ValueError(f"pack {pack_id} : {exc}") from exc
+
+
+def _check_design_keys(pack_id: str, pack: dict[str, Any]) -> None:
+    """Clés de conception d'un pack (ADR 0008, annexe §1) : `tunables`, `notions.*.indicators`, `tools`, `tutorial`."""
+    notions = pack.get("notions", {})
+    for key, tunable in pack.get("tunables", {}).items():
+        for profile in get_args(Difficulty):
+            value = pack.get("difficulties", {}).get(profile, {}).get(key)
+            if type(value) not in (int, float):
+                raise ValueError(f"pack {pack_id} : tunables.{key} doit être numérique dans le profil {profile}")
+        label = tunable.get("label")
+        if not isinstance(label, str) or not 0 < len(label) <= UI_LIMITS["panel_title"]:
+            raise ValueError(
+                f"pack {pack_id} : tunables.{key}.label : texte de {UI_LIMITS['panel_title']} caractères au plus"
+            )
+        missing = [n for n in tunable.get("teaches", []) if n not in notions]
+        if missing:
+            raise ValueError(f"pack {pack_id} : tunables.{key}.teaches : notion inconnue {', '.join(missing)}")
+    for notion_id, notion in notions.items():
+        indicators = notion.get("indicators", [])
+        if not isinstance(indicators, list) or not all(isinstance(i, str) for i in indicators):
+            raise ValueError(f"pack {pack_id} : notions.{notion_id}.indicators doit être une liste d'identifiants")
+    tools = [Tool.model_validate(t) for t in pack.get("tools", [])]
+    actions = {a["id"] for m in pack["modules"].values() for a in m.get("actions", [])}
+    action_tools = [t.action_id for t in tools if t.kind == "action"]
+    if len({t.id for t in tools}) != len(tools) or len(set(action_tools)) != len(action_tools):
+        raise ValueError(f"pack {pack_id} : tools : identifiant ou action en double")
+    missing = [a for a in action_tools if a not in actions]
+    if missing:
+        raise ValueError(f"pack {pack_id} : tools : action absente des modules du pack : {', '.join(missing)}")
+    tutorial = [TutorialStep.model_validate(s) for s in pack.get("tutorial", [])]
+    if len(tutorial) > UI_LIMITS["tutorial_steps"]:
+        raise ValueError(f"pack {pack_id} : tutorial : {UI_LIMITS['tutorial_steps']} étapes au plus")
+    known = {
+        "panel": {p["id"] for p in pack.get("panels", [])}, "tool": {t.id for t in tools},
+        "station": pack_station_kinds(pack_id, pack), "dept": {d["id"] for d in pack.get("departments", [])},
+    }  # fmt: skip  # pas d'ancre « agent: » : les agents n'existent qu'une fois la partie générée
+    for step in tutorial:
+        kind, _, target = step.anchor.partition(":")
+        if target not in known.get(kind, ()):
+            raise ValueError(f"pack {pack_id} : tutorial {step.id} : ancre inconnue du pack {step.anchor}")
 
 
 def pack_station_kinds(pack_id: str, pack: dict[str, Any]) -> frozenset[str]:

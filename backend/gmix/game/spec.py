@@ -30,7 +30,16 @@ ValueStatus = Literal["source", "calibre", "exemple"]
 EventKind = Literal[
     "of_lance", "kit_livre", "lot_termine", "panne", "reparation_debut", "reparation_fin", "preventif", "reglage",
     "changement_outil", "livraison_mp", "non_conforme", "rebut", "palette", "commande_client", "expedition", "agent",
+    "camion_arrive", "camion_part",
 ]  # fmt: skip
+Side = Literal["nord", "sud", "est", "ouest"]
+# Rôles des objets d'un bloc (ADR 0009) ; `Role` désigne déjà les rôles des joueurs
+ElementRole = Literal["stockage", "machine", "tampon", "poste", "affichage", "engin", "decor", "porte", "batiment"]
+EDITABLE_ROLES = frozenset({"decor", "affichage"})  # ajout et retrait de l'éditeur de grille, sans `ref`
+PATTERNS = ("edge", "rows", "line", "single")  # motifs de bloc du pack
+RULE_KINDS = ("adjacent", "flow", "separated", "aisle_min", "facing", "near")  # types de placement_rules
+STAFF_KINDS = frozenset({"demarrer", "avancer", "rejeu", "memoire", "debrief"})
+MENU_SELECTOR = r"^(station:[a-z_]{2,30}|agent:[a-z0-9_]{2,30}|agent:\*|site:[a-z_]{2,30})$"
 SOURCE_LINE = re.compile(r"^> Source : (.+)$", re.MULTILINE)
 Point = tuple[float, float]
 Rect = tuple[float, float, float, float]  # x_min, z_min, x_max, z_max (m, repère du monde Godot)
@@ -56,13 +65,29 @@ FIXABLE = frozenset(
     {"theme", "modules", "extra_agents", "agent_tone", "difficulty", "weeks", "events", "products", "options",
      "company_name"}
 )  # fmt: skip  # champs de GameParams que le formateur peut imposer
-FORBIDDEN_IN_TEXT = re.compile(r"\d|https?://")  # textes conçus : ni chiffre ni lien (les chiffres viennent du moteur)
+# textes conçus : ni chiffre ni lien (les chiffres viennent du moteur). \d ne voit pas ², ½, Ⅻ, ① : isnumeric() les voit
+_FORBIDDEN_IN_TEXT = re.compile(r"\d|https?://")
+TEXT_CHARS = (
+    "A-Za-zÀ-ÖØ-öø-ÿŒœ ,.;:!?'’«»()–-"  # liste blanche des schémas de texte donnés au modèle (annexe 0008 §3.1)
+)
+
+
+def forbidden_in_text(text: str) -> bool:
+    return bool(_FORBIDDEN_IN_TEXT.search(text)) or any(c.isnumeric() for c in text)
+
+
+# Indicateurs du débrief par moteur (ids de engine.debrief()["kpis"]) ; défini ici : pas d'import circulaire
+INDICATORS = {
+    "weekly": ("otif", "trs", "stockouts", "cash"),
+    "factory": ("otif", "trs", "stockouts", "cash", "good_share"),
+}
 RATIONALE_KEYS = frozenset({"modules", "difficulty", "tunings", "events", "agents", "panels", "tutorial", "debrief"})
 UI_LIMITS = {  # lisibilité garantie (godot.ps1 -Tour à 4 tailles de fenêtre)
     "bandeau_panels": 2, "bandeau_columns": 6,  # colonnes : total des panneaux du bandeau
     "dashboard_panels": 6, "station_panels": 2,  # station : par type de poste
     "table_columns": 7, "kpis_columns": 6, "chart_series": 3,
-    "tools": 6, "tutorial_steps": 5,
+    "supervision_panels": 6, "menu_items": 6,  # menu : entrées par cible et par public
+    "tools": 6, "tutorial_steps": 5,  # outils : par public
     "panel_title": 40, "column_label": 24, "state_label": 20, "tool_label": 16,
 }  # fmt: skip
 
@@ -95,6 +120,9 @@ class GameParams(BaseModel):
         default_factory=dict, description="clé de pack['tunables'] -> profil de difficulté qui fournit sa valeur"
     )
     event_plan: list[PlannedEvent] = Field(default_factory=list, max_length=3)
+    network: dict[str, str] = Field(
+        default_factory=dict, description="site du pack -> classe de distance permise ; absent : défaut du pack"
+    )
 
     @model_validator(mode="before")
     @classmethod
@@ -139,6 +167,12 @@ class GameParams(BaseModel):
                 errors.append(f"option {key} : valeur inconnue {value}")
         tunables = pack.get("tunables", {})
         errors += [f"réglage inconnu du pack {self.pack} : {k}" for k in self.tunings if k not in tunables]
+        sites = pack.get("network", {}).get("sites", {})
+        for site_id, distance in self.network.items():
+            if site_id not in sites:
+                errors.append(f"réseau : site inconnu du pack {self.pack} : {site_id}")
+            elif distance not in sites[site_id]["distances"]:
+                errors.append(f"réseau : classe {distance} non permise pour le site {site_id}")
         weeks = [e.week for e in self.event_plan]
         if len(set(weeks)) != len(weeks):
             errors.append("plan d'aléas : une semaine ne porte qu'un aléa")
@@ -287,14 +321,48 @@ class WorldObject(BaseModel):
     rotation: float = 0
     label: str | None = None
     ref: str | None = Field(default=None, description="clé des mises à jour visuelles : stock:p1, line:l1, dock_in…")
+    # ADR 0009 (éditeur de grille) : identité stable et place dans la grille locale du bloc
+    id: str | None = Field(default=None, description="<département>.<rôle>.<n> ; ajout : <département>.ajout.<rang>")
+    department_id: str | None = None
+    role: ElementRole | None = None
+    cell: tuple[int, int] | None = Field(default=None, description="coin de l'emprise, grille locale du bloc")
+    cells: tuple[int, int] | None = Field(default=None, description="emprise en cellules après rotation")
+
+
+class Site(BaseModel):
+    """Site de la carte (ADR 0009) : l'usine, un fournisseur, un client. Sortie du placeur."""
+
+    id: Code
+    kind: Code
+    label: str
+    external: bool
+    area: Rect
+    gate: Point  # raccordement au lien
+    supplier_id: str | None = None  # site fournisseur : fournisseur des offres
+    distance_class: str | None = None
+    km: float | None = Field(default=None, description="distance déclarée par le pack, pas la longueur 3D")
+    travel_h: float | None = None
+    transit_days: int | None = None
+
+
+class Link(BaseModel):
+    id: str
+    type: Code  # link_types du pack : route, convoyeur, couloir, rail…
+    from_site: str
+    to_site: str
+    points: list[Point] = Field(min_length=2)  # polyligne à angles droits
+    vehicle: str | None = None  # id d'asset (veh_box_truck)
 
 
 class World(BaseModel):
     template: Literal["atelier", "usine"] = "atelier"
-    size: Point = (32, 24)
+    size: Point = (32, 24)  # hall du site principal
     spawn: Point
     objects: list[WorldObject]
     forklift_route: list[Point] = Field(default_factory=list)
+    sites: list[Site] = Field(default_factory=list)  # site principal (external=False) en premier
+    links: list[Link] = Field(default_factory=list)
+    bounds: Rect | None = None  # tout le monde
 
 
 class Notion(BaseModel):
@@ -367,11 +435,29 @@ class Provenance(BaseModel):
         return self
 
 
+class BlockGrid(BaseModel):
+    """Grille locale d'un bloc (sortie du placeur, jamais éditée)."""
+
+    origin: Point  # coin du bloc (m)
+    cell_m: float = Field(gt=0)
+    cols: int = Field(ge=1)
+    rows: int = Field(ge=1)
+    reserved: list[tuple[int, int]] = Field(
+        default_factory=list, description="bande d'allée et cellule devant un poste"
+    )
+    palette: dict[str, tuple[int, int]] = Field(
+        default_factory=dict, description="asset de décor ajoutable -> emprise en cellules"
+    )
+
+
 class Department(BaseModel):
     id: Code
     label: str
     external: bool = False
     area: Rect
+    block: Code | None = None  # type de bloc du pack
+    site_id: str | None = None  # zone externe : site qui la porte (son area est celle du site)
+    grid: BlockGrid | None = None
 
     @model_validator(mode="after")
     def _area(self) -> "Department":
@@ -519,7 +605,8 @@ class Panel(BaseModel):
     id: Code
     type: Literal["kpis", "table", "gauge", "chart", "flow"]
     title: str = Field(max_length=UI_LIMITS["panel_title"])
-    placement: Literal["bandeau", "tableau_de_bord", "poste"]
+    placement: Literal["bandeau", "tableau_de_bord", "poste", "supervision"]  # supervision : écran du formateur
+    audience: Literal["joueur", "formateur", "tous"] = "joueur"
     station_kinds: list[StationKind] = Field(default_factory=list, description="placement « poste »")
     source: str = Field(pattern=r"^[a-z_]+(\.[a-z_]+)*$", description="racine dans PUBLIC_ROOTS")
     match: str | None = Field(default=None, description="poste : garder les éléments dont item[match] == station.ref")
@@ -531,6 +618,8 @@ class Panel(BaseModel):
     def _gauge(self) -> "Panel":
         if self.type == "gauge" and (self.min is None or self.max is None or self.min >= self.max):
             raise ValueError(f"panneau {self.id} : une jauge a un min et un max, avec min < max")
+        if self.placement == "supervision" and self.audience == "joueur":
+            raise ValueError(f"panneau {self.id} : la supervision est celle du formateur (audience formateur ou tous)")
         return self
 
 
@@ -545,6 +634,9 @@ def panel_errors(panels: list[Panel]) -> list[str]:
     dashboard = [p for p in panels if p.placement == "tableau_de_bord"]
     if len(dashboard) > lim["dashboard_panels"]:
         errors.append(f"tableau de bord : {lim['dashboard_panels']} panneaux au plus ({len(dashboard)})")
+    supervision = [p for p in panels if p.placement == "supervision"]
+    if len(supervision) > lim["supervision_panels"]:
+        errors.append(f"supervision : {lim['supervision_panels']} panneaux au plus ({len(supervision)})")
     for kind in sorted({k for p in panels if p.placement == "poste" for k in p.station_kinds}):
         count = sum(1 for p in panels if p.placement == "poste" and kind in p.station_kinds)
         if count > lim["station_panels"]:
@@ -569,6 +661,7 @@ EVENT_DATA = {
     "commande_client": {"quantity", "due_day"},
     "expedition": {"quantity", "on_time"},
     "agent": {"state", "at", "until"},
+    **dict.fromkeys(("camion_arrive", "camion_part"), {"site_id"}),  # sujet : commande d'achat ou client-<jour>
 }
 
 
@@ -630,13 +723,28 @@ class Tool(BaseModel):
 
     id: Code
     label: str = Field(min_length=2, max_length=UI_LIMITS["tool_label"])
-    kind: Literal["action", "tableau_de_bord", "camera", "aide"]  # aide : rouvre le didacticiel
+    audience: Literal["joueur", "formateur"] = "joueur"
+    kind: Literal[
+        "action", "tableau_de_bord", "camera", "aide",  # aide : rouvre le didacticiel ; action : joueur seul
+        "parler", "fiche",  # menu contextuel : parler à l'agent visé ; fiches de notions du poste, de l'agent, du site
+        "demarrer", "avancer", "rejeu", "memoire", "debrief",  # formateur seul : routes Staff existantes
+    ]  # fmt: skip
     action_id: str | None = None  # obligatoire si kind == "action" : action d'un module de la spec
+    menu: list[Annotated[str, Field(pattern=MENU_SELECTOR)]] = Field(
+        default_factory=list, description="sélecteurs de cible : station:<kind>, agent:<id>, agent:*, site:<kind>"
+    )
+    bar: bool = Field(default=True, description="False : seulement dans les menus (hors UI_LIMITS['tools'])")
 
     @model_validator(mode="after")
     def _action(self) -> "Tool":
         if self.kind == "action" and not self.action_id:
             raise ValueError(f"outil {self.id} : un outil « action » désigne une action de module (action_id)")
+        if self.kind == "action" and self.audience != "joueur":
+            raise ValueError(f"outil {self.id} : une action de module est réservée au joueur")
+        if self.kind in STAFF_KINDS and self.audience != "formateur":
+            raise ValueError(f"outil {self.id} : « {self.kind} » est réservé au formateur")
+        if self.kind == "parler" and any(not m.startswith("agent:") for m in self.menu):
+            raise ValueError(f"outil {self.id} : « parler » ne vise qu'un agent (agent:<id> ou agent:*)")
         return self
 
 
@@ -653,7 +761,7 @@ class DesignObjective(BaseModel):
     verb: Bloom
     text: str = Field(min_length=10, max_length=140)  # complément du verbe : « le goulot de chaque ligne »
     notion_ids: list[str] = Field(min_length=1, max_length=3)
-    indicator: str  # dans engine.indicator_ids(spec)
+    indicator: str  # dans INDICATORS (moteur de la spec)
     module_ids: list[ModuleId] = Field(min_length=1, max_length=3)
 
 
@@ -777,6 +885,30 @@ def default_params(pack_id: str) -> dict[str, Any]:
     }
 
 
+class LayoutEdit(BaseModel):
+    """Retouche du formateur, en cellules de la grille locale d'un bloc (ADR 0009, point 8). Le contrôle de
+    placement relève de layout.check_placement."""
+
+    op: Literal["move", "remove", "add"]
+    object_id: str | None = None  # move, remove
+    department_id: str | None = None  # add
+    asset: str | None = None  # add : clé de grid.palette
+    cell: tuple[int, int] | None = None  # move, add
+    rot: Literal[0, 90, 180, 270] = 0  # remove : 0
+
+    @model_validator(mode="after")
+    def _fields(self) -> "LayoutEdit":
+        needed = {"move": {"object_id", "cell"}, "remove": {"object_id"}, "add": {"department_id", "asset", "cell"}}
+        given = {k for k in ("object_id", "department_id", "asset", "cell") if getattr(self, k) is not None}
+        if self.op == "remove" and self.rot:
+            given.add("rot")
+        if given != needed[self.op]:
+            raise ValueError(f"retouche {self.op} : champs {sorted(needed[self.op])} exigés, aucun autre")
+        if self.cell is not None and min(self.cell) < 0:
+            raise ValueError(f"retouche {self.op} : cellule négative")
+        return self
+
+
 class SimSpec(BaseModel):
     kind: Literal["simulation"] = "simulation"
     version: Literal[2] = 2
@@ -806,6 +938,7 @@ class SimSpec(BaseModel):
     tools: list[Tool] = Field(default_factory=list)
     tutorial: list[TutorialStep] = Field(default_factory=list)
     design: Design | None = None
+    layout_edits: list[LayoutEdit] = Field(default_factory=list, max_length=200)
 
     @model_validator(mode="after")
     def _references(self) -> "SimSpec":
@@ -872,6 +1005,7 @@ class SimSpec(BaseModel):
             for x in items
             if x.department_id and x.department_id not in ids["departments"]
         ]
+        errors += self._world_errors() + self._layout_errors()
         posted = {s.kind for s in self.stations}
         if len({p.id for p in self.panels}) != len(self.panels):
             errors.append("identifiants de panneau en double")
@@ -894,10 +1028,14 @@ class SimSpec(BaseModel):
     def _ui_errors(self, ids: dict[str, set[str]]) -> list[str]:
         """Barre d'actions et didacticiel : limites de lisibilité, actions des modules joués, ancres existantes."""
         errors = []
-        if len(self.tools) > UI_LIMITS["tools"]:
-            errors.append(f"outils : {UI_LIMITS['tools']} au plus ({len(self.tools)})")
+        for audience in ("joueur", "formateur"):
+            bar = [t for t in self.tools if t.audience == audience and t.bar]
+            if len(bar) > UI_LIMITS["tools"]:
+                what = "outils" if audience == "joueur" else f"outils {audience}"
+                errors.append(f"{what} : {UI_LIMITS['tools']} au plus ({len(bar)})")
         if len({t.id for t in self.tools}) != len(self.tools):
             errors.append("identifiants d'outil en double")
+        errors += self._menu_errors()
         actions = {a.id for m in self.modules for a in m.actions}
         errors += [
             f"outil {t.id} : action {t.action_id} absente des modules joués"
@@ -917,6 +1055,93 @@ class SimSpec(BaseModel):
                 errors.append(f"didacticiel {step.id} : ancre inconnue {step.anchor}")
         return errors
 
+    def _menu_errors(self) -> list[str]:
+        """Menus contextuels (ADR 0009, point 9) : cibles connues, action du bon poste, 6 entrées au plus par cible."""
+        known = {
+            "station": {s.kind for s in self.stations}, "agent": {a.id for a in self.agents} | {"*"},
+            "site": {s.kind for s in self.world.sites},
+        }  # fmt: skip
+        owner = {a.id: m for m in self.modules for a in m.actions}
+        errors, count = [], {}
+        for tool in self.tools:
+            for selector in tool.menu:
+                kind, _, target = selector.partition(":")
+                if target not in known[kind]:
+                    errors.append(f"outil {tool.id} : menu, cible inconnue {selector}")
+                    continue
+                count[(tool.audience, selector)] = count.get((tool.audience, selector), 0) + 1
+                module = owner.get(tool.action_id or "")
+                if tool.kind == "action" and kind == "station" and module and target not in module.stations:
+                    errors.append(
+                        f"outil {tool.id} : l'action {tool.action_id} n'appartient à aucun module du poste {target}"
+                    )
+        limit = UI_LIMITS["menu_items"]
+        errors += [
+            f"menu {sel} ({aud}) : {limit} entrées au plus ({n})" for (aud, sel), n in count.items() if n > limit
+        ]
+        return errors
+
+    def _world_errors(self) -> list[str]:
+        """Sites et liens (ADR 0009) ; départements : site existant ; ids d'objet uniques."""
+        world, errors = self.world, []
+        site_ids = {s.id for s in world.sites}
+        errors += [
+            f"département {d.id} : site inconnu {d.site_id}"
+            for d in self.departments
+            if d.site_id and d.site_id not in site_ids
+        ]
+        object_ids = [o.id for o in world.objects if o.id]
+        if len(set(object_ids)) != len(object_ids):
+            errors.append("identifiants d'objet en double")
+        if not world.sites:
+            return errors
+        if len(site_ids) != len(world.sites):
+            errors.append("identifiants de site en double")
+        if [s.external for s in world.sites].count(False) != 1 or world.sites[0].external:
+            errors.append("sites : un seul site principal (external faux), en premier")
+        bounds = world.bounds
+        if bounds is None:
+            errors.append("sites : world.bounds est absent")
+        for i, a in enumerate(world.sites):
+            if bounds and not (bounds[0] <= a.area[0] and bounds[1] <= a.area[1] and a.area[2] <= bounds[2]
+                               and a.area[3] <= bounds[3]):  # fmt: skip
+                errors.append(f"site {a.id} : hors de world.bounds")
+            errors += [
+                f"sites {a.id} et {b.id} : aires qui se chevauchent"
+                for b in world.sites[i + 1 :]
+                if a.area[0] < b.area[2] and b.area[0] < a.area[2] and a.area[1] < b.area[3] and b.area[1] < a.area[3]
+            ]
+        for link in world.links:
+            if link.from_site not in site_ids or link.to_site not in site_ids:
+                errors.append(f"lien {link.id} : site inconnu")
+            if any(p[0] != q[0] and p[1] != q[1] for p, q in zip(link.points, link.points[1:], strict=False)):
+                errors.append(f"lien {link.id} : segment ni horizontal ni vertical")
+        suppliers = {s.supplier_id for s in world.sites if s.supplier_id}
+        errors += [f"site fournisseur inconnu {x}" for x in sorted(suppliers - {s.id for s in self.suppliers})]
+        errors += [f"fournisseur {x} sans site" for x in sorted({o.supplier_id for o in self.offers} - suppliers)]
+        return errors
+
+    def _layout_errors(self) -> list[str]:
+        """layout_edits : champs selon l'opération (modèle) ; ici seulement des ids d'objet ou de département connus,
+        et retrait réservé aux rôles `decor` et `affichage` sans `ref`."""
+        objects = {o.id: o for o in self.world.objects if o.id}
+        departments = {d.id for d in self.departments}
+        errors = []
+        for rank, edit in enumerate(self.layout_edits, start=1):
+            if edit.op == "add":
+                if edit.department_id not in departments:
+                    errors.append(f"retouche {rank} : département inconnu {edit.department_id}")
+                continue
+            target = objects.get(edit.object_id or "")
+            added = (edit.object_id or "").rpartition(
+                ".ajout."
+            )  # objet ajouté par une retouche : « <dép>.ajout.<rang> »
+            if target is None and not (added[1] and added[0] in departments and added[2].isdigit()):
+                errors.append(f"retouche {rank} : objet inconnu {edit.object_id}")
+            elif edit.op == "remove" and target and (target.role not in EDITABLE_ROLES or target.ref):
+                errors.append(f"retouche {rank} : l'objet {edit.object_id} est simulé, il ne se retire pas")
+        return errors
+
     def _text_errors(self) -> list[str]:
         """Aucun chiffre ni lien dans un texte conçu : les nombres viennent du moteur, les sources du pack."""
         texts = [(f"fiche de {a.id}", a.backstory) for a in self.agents if a.backstory]
@@ -927,14 +1152,14 @@ class SimSpec(BaseModel):
             texts += [(f"question {q.id}", q.text) for q in d.debrief] + [("non couvert", u) for u in d.unmet]
             texts += [(f"justification {k}", v) for k, v in d.rationale.items()]
         return [f"{where} : ni chiffre ni lien dans un texte conçu" for where, text in texts
-                if FORBIDDEN_IN_TEXT.search(text)]  # fmt: skip
+                if forbidden_in_text(text)]  # fmt: skip
 
     def _design_errors(self, pack: dict[str, Any], ids: dict[str, set[str]]) -> list[str]:
         """Cohérence de spec.design avec les modules, notions et indicateurs de la spec et du pack."""
         design = self.design
         assert design is not None
         pack_notions = pack.get("notions", {})
-        indicators = _engine_indicators(self.model_dump(mode="json"))
+        indicators = set(INDICATORS["factory" if self.factory else "weekly"])
         errors = []
         objective_ids = [o.id for o in design.objectives]
         if len(set(objective_ids)) != len(objective_ids):
@@ -1016,15 +1241,6 @@ class SimSpec(BaseModel):
         return errors
 
 
-def _engine_indicators(spec: dict[str, Any]) -> set[str]:
-    """Indicateurs du débrief que le moteur de cette spec calcule (`engine.indicator_ids`)."""
-    from gmix.game import engine  # import tardif : engine importera factory, qui importe ce module
-
-    # shortcut: engine.indicator_ids arrive avec l'étape 5 (moteur-jeu) ; d'ici là, les 4 indicateurs de l'atelier
-    indicator_ids = getattr(engine, "indicator_ids", None)
-    return set(indicator_ids(spec)) if indicator_ids else {"otif", "trs", "stockouts", "cash"}
-
-
 def _resolve_citations(notions: dict[str, Any], domain: str) -> None:
     """Citation de chaque notion qui désigne une fiche (`source:`), lue dans son en-tête « > Source : »."""
     for notion in notions.values():
@@ -1078,6 +1294,7 @@ def _check_pack(pack_id: str, pack: dict[str, Any]) -> None:
         raise ValueError(f"pack {pack_id} : type de poste en double ou réservé (« machine » est créé par machine)")
     try:
         _check_design_keys(pack_id, pack)
+        _check_world_keys(pack_id, pack)
     except ValueError as exc:  # ValidationError de Tool ou TutorialStep : message préfixé par le pack
         if str(exc).startswith(f"pack {pack_id}"):
             raise
@@ -1097,6 +1314,10 @@ def _check_design_keys(pack_id: str, pack: dict[str, Any]) -> None:
             raise ValueError(
                 f"pack {pack_id} : tunables.{key}.label : texte de {UI_LIMITS['panel_title']} caractères au plus"
             )
+        # shortcut: `value` n'est exigé nulle part tant que l'usine ne le déclare pas (arbitrage e : à exiger quand
+        # game-designer l'aura livré) ; déclaré, il doit désigner une clé de `values`
+        if "value" in tunable and tunable["value"] not in pack.get("values", {}):
+            raise ValueError(f"pack {pack_id} : tunables.{key}.value : clé absente de values : {tunable['value']}")
         missing = [n for n in tunable.get("teaches", []) if n not in notions]
         if missing:
             raise ValueError(f"pack {pack_id} : tunables.{key}.teaches : notion inconnue {', '.join(missing)}")
@@ -1104,6 +1325,9 @@ def _check_design_keys(pack_id: str, pack: dict[str, Any]) -> None:
         indicators = notion.get("indicators", [])
         if not isinstance(indicators, list) or not all(isinstance(i, str) for i in indicators):
             raise ValueError(f"pack {pack_id} : notions.{notion_id}.indicators doit être une liste d'identifiants")
+        known = INDICATORS["factory" if pack.get("engine") == "factory" else "weekly"]
+        if not set(indicators) <= set(known):
+            raise ValueError(f"pack {pack_id} : notions.{notion_id}.indicators : inconnus du moteur : {indicators}")
     tools = [Tool.model_validate(t) for t in pack.get("tools", [])]
     actions = {a["id"] for m in pack["modules"].values() for a in m.get("actions", [])}
     action_tools = [t.action_id for t in tools if t.kind == "action"]
@@ -1123,6 +1347,126 @@ def _check_design_keys(pack_id: str, pack: dict[str, Any]) -> None:
         kind, _, target = step.anchor.partition(":")
         if target not in known.get(kind, ()):
             raise ValueError(f"pack {pack_id} : tutorial {step.id} : ancre inconnue du pack {step.anchor}")
+
+
+def _positive(value: Any, *, zero: bool = False) -> bool:
+    return type(value) in (int, float) and (value >= 0 if zero else value > 0)
+
+
+def _check_world_keys(pack_id: str, pack: dict[str, Any]) -> None:
+    """Clés de monde d'un pack (ADR 0009) : `grid`, `block_types`, `network`, `placement_rules`, `values` reseau.*,
+    blocs et éléments des départements. Toutes facultatives (l'atelier n'en déclare aucune) ; déclarées, elles sont
+    contrôlées en entier."""
+
+    def fail(message: str) -> None:
+        raise ValueError(f"pack {pack_id} : {message}")
+
+    departments = pack.get("departments", [])
+    grid = pack.get("grid")
+    if grid is not None:
+        cell = grid.get("site_cell_m") if isinstance(grid, dict) else None
+        if not _positive(cell):
+            fail("grid.site_cell_m doit être un nombre positif")
+        for d in departments:
+            for edge in () if d.get("external") else d.get("area", ()):
+                if abs(edge / cell - round(edge / cell)) > 1e-6:
+                    fail(f"departments.{d['id']}.area : multiple de grid.site_cell_m ({cell}) attendu")
+    blocks = pack.get("block_types", {})
+    for block_id, block in blocks.items():
+        where = f"block_types.{block_id}"
+        if not isinstance(block.get("label"), str) or block.get("pattern") not in PATTERNS:
+            fail(f"{where} : label et pattern ({', '.join(PATTERNS)}) attendus")
+        if not _positive(block.get("cell_m")):
+            fail(f"{where}.cell_m doit être un nombre positif")
+        for key in ("front_aisle_cells", "row_aisle_cells"):
+            if type(block.get(key, 0)) is not int or block.get(key, 0) < 0:
+                fail(f"{where}.{key} doit être un entier positif ou nul")
+        decor = block.get("decor", [])
+        if not isinstance(decor, list) or not all(isinstance(a, str) for a in decor):
+            fail(f"{where}.decor doit être une liste d'assets")
+    sides, roles = get_args(Side), get_args(ElementRole)
+    for d in departments:
+        if "block" in d and d["block"] not in blocks:
+            fail(f"departments.{d['id']}.block : type de bloc inconnu {d['block']}")
+        if "front" in d and d["front"] not in sides:
+            fail(f"departments.{d['id']}.front : {', '.join(sides)} attendu")
+        if "capacity" in d and d["capacity"] not in ("mp_capacity_pallets", "pf_capacity_pallets"):
+            fail(f"departments.{d['id']}.capacity : mp_capacity_pallets ou pf_capacity_pallets attendu")
+        for element in d.get("elements", []):
+            where = f"departments.{d['id']} élément {element.get('asset')}"
+            if "role" in element and element["role"] not in roles:
+                fail(f"{where} : role inconnu {element['role']}")
+            if "count" in element and "per" in element:
+                fail(f"{where} : count ou per, pas les deux")
+            if "count" in element and (type(element["count"]) is not int or element["count"] < 0):
+                fail(f"{where} : count entier positif ou nul attendu")
+            if "per" in element and element["per"] not in ("line", "machine", "places"):
+                fail(f"{where} : per vaut line, machine ou places")
+            if element.get("per") == "places" and not _positive(element.get("places")):
+                fail(f"{where} : per places exige places (places par élément)")
+    network = pack.get("network")
+    if network is not None:
+        classes, link_types, sites = (network.get(k, {}) for k in ("distance_classes", "link_types", "sites"))
+        cell = network.get("map", {})
+        if not _positive(cell.get("cell_m")) or not _positive(cell.get("road_offset_m"), zero=True):
+            fail("network.map : cell_m positif et road_offset_m positif ou nul attendus")
+        if not _positive(network.get("driving_h_per_day")):
+            fail("network.driving_h_per_day doit être un nombre positif")
+        if not classes or not link_types or not sites:
+            fail("network : distance_classes, link_types et sites ne sont pas vides")
+        for name, c in classes.items():
+            if not isinstance(c.get("label"), str) or not _positive(c.get("km")) or type(c.get("ring")) is not int:
+                fail(f"network.distance_classes.{name} : label, km positif et ring entier attendus")
+        for name, t in link_types.items():
+            if not isinstance(t.get("label"), str) or not _positive(t.get("speed_kmh")) or not t.get("vehicle"):
+                fail(f"network.link_types.{name} : label, speed_kmh positif et vehicle attendus")
+        for name, site in sites.items():
+            where = f"network.sites.{name}"
+            if not re.fullmatch(CODE_PATTERN, str(site.get("kind"))) or site.get("side") not in ("ouest", "est"):
+                fail(f"{where} : kind (code) et side (ouest ou est) attendus")
+            if site.get("link") not in link_types or not site.get("building"):
+                fail(f"{where} : link du pack et building attendus")
+            distances = site.get("distances")
+            if not distances or not isinstance(distances, list) or not set(distances) <= classes.keys():
+                fail(f"{where}.distances : classes de distance du pack attendues")
+            if site.get("default") not in distances:
+                fail(f"{where}.default : une des distances permises attendue")
+            if type(site.get("prep_days")) is not int or site["prep_days"] < 0:
+                fail(f"{where}.prep_days : entier positif ou nul attendu")
+        if "values" in pack:  # chaque nombre du réseau a sa provenance
+            wanted = [f"reseau.distance.{c}" for c in classes] + [f"reseau.vitesse.{t}" for t in link_types]
+            wanted += ["reseau.conduite_h_jour", *(f"reseau.preparation.{s}" for s in sites)]
+            absent = [k for k in wanted if k not in pack["values"]]
+            if absent:
+                fail(f"values : provenance absente : {', '.join(absent)}")
+    rules = pack.get("placement_rules", [])
+    if len({r.get("id") for r in rules}) != len(rules):
+        fail("placement_rules : identifiant en double")
+    known = {d["id"] for d in departments} | set(blocks)
+    needs = {"adjacent": ("a", "b"), "flow": ("blocks",), "separated": ("a", "b", "min_m"), "aisle_min": ("min_m",),
+             "facing": ("block", "role", "toward"), "near": ("a", "b", "max_m")}  # fmt: skip
+    for rule in rules:
+        where, kind = f"placement_rules.{rule.get('id')}", rule.get("kind")
+        if kind not in RULE_KINDS:
+            fail(f"{where} : kind vaut {', '.join(RULE_KINDS)}")
+        if rule.get("status") not in get_args(ValueStatus):
+            fail(f"{where} : status vaut source, calibre ou exemple")
+        origin = "citation" if rule["status"] == "source" else "note"
+        if not rule.get(origin):
+            fail(f"{where} : {origin} manquante (provenance)")
+        absent = [k for k in needs[kind] if k not in rule]
+        if absent:
+            fail(f"{where} : paramètres manquants {', '.join(absent)}")
+        if any(not _positive(rule[k]) for k in ("min_m", "max_m") if k in rule):
+            fail(f"{where} : min_m et max_m sont des nombres positifs")
+        if kind == "flow" and (not isinstance(rule["blocks"], list) or len(rule["blocks"]) < 2):
+            fail(f"{where} : flow veut au moins deux blocs")
+        refs = rule["blocks"] if kind == "flow" else [rule[k] for k in ("a", "b", "block") if k in rule]
+        unknown = [] if kind == "separated" else [r for r in refs if r not in known]  # separated accepte des `ref`
+        if unknown:
+            fail(f"{where} : bloc inconnu {', '.join(map(str, unknown))}")
+        if kind == "facing" and (rule["role"] not in roles or rule["toward"] not in ("front", "dock", "centre")):
+            fail(f"{where} : role du pack et toward front, dock ou centre attendus")
 
 
 def pack_station_kinds(pack_id: str, pack: dict[str, Any]) -> frozenset[str]:

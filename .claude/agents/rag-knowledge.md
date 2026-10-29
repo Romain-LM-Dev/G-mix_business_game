@@ -3,6 +3,7 @@ name: rag-knowledge
 description: Ingénieur RAG et base de connaissances. À utiliser pour l'ingestion de documents (PDF, Markdown), le découpage, les embeddings, la recherche hybride pgvector + plein texte, la qualité des passages retrouvés, l'organisation du corpus par domaine (knowledge/) et l'archivage des sources dans le bucket gmix-knowledge.
 tools: Read, Edit, Write, Glob, Grep, PowerShell, Bash, WebSearch, WebFetch
 model: sonnet
+effort: low
 color: cyan
 ---
 Tu es responsable de backend/gmix/rag, de knowledge/ et de la qualité des connaissances retrouvées.

@@ -5,15 +5,15 @@ from typing import Any
 import pytest
 
 from gmix.llm.catalog import load_catalog
-from gmix.llm.ollama import ChatResult, Usage
-from gmix.llm.prompts import load_prompt, load_questions
+from gmix.llm.ollama import ChatResult, OllamaError, Usage
+from gmix.llm.prompts import REPAIR_MAX_TOKENS, load_prompt, load_questions
 from gmix.llm.service import BudgetExceeded, LLMService, ModelUnavailable
 from gmix.llm.tokens import estimate_tokens
 
 DESIGN_TASKS = ["game.design.concept", "game.design.cast", "game.design.journey"]
 DESIGN_VARIABLES = {  # annexe 0008 §4.3 : les variables que fournissent design.*_variables
     "game.design.concept": "domain_name pack_label pack_description audience_label brief fixed limits themes modules "
-    "extra_agents difficulties tunables events events_levels notions indicators",
+    "extra_agents difficulties tunables events events_levels notions indicators network",
     "game.design.cast": "company pitch audience_label agents personalities objectives",
     "game.design.journey": "company audience_label objectives notions modules_actions panels tools anchors",
 }
@@ -181,11 +181,33 @@ def test_design_prompts_follow_the_contract(task: str) -> None:
     assert estimate_tokens(prompt.system) < 250  # règle d'économie : repayé à chaque appel
     messages = prompt.render(**{name: f"<{name}>" for name in prompt.variables})
     assert "$" not in messages[0]["content"] + messages[-1]["content"]
-    repair = prompt.render_repair(messages, '{"titre": "x"}', "- un chiffre dans le titre")
-    assert [m["role"] for m in repair] == ["system", "user", "assistant", "user"]
-    assert repair[2]["content"] == '{"titre": "x"}' and "- un chiffre dans le titre" in repair[3]["content"]
+    repair = prompt.render_repair(messages, "- un chiffre dans le titre")
+    assert [m["role"] for m in repair] == ["system", "user", "user"]  # sans la sortie brute
+    assert "- un chiffre dans le titre" in repair[2]["content"]
+    errors = "\n".join(f"- erreur {i} : texte du champ fautif" for i in range(500))
+    long = prompt.render_repair(messages, errors)
+    assert estimate_tokens(long[2]["content"]) <= REPAIR_MAX_TOKENS and "omises" in long[2]["content"]
+
+
+def test_concept_budget_leaves_room_for_the_answer_in_the_model_context() -> None:
+    catalog = load_catalog()
+    task = catalog.task("game.design.concept")
+    assert task.max_input_tokens == 4500
+    for alias in (task.model, task.fallback):
+        assert task.max_input_tokens + task.options["num_predict"] <= catalog.models[alias].num_ctx
+    assert "$network" in load_prompt("game.design.concept").user
+
+
+async def test_an_ollama_error_is_not_swallowed_by_structured() -> None:
+    # annexe 0008 §5 : la tentative ratée est comptée par le worker (pipeline-kafka), pas par le service
+    class Boom(FakeOllama):
+        async def chat(self, *args: Any, **kwargs: Any) -> ChatResult:
+            raise OllamaError("/api/chat -> HTTP 500: token repeat limit")
+
+    with pytest.raises(OllamaError):
+        await _service(Boom({"qwen2.5:3b"})).structured("game.design.concept", MESSAGES, SCHEMA, seed=1)
 
 
 def test_a_prompt_without_repair_section_cannot_be_repaired() -> None:
     with pytest.raises(KeyError):
-        load_prompt("npc.dialogue").render_repair(MESSAGES, "{}", "erreur")
+        load_prompt("npc.dialogue").render_repair(MESSAGES, "erreur")

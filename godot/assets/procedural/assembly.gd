@@ -8,6 +8,12 @@ extends GmixAsset
 		parts = value
 		_rebuild()
 
+## Collision de l'assemblage (taille d'une boîte posée au sol, centrée) ; nulle : celle des pièces seulement.
+@export var solid_box := Vector3.ZERO:
+	set(value):
+		solid_box = value
+		_rebuild()
+
 
 func _ready() -> void:
 	super()
@@ -27,3 +33,5 @@ func _rebuild() -> void:
 		node.position = part[1]
 		node.rotation.y = deg_to_rad(part[2])
 		Mesher.adopt(self, node)
+	if solid_box != Vector3.ZERO:
+		Mesher.collider(self, [[solid_box, Vector3(0, solid_box.y / 2.0, 0)]])

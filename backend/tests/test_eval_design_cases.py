@@ -1,5 +1,5 @@
-"""Jeu d'évaluation de la conception par l'IA (ai/evals/game.design.jsonl, annexe 0008 §8) : 24 cas bien formés,
-cohérents avec les packs, et qui couvrent ce que l'annexe demande. Les cas ne sont jamais retouchés après mesure."""
+"""Jeu d'évaluation de la conception par l'IA (ai/evals/game.design.jsonl, annexe 0008 §8) : 27 cas (24 + 3 « réseau »
+du 29/10) bien formés, cohérents avec les packs, et qui couvrent ce que l'annexe demande. Les cas ne sont jamais retouchés après mesure."""
 
 import json
 from collections import Counter
@@ -12,16 +12,18 @@ from .conftest import AI_DIR
 
 CASES = [json.loads(line) for line in (AI_DIR / "evals" / "game.design.jsonl").read_text("utf-8").splitlines() if line]
 EXPECT_KEYS = {"modules_include", "modules_exclude", "notions_any", "difficulty_in", "weeks", "unmet_nonempty"}
+# Critère 0009-7 : la classe de distance choisie doit suivre le brief ; mesurée à l'étape 11 (classes du pack).
+NETWORK_EXPECT = {"proche", "lointain"}
 AUDIENCES = set(Audience.__args__)  # type: ignore[attr-defined]
 DIFFICULTIES = {"decouverte", "equilibre", "expert"}
 
 
-def test_the_set_has_24_cases_in_two_series_and_two_packs() -> None:
-    assert len({c["id"] for c in CASES}) == len(CASES) == 24
-    assert Counter(c["series"] for c in CASES) == {"R": 12, "C": 12}
-    assert Counter(c["pack"] for c in CASES) == {"atelier": 16, "usine": 8}
+def test_the_set_has_27_cases_in_three_series_and_two_packs() -> None:
+    assert len({c["id"] for c in CASES}) == len(CASES) == 27
+    assert Counter(c["series"] for c in CASES) == {"R": 12, "C": 12, "N": 3}
+    assert Counter(c["pack"] for c in CASES) == {"atelier": 18, "usine": 9}
     assert all(c["id"].startswith(c["series"]) for c in CASES)
-    assert len({c["brief"] for c in CASES}) == 24
+    assert len({c["brief"] for c in CASES}) == 27
 
 
 @pytest.mark.parametrize("case", CASES, ids=lambda c: c["id"])
@@ -29,7 +31,9 @@ def test_case_is_well_formed_and_matches_its_pack(case: dict) -> None:
     assert set(case) == {"id", "series", "pack", "audience", "brief", "fixed", "expect"}
     DesignRequest(pack=case["pack"], brief=case["brief"], audience=case["audience"], fixed=case["fixed"])
     pack = load_pack(case["pack"])
-    expect = case["expect"]
+    expect = dict(case["expect"])
+    network = expect.pop("network", None)
+    assert (network in NETWORK_EXPECT) == (case["series"] == "N")
     assert set(expect) == EXPECT_KEYS
     assert set(expect["modules_include"]) | set(expect["modules_exclude"]) <= pack["modules"].keys()
     assert not set(expect["modules_include"]) & set(expect["modules_exclude"])

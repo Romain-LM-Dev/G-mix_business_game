@@ -6,3 +6,4 @@
 script = ExtResource("1_script")
 asset_id = "prop_desk_computer"
 parts = [["res://assets/furniture/furn_desk/furn_desk.tscn", Vector3(0, 0, 0), 0.0], ["res://assets/furniture/furn_office_chair/furn_office_chair.tscn", Vector3(0, 0, 0.6), 180.0], ["res://assets/furniture/furn_computer_screen/furn_computer_screen.tscn", Vector3(0, 0.75, -0.15), 0.0]]
+solid_box = Vector3(1.4, 1.2, 1.25)

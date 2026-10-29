@@ -6,15 +6,15 @@
 [sub_resource type="BoxShape3D" id="BoxShape3D_7880y"]
 size = Vector3(3.692308, 3.3230767, 7.9999995)
 
-[node name="veh_flatbed_truck" type="Node3D" unique_id=448622343]
+[node name="veh_flatbed_truck" type="Node3D" unique_id=278234258]
 script = ExtResource("1_qntof")
 asset_id = "veh_flatbed_truck"
 
 [node name="Model" type="Node3D" parent="." unique_id=2071131519 instance=ExtResource("2_ukewb")]
 transform = Transform3D(2.4615386, 0, 0, 0, 2.4615386, 0, 0, 0, 2.4615386, 0, 0, 0.061538406)
 
-[node name="Collision" type="StaticBody3D" parent="." unique_id=301611151]
+[node name="Collision" type="StaticBody3D" parent="." unique_id=1206511860]
 
-[node name="Shape" type="CollisionShape3D" parent="Collision" unique_id=1289997961]
+[node name="Shape" type="CollisionShape3D" parent="Collision" unique_id=1168424539]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6615384, 0)
 shape = SubResource("BoxShape3D_7880y")

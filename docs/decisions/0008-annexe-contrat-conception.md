@@ -15,11 +15,18 @@ SectionMode = Literal["ia", "repli", "edition"]
 FIXABLE = frozenset({"theme", "modules", "extra_agents", "agent_tone", "difficulty", "weeks", "events", "products",
                      "options", "company_name"})        # champs de GameParams que le formateur peut imposer
 FORBIDDEN_IN_TEXT = re.compile(r"\d|https?://")         # textes de conception : ni chiffre ni lien
+def forbidden_in_text(text: str) -> bool:                # (29/10, mesure ia-runtime) \d ne voit pas ², ½, Ⅻ…
+    return bool(FORBIDDEN_IN_TEXT.search(text)) or any(c.isnumeric() for c in text)   # seul contrôle utilisé
+TEXT_CHARS = "A-Za-zÀ-ÖØ-öø-ÿŒœ ,.;:!?'’«»()–-"        # (29/10) liste blanche des schémas de texte (§3.1)
+# (29/10) dans spec.py et non dans engine (pas d'import circulaire) ; égal aux ids de debrief()["kpis"] (test)
+INDICATORS = {"weekly": ("otif", "trs", "stockouts", "cash"),
+              "factory": ("otif", "trs", "stockouts", "cash", "good_share")}
 UI_LIMITS = {                                            # lisibilité garantie (ui_tour à 4 tailles, §7)
     "bandeau_panels": 2, "bandeau_columns": 6,           # colonnes : total des panneaux du bandeau
     "dashboard_panels": 6, "station_panels": 2,          # station : par type de poste
+    "supervision_panels": 6,                             # (29/10) écran du formateur
     "table_columns": 7, "kpis_columns": 6, "chart_series": 3,
-    "tools": 6, "tutorial_steps": 5,
+    "tools": 6, "tutorial_steps": 5,                     # tools : par public (joueur, formateur)
     "panel_title": 40, "column_label": 24, "state_label": 20, "tool_label": 16,
 }
 
@@ -38,11 +45,16 @@ PanelColumn.better: Literal["higher", "lower"] = "higher"   # sens de la pastill
 PanelColumn.warn: float | None = None                    # seuil « attention » entre la cible et l'alerte
 Panel.title: max_length 40 ; PanelColumn.label: max_length 24 ; chaque valeur de PanelColumn.labels <= 20 car.
 Panel (gauge) : min et max obligatoires, min < max
+Panel.audience: Literal["joueur", "formateur", "tous"] = "joueur"    # (29/10) interfaces joueur ET formateur
+Panel.placement += "supervision"                         # (29/10) écran de séance du formateur ; audience formateur ou tous
 
-class Tool(BaseModel):                                   # barre d'actions ; touche = rang dans spec.tools + 1
+class Tool(BaseModel):                                   # barre d'actions ; touche = rang parmi les outils de son public + 1
     id: Code
     label: str = Field(min_length=2, max_length=16)
-    kind: Literal["action", "tableau_de_bord", "camera", "aide"]   # aide : rouvre le didacticiel
+    audience: Literal["joueur", "formateur"] = "joueur"  # (29/10)
+    kind: Literal["action", "tableau_de_bord", "camera", "aide",   # aide : rouvre le didacticiel ; action : joueur seul
+                  "demarrer", "avancer", "rejeu", "memoire", "debrief"]   # (29/10) formateur seul, routes Staff
+    #   existantes : POST /lobbies/{id}/start, /advance, GET …/timeline, …/npcs/{npc}/memory, …/debrief (l'API vérifie)
     action_id: str | None = None                         # obligatoire si kind == "action" : action d'un module de la spec
 
 class TutorialStep(BaseModel):
@@ -134,12 +146,13 @@ def default_params(pack_id: str) -> dict[str, Any]:
 ```
 
 Contrôles ajoutés à `SimSpec._references` (10 messages au plus, en français) :
-- **Textes** : `FORBIDDEN_IN_TEXT` absent de `design.context`, `objectives[].text`, `debrief[].text`, `unmet[]`,
+- **Textes** : `forbidden_in_text` faux pour `design.context`, `objectives[].text`, `debrief[].text`, `unmet[]`,
   `rationale`, `agents[].backstory`, `tutorial[].title` et `tutorial[].text`. Le titre et l'accroche (`meta`) sont
   contrôlés à la compilation et à l'édition (§3), parce que l'accroche des jeux par paramètres contient des chiffres.
-- **Interface** : limites `UI_LIMITS` sur les panneaux ; les ids de `tools` sont uniques, il y en a 6 au plus, et
-  l'`action_id` d'un outil `action` appartient à un module de la spec ; l'ancre de chaque étape du didacticiel existe
-  dans la spec.
+- **Interface** : limites `UI_LIMITS` sur les panneaux ; les ids de `tools` sont uniques, il y en a 6 au plus par
+  public, et l'`action_id` d'un outil `action` appartient à un module de la spec ; l'ancre de chaque étape du
+  didacticiel existe dans la spec. (29/10) Un outil `action` n'a pour public que le joueur, un outil formateur que le
+  formateur, et l'emplacement `supervision` exclut le public joueur.
 - **Conception** (si `design`) : les ids d'objectif et de question sont uniques. Pour un objectif : ses `module_ids`
   sont dans `modules`, ses `notion_ids` sont des notions de ses modules ou de ses agents, et son `indicator` est dans
   `engine.indicator_ids(spec)` et dans `notions[n].indicators` quand le pack le déclare. Pour une question :
@@ -168,6 +181,50 @@ Contrôles ajoutés à `SimSpec._references` (10 messages au plus, en français)
 - `panels[].columns[]` : `better: lower` là où moins est mieux (ruptures, pannes), `warn` quand une zone d'attention
   aide à lire (exemple : OTIF, cible 95, `warn` 90).
 - `ui_theme` (facultatif) : jeton par défaut des jeux du pack.
+
+Arbitrages du 29/10 (ambiguïtés remontées par game-designer) :
+- (a) **Outils copiés par `generate`, et énumération de journey** : on écarte les outils `action` dont le module n'est
+  pas joué. On garde toujours `tableau_de_bord` et `aide`, puis les actions dans l'ordre du pack ; `camera` passe en
+  dernier. On s'arrête à 6 par public. Une action hors de la barre reste accessible à son poste.
+- (b) **Objectif à plusieurs notions** : il suffit qu'une notion permette l'indicateur, c'est-à-dire qu'il soit dans
+  l'union des `indicators` des notions qui en déclarent. Une notion sans `indicators` n'impose rien.
+- (c) **Indicateurs de l'usine** : `INDICATORS["factory"]` (§1). `debrief()["kpis"]` de l'usine gagne `good_share`
+  (« Part de bons », %, `target: null`, `met: null`), à faire à l'étape 6 de 0007. Un objectif peut le viser (exemple :
+  `rendement_en_cascade`).
+- (d) **Bandeau de l'atelier** : pas en tranche 1 (question 3 de l'ADR 0008). Son didacticiel s'ancre sur `station:`,
+  `agent:` et `tool:`, jamais sur `panel:`. Si l'utilisateur répond oui, game-designer ajoute un panneau `kpis` au
+  bandeau de ai/simulation.yaml.
+- (e) **Provenance des réglages** : `tunables.<clé>.value` donne la clé de `values` qui porte la provenance du
+  facteur. Exemple : `mtbf_factor` -> `machine.facteur_mtbf`. `_check_pack` exige cette clé dans `values` pour tout
+  pack qui a une section `values` (l'atelier n'en a pas et en est dispensé). Il vérifie aussi que `notions.*.indicators`
+  est inclus dans `INDICATORS[pack.engine]`. `generate` copie la provenance de `values` dans `reglage.<clé>`, en ajoutant
+  « profil <v> ».
+- (f) **Ancre retirée** : `generate`, `apply_journey` et `recompile` suppriment toute étape du didacticiel dont l'ancre
+  a disparu (outil ou panneau retiré ou masqué), avec un avertissement. `SimSpec` refuse encore une ancre inconnue dans
+  une spec importée.
+- (g) **« Préparation de partie »** n'est pas un outil : c'est l'écran de conception et d'aperçu du formateur (§7).
+  Ses choix du jeu de référence s'y retrouvent : difficulté et réglages, distance des fournisseurs (ADR 0009), et un
+  didacticiel qu'on active ou désactive (désactivé : liste vide).
+
+**Points remontés par les agents et actés (29/10)** :
+- moteur-jeu :
+  - (a) le contrôle « aléa planifié qui ne touche aucun module joué » se fait dans `GameParams._check` et non dans
+    `_references` ;
+  - (b) les notions permises d'un objectif sont celles de ses modules et celles des agents liés à ces modules. Les
+    indicateurs permis sont l'union des listes déclarées par ces notions, et l'indicateur est libre si aucune n'en
+    déclare. Cela précise l'arbitrage (b) ;
+  - (c) `generate` filtre outils, menus et didacticiel par modules actifs, puis tronque à `UI_LIMITS`. Le catalogue d'un
+    pack peut dépasser la limite (10 outils sur l'atelier, 8 sur l'usine, pour 6 permis) : `_check_pack` n'applique pas
+    la limite au catalogue ;
+  - (d) l'exemple du §7 a 2 questions pour 2 objectifs.
+- ia-runtime (mesure sur qwen2.5:3b, rapport dans ai/evals/results/) :
+  - Ollama n'applique pas `pattern` et `maxLength` ensemble ;
+  - `^[^0-9]*$` est contourné par les chiffres Unicode ;
+  - seule une liste blanche bornée, `^[TEXT_CHARS]{min,max}$`, donne 0 chiffre et les bonnes longueurs. Sans borne, le
+    modèle boucle : sortie tronquée, ou HTTP 500 « token repeat limit ».
+
+  D'où les règles : les schémas de texte de §3.1, `forbidden_in_text` (§1), `OllamaError` dans le worker (§5) et le
+  budget de réparation (§4).
 
 ## 3. Module pur `backend/gmix/game/design.py` (propriétaire moteur-jeu)
 
@@ -199,15 +256,17 @@ Autres changements de moteur-jeu :
   - la fonction copie dans la spec `panels`, `tools` et `tutorial` du pack (dans leur ordre) et `ui_theme`.
 - `engine._roll_event` : une semaine du plan donne son aléa, qui est toujours annoncé une semaine à l'avance. Les
   autres semaines suivent le tirage actuel. Même règle dans le moteur usine.
-- `engine.INDICATORS = {"weekly": ("otif", "trs", "stockouts", "cash"), "factory": (...)}` et `indicator_ids(spec)`.
-  Un test vérifie que ces ids sont égaux à ceux de `debrief(...)["kpis"]` pour chaque moteur.
+- `engine.indicator_ids(spec)` lit `spec.INDICATORS` (§1, 29/10). Un test vérifie, pour chaque moteur, que ces ids sont
+  égaux à ceux de `debrief(...)["kpis"]`.
 
 ### 3.1 Sorties JSON attendues du modèle
 
 Les schémas suivent JSON Schema : `type, properties, required, enum, minItems, maxItems, minLength, maxLength,
 minimum, maximum, pattern` et `additionalProperties: false`. Les énumérations sont construites depuis le pack ou le
-squelette. Chaque texte porte `pattern: "^[^0-9]*$"`. L'unicité et les références croisées sont vérifiées après le
-décodage (le décodage ne sait pas les garantir).
+squelette. (29/10, mesure ia-runtime) Chaque texte porte `pattern: "^[<TEXT_CHARS>]{min,max}$"`, avec les bornes du
+champ, et ni `minLength` ni `maxLength`, qui ne s'appliquent pas avec `pattern`. `design.py` produit ce motif à partir
+des `Field` ; un motif sans borne est interdit (test). Après le décodage, `forbidden_in_text` revérifie chaque texte,
+et l'unicité et les références croisées sont contrôlées : le décodage ne sait pas les garantir.
 
 ```json
 concept = {
@@ -216,6 +275,8 @@ concept = {
   "options": {"<params[].id>": "<entier borné ou choix>"}, "events": "<events_levels>",
   "event_plan": [{"week": "<2..limits.weeks max>", "event_id": "<events>"}],
   "tunings": {"<chaque clé de tunables, requise>": "<difficulties>"},
+  "network": {"<chaque site de pack.network.sites ayant plusieurs distances>": "<ses distances>"},
+  // (29/10) ADR 0009 : présent seulement si le pack déclare `network` ; va dans GameParams.network
   "company_name": "<2..40>", "title": "<10..80>", "pitch": "<40..500>", "context": "<20..700>",
   "objectives": [{"id": "<code>", "verb": "<Bloom>", "text": "<10..140>", "notion_ids": ["<notions>"],
                   "indicator": "<INDICATORS du moteur>", "module_ids": ["<modules>"]}],
@@ -238,8 +299,8 @@ Nombre d'éléments :
 - cast : `agents` en exactement autant d'entrées que d'agents dans le squelette ;
 - journey : `panels` 0 à n, `tools` 0 à 6, `tutorial` 0 à 5, `debrief` 2 à 6.
 
-Un test lit ai/models.yaml et vérifie que la taille maximale permise par chaque schéma (somme des `maxLength` / 3,5,
-plus la structure) reste sous le `num_predict` de sa tâche. Le JSON tronqué était l'échec du 3b.
+Un test lit ai/models.yaml et vérifie que la taille maximale permise par chaque schéma (somme des bornes `max` des
+motifs / 3,5, plus la structure) reste sous le `num_predict` de sa tâche. Le JSON tronqué était l'échec du 3b.
 
 ### 3.2 Jouabilité et réparation sans modèle
 
@@ -288,12 +349,18 @@ Le worker s'arrête après 4 appels, puis passe au repli du concept. Chaque cran
     output: json
     cache: true
     options: { num_predict: 1500, temperature: 0.4 }
-    max_input_tokens: 3800
+    max_input_tokens: 4500   # (29/10) 4500 + 1500 = 6000 <= num_ctx 6144, déjà celui de small et main
   game.design.cast:     { model: main, fallback: small, output: json, cache: true, options: { num_predict: 1000, temperature: 0.6 }, max_input_tokens: 3000 }
   game.design.journey:  { model: main, fallback: small, output: json, cache: true, options: { num_predict: 1100, temperature: 0.4 }, max_input_tokens: 3500 }
 ```
 
 Pour chaque tâche, l'entrée plus la sortie restent sous `num_ctx` (6144). `catalog.py` accepte `output: json`.
+
+(29/10) Budget de réparation, tranché : le concept passe à 4500 jetons d'entrée. `num_ctx` ne change pas, donc il n'y a
+ni rechargement ni VRAM en plus. Le tour de réparation garde la place de 400 jetons, et un test vérifie, pour chaque
+pack, que le premier prompt de chaque section tient sous `max_input_tokens - 400`. S'il ne tient pas, les catalogues
+passent en forme compacte (« id : libellé », description de 60 caractères au plus). L'autre option, monter `num_ctx`,
+est écartée : il est fixé par modèle, et `npc.dialogue` paierait le cache plus gros à chaque réplique.
 
 ### 4.2 `LLMService.structured`
 
@@ -316,7 +383,9 @@ async def structured(self, task_name: str, messages: list[dict[str, str]], schem
 ### 4.3 Prompts `ai/prompts/game.design.{concept,cast,journey}.md`
 
 Format de `prompts.py` : front matter, `## system`, `## user` et une section `## repair` (variable `errors`).
-Pour réparer, le code envoie `[system, user, assistant(raw), user(repair)]`. Les variables sont des blocs de texte
+(29/10) Pour réparer, le code envoie `[system, user, user(repair)]`. Le message de réparation porte les erreurs et les
+champs fautifs (chemin et valeur, 400 jetons au plus). Il ne renvoie pas la sortie brute : tronquée ou répétitive, elle
+gonflerait l'entrée et entretiendrait la boucle. La sortie brute reste dans les journaux. Les variables sont des blocs de texte
 français prêts à insérer, construits par `design.*_variables` :
 - concept :
   - pour situer la demande : `domain_name, pack_label, pack_description, audience_label, brief, fixed` (« aucune »
@@ -374,6 +443,8 @@ L'enveloppe porte `actor`, `client_id = str(requested_by)` (le relais n'envoie q
   - cast : les agents du squelette ;
   - journey : les défauts du pack, sans question.
   Après le concept, `playability` et `relax` jouent leur rôle (§3.2).
+- (29/10) Une `OllamaError` pendant un appel (HTTP 500 « token repeat limit », par exemple) compte comme une tentative
+  échouée de la section : elle passe à la réparation, puis au repli. Ce n'est pas un échec du job.
 - `ModelUnavailable`, Ollama absent ou les 600 s du job dépassées (`settings.generation_job_max_s`) : les sections
   restantes se replient. Le job réussit quand même.
 - En cas de succès :
@@ -395,9 +466,29 @@ reçoit 403, un autre formateur 404.
 | `POST /api/v1/games/{id}/design/regenerate` | `{section, note?, seed?}` : job `regenerate_<section>`, jeu en `generating` | 202 `{job_id}` ; 409 si un job est actif, ou si cast ou journey est demandé sans `spec.design` |
 | `PUT /api/v1/games/{id}/design` | `DesignEdit` -> `design.recompile` (< 1 s), `origin.edits + 1`, statut `draft` | 200 `GameDetail` ; 409 si `generating` ou sans `design` ; 422 `{message, errors}` |
 | `POST /api/v1/games/{id}/publish` | `draft` -> `ready`, audit `game.published` | 200 ; 409 si le jeu n'est pas `draft` ou si le verdict est `trop_difficile` |
-| `GET /api/v1/games/options` | ajoute à chaque pack `tunables[] {id, label}`, `panels[] {id, type, title, placement}`, `tools[] {id, label, kind}` ; ajoute au premier niveau `audiences[] {id, label}` | 200 |
+| `GET /api/v1/games/options` | ajoute à chaque pack `tunables[] {id, label}`, `panels[] {id, type, title, placement}`, `tools[] {id, label, kind, audience}` (29/10), `selectable`, `coverage {ratio, missing[]}` (ADR 0009) ; ajoute au premier niveau `audiences[] {id, label}` et (29/10) `domains[] {slug, name, selectable, reason, packs[]}` pour tous les domaines de ai/domains.yaml | 200 |
 
 - `POST /games` (par paramètres, `ready` d'emblée), `PUT /games/{id}/spec` et `POST /games/import` ne changent pas.
+- (29/10, ADR 0009, point 7) `POST /games` et `POST /designs` renvoient 422 `{message, missing[]}` quand le pack n'est
+  pas proposé (`pack_coverage` sous 100 %, citation non résolue). L'admin passe outre, et l'audit garde `forced: true`.
+- (29/10, ADR 0009, point 8) Deux routes pour l'éditeur de grille. Elles demandent `Staff` et `owned_game` : 403 pour
+  un joueur, 404 pour un autre formateur, et l'admin les a toutes. Elles répondent 409 si le jeu est `generating` ou si
+  un lobby non terminé l'utilise, et chacune en moins d'1 s.
+  - `PUT /api/v1/games/{id}/layout` `{edits: LayoutEdit[]}` (liste entière, 200 au plus) : elle enchaîne `place_world`,
+    `apply_edits` et `check_placement`, puis la recompilation et le pilote automatique. Au premier rejet : 422
+    `{message, errors: [{index, reason, message}]}`, et rien n'est gardé. Sinon : 200 `{game: GameDetail, verdict}`, le
+    jeu passe en `draft` (avec `origin.edits + 1` s'il a une conception) et l'audit note `game.layout_edited` avec le
+    nombre de retouches.
+  - `PUT /api/v1/games/{id}/params` `{params}` (clés de `FIXABLE` et `network`) : elle relance `generate` avec la même
+    graine. Pour un jeu conçu, la conception est réappliquée sans modèle (`recompile`). Les retouches sont rejouées, et
+    celles qui ne tiennent plus sont retirées. Réponse : 200 `{game, verdict, dropped: [{index, reason, message}]}`, jeu
+    en `draft`. Erreurs : 422 `{message, errors}`.
+
+  Ni table ni migration : les retouches vivent dans `business_games.spec`. `publish` refuse aussi (409) un jeu dont
+  `check_placement` n'est pas vide ou dont `apply_edits` rejette une retouche. Un jeu par paramètres retouché repasse
+  par `publish`.
+- (29/10) Les outils formateur appellent les routes Staff existantes (démarrer, avancer, chronologie, mémoire des
+  agents, débrief). Aucun nouvel endpoint ; le contrôle des droits reste celui de ces routes.
 - (Sous réserve de la question 2.) `POST /designs` et `regenerate` renvoient 409 « séance en cours » si un lobby est
   `running` et que le modèle de `game.design.concept` n'est pas celui de `npc.dialogue`. La comparaison se fait sur le
   catalogue, sans appel à Ollama.
@@ -443,6 +534,20 @@ reçoit 403, un autre formateur 404.
     Un outil `action` ouvre le formulaire du module ; il est grisé si le rôle du joueur ne tient pas ce module, et
     l'API vérifie de toute façon.
   - La carte du didacticiel propose « Suivant » et « Passer », et surligne l'ancre. L'outil `aide` la rouvre.
+- (29/10) **Écran de séance du formateur** : il est modulaire comme le HUD. On y trouve les panneaux d'audience
+  `formateur` ou `tous` à l'emplacement `supervision`, et la barre des outils formateur (démarrer, simuler la semaine,
+  rejeu, mémoire d'un agent, débrief), qui appellent les routes Staff existantes. Les préférences se rangent dans
+  `user://layout.cfg`, section `<lobby_id>.formateur`. Les panneaux et outils viennent du pack, donc du domaine ; l'IA
+  les choisit dans journey (énumérations par public).
+- (29/10) **Choix du domaine** : la liste suit `options.domains`. Un domaine non proposé apparaît en grisé, avec sa
+  raison (ADR 0009, point 7).
+- (29/10) **Monde** (ADR 0009) : le monde lit `world.sites`, `world.links` et `world.bounds`, qui sont déjà placés par
+  `gmix.game.layout`. Godot ne calcule aucune position. Il pose les bâtiments des sites et les tronçons de route. Il
+  fait rouler les camions entre `camion_part` et `camion_arrive` pendant le rejeu, et borne la caméra à `bounds`.
+- (29/10) **Menus contextuels et mode construction** : leur contrat est dans l'ADR 0009 (points 8 et 9, section
+  Godot). La caméra Sims ne change pas. Le menu contextuel sert au joueur et au formateur, et le mode construction se
+  trouve dans l'écran de préparation. `ui_tour` les ajoute à son jeu de test aux limites : 6 entrées de menu, une
+  palette pleine, 200 retouches.
 - **Préférences du joueur** : dans `user://layout.cfg`, une section par `lobby_id`, avec les clés `order`, `hidden` et
   `collapsed` (ids de panneaux du tableau de bord). Le bandeau se replie mais ne se masque pas. Un id inconnu est
   ignoré, et « Réinitialiser » rend l'ordre de la spec. Rien ne passe par l'API.
@@ -597,6 +702,50 @@ Vagues :
 - **E** : 13 puis 14.
 
 Seul moteur-jeu touche `backend/gmix/game/` ; seul backend-api touche `api/` et `db/` ; seul pipeline-kafka touche
-`workers/` et `messaging/`. rag-knowledge et assets-3d n'ont pas d'étape en tranche 1 : rien du RAG ni des assets ne
-change ; ils entrent en tranche 2 (décor) et 3 (corpus). `.claude/ownership.json` reste juste : les nouveaux fichiers
-tombent dans des dossiers déjà attribués.
+`workers/` et `messaging/`. `.claude/ownership.json` reste juste : les nouveaux fichiers tombent dans des dossiers
+déjà attribués.
+
+### 10.1 (29/10) Ajouts de l'ADR 0009 et des arbitrages du §2
+
+Les ajouts portent sur l'usine seule ; le réseau de l'atelier attend la tranche 2. Les critères numérotés 0009-1 à
+0009-9 sont ceux de l'ADR 0009.
+
+| # | Agent | Ajout | Fin |
+|---|---|---|---|
+| 1 | moteur-jeu | ajouts de spec de 0009 (`Side`, `Role`, `Site`, `Link`, `GameParams.network`, `World.sites/links/bounds`, `Department.block/site_id`, `camion_*`) ; `Tool.audience`, `Panel.audience`, emplacement `supervision`, `INDICATORS` ; `_check_pack` contrôle `grid`, `block_types`, `network`, `placement_rules`, `values reseau.*`, `tunables.value` (arbitrage e) | critère 1 ; specs v2 existantes valides |
+| 3 | game-designer | arbitrages a, e, f ; clés de pack de 0009 ; `placement_rules` sourcées ou marquées `exemple`/`calibre` ; outils et panneaux formateur ; classes de distance qui rendent 1, 3 et 5 jours | `load_pack("usine")` passe ; aucune règle sans provenance |
+| 4 | ia-runtime | variable `network` dans le prompt concept ; 3 cas d'éval « fournisseurs lointains » | 27 cas ; tests du schéma concept |
+| 4b | rag-knowledge (nouvelle, vague A) | fiches sourcées : temps de conduite (règlement (CE) 561/2006), allées de chariots (INRS), marche en avant et implantation, produits non conformes (ISO 9001 §8.7, si une source est accessible ; sinon la règle reste `calibre`) | `ingest.ps1 -Domain supply-chain` ; chaque fiche cite sa page |
+| 5 | moteur-jeu | `backend/gmix/game/layout.py` (`place_world`, `check_placement`, `required_assets`, `pack_coverage`) et ses tests ; délais d'offre tirés du réseau ; événements `camion_*` dans factory ; remplace la partie monde de l'étape 6 de 0007 (« 6b ») | critères 0009-1 à 0009-5, 0009-8 et 0009-9 (partie moteur) ; `place_world` en moins de 50 ms |
+| 5c | assets-3d (nouvelle, vague B) | empreintes alignées sur les cellules ; tous les assets requis de l'usine en `importe` ; bâtiments de site avec variantes d'enseigne ; tronçons de route ; camion | `pack_coverage("usine")["ratio"] == 1.0` |
+| 6 | backend-api | `options.domains` et `coverage` ; 422 pour un pack non proposé (sauf admin, audit `forced`) | critère 0009-9 : 422 pour le formateur, 201 pour l'admin |
+| 7 | godot-dev | sites, routes, camions, bornes de caméra ; écran de séance formateur modulaire ; domaines grisés avec raison | critères 0009-6 (45 i/s ou plus) ; `-Tour` avec les panneaux `supervision` |
+| 11 | ia-runtime | attente « réseau » dans l'éval (classe de distance cohérente avec le brief) | critère 0009-7 |
+| 12 | game-designer | relit aussi les règles de placement et les plans produits | règles signées |
+| 13 | documentaliste | documente l'ADR 0009 (game-design.md, architecture.md, godot/README.md) | docs à jour |
+| 14 | qa-reviewer | vérifie aussi les critères 0009-1 à 0009-9 | cochés, avec le résultat des commandes |
+
+Ordre : 4b tourne en vague A (dossier `knowledge/`, disjoint). 5c tourne en vague B, en parallèle de 5 (`godot/assets/`
+et `ai/assets.yaml`, disjoints). Le test de couverture à 100 % de l'étape 5 attend 5c. L'étape 7 reste après
+l'étape 8 de 0007.
+
+### 10.2 (29/10) Éditeur de grille, menus contextuels, points remontés
+
+Ces ajouts portent sur les mêmes étapes, les mêmes propriétaires et les mêmes vagues que plus haut. Les critères
+0009-10 à 0009-13 sont ceux de l'ADR 0009.
+
+| # | Agent | Ajout | Fin |
+|---|---|---|---|
+| 1 | moteur-jeu | `ElementRole` (renommé), champs de `WorldObject`, `BlockGrid`, `Department.grid`, `LayoutEdit`, `SimSpec.layout_edits`, `Tool.menu/bar`, kinds `parler`/`fiche`, `UI_LIMITS["menu_items"]`, `forbidden_in_text`, `TEXT_CHARS` ; contrôles des menus | `test_spec_contract` : sélecteur inconnu, 7 entrées, `parler` hors agent et `²` dans un texte sont refusés |
+| 3 | game-designer | menus du pack usine (chaque type de poste, agents, sites fournisseurs : `menu`, `bar`) ; `block_types.<id>.decor` | `load_pack("usine")` passe ; menus relus métier |
+| 4 | ia-runtime | `max_input_tokens` concept 4500 ; réparation `[system, user, user(repair)]` ; `structured` lève `OllamaError` sans la masquer | test des prompts sous `max_input_tokens - 400` pour chaque pack |
+| 5 | moteur-jeu | `layout.apply_edits` ; ids stables ; `Department.grid` ; schémas de texte au motif borné ; `generate` filtre les menus | critère 0009-10 ; budget de `apply_edits` |
+| 5c | assets-3d | palette de décor de l'usine en `importe` (procédural admis) | `test_assets` vert |
+| 6 | backend-api | `PUT /layout`, `PUT /params`, contrôles de `publish` | critère 0009-11 |
+| 7 | godot-dev | menus contextuels (joueur, formateur) ; mode construction dans l'écran de préparation | critère 0009-12 (`-Tour`) ; 0009-13 côté client |
+| 8 | pipeline-kafka | `OllamaError` = tentative échouée (réparation, puis repli) | cas ajouté au critère 3 (faux service qui lève HTTP 500) |
+| 10 | godot-dev | parcours `-Flow -Design` : retouches, annuler, rétablir, refus, menu d'un poste et d'un site | critères 0009-12 et 0009-13 |
+| 14 | qa-reviewer | vérifie aussi les critères 0009-10 à 0009-13 | cochés, avec le résultat des commandes |
+
+Ordre : 6 bouchonne `apply_edits` jusqu'à la livraison de 5 ; 7 travaille sur une spec d'exemple avec `layout_edits` et
+`grid`.

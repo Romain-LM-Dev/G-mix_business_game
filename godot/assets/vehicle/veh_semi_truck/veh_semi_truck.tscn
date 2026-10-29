@@ -1,0 +1,7 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://assets/procedural/truck.gd" id="1_script"]
+
+[node name="veh_semi_truck" type="Node3D"]
+script = ExtResource("1_script")
+asset_id = "veh_semi_truck"

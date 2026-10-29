@@ -5,7 +5,7 @@ d'attribution : elle est donnée par courtoisie et pour la traçabilité.
 
 | Pack | Licence | Source | Assets |
 |---|---|---|---|
-| Assets G-mix (scènes Godot procédurales) | propriété du projet | godot/assets/procedural | 20 |
+| Assets G-mix (scènes Godot procédurales) | propriété du projet | godot/assets/procedural | 27 |
 | Kenney Car Kit | CC0 1.0 | https://kenney.nl/assets/car-kit | 3 |
 | Kenney City Kit (Commercial) 2.1 | CC0 1.0 | https://kenney.nl/assets/city-kit-commercial | 4 |
 | Kenney City Kit (Industrial) 2.0 | CC0 1.0 | https://kenney.nl/assets/city-kit-industrial | 10 |

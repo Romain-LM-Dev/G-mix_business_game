@@ -6,20 +6,20 @@
 [sub_resource type="BoxShape3D" id="BoxShape3D_k1o8b"]
 size = Vector3(22, 18.453932, 27.85836)
 
-[node name="bld_warehouse_hangar" type="Node3D" unique_id=1287949385]
+[node name="bld_warehouse_hangar" type="Node3D" unique_id=1642211716]
 script = ExtResource("1_1q1av")
 asset_id = "bld_warehouse_hangar"
 
 [node name="Model" type="Node3D" parent="." unique_id=1297860568 instance=ExtResource("2_7o6gs")]
 transform = Transform3D(21.429508, 0, 0, 0, 21.429508, 0, 0, 0, 21.429508, 9.31959, -2.7845103e-15, -5.871685)
 
-[node name="Collision" type="StaticBody3D" parent="." unique_id=1427571442]
+[node name="Collision" type="StaticBody3D" parent="." unique_id=246789614]
 
-[node name="Shape" type="CollisionShape3D" parent="Collision" unique_id=2125934817]
+[node name="Shape" type="CollisionShape3D" parent="Collision" unique_id=1664409468]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 9.226966, 0)
 shape = SubResource("BoxShape3D_k1o8b")
 
-[node name="Sign" type="Label3D" parent="." unique_id=2140824826]
+[node name="Sign" type="Label3D" parent="." unique_id=480828082]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 14.394067, 14.00918)
 visible = false
 pixel_size = 0.014666666

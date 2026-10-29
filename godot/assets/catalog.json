@@ -15,8 +15,8 @@
       ],
       "footprint": {
         "w": 24.0,
-        "d": 20.0,
-        "h": 10.0
+        "d": 30.5,
+        "h": 17.1
       },
       "fit": "w",
       "variants": [
@@ -39,8 +39,8 @@
       ],
       "footprint": {
         "w": 22.0,
-        "d": 26.0,
-        "h": 11.0
+        "d": 28.0,
+        "h": 18.5
       },
       "fit": "w",
       "variants": [
@@ -64,7 +64,7 @@
       "footprint": {
         "w": 26.0,
         "d": 20.0,
-        "h": 10.0
+        "h": 15.4
       },
       "fit": "w",
       "variants": [
@@ -88,8 +88,8 @@
       ],
       "footprint": {
         "w": 40.0,
-        "d": 16.0,
-        "h": 7.0
+        "d": 17.5,
+        "h": 15.8
       },
       "fit": "w",
       "variants": [
@@ -114,7 +114,7 @@
       "footprint": {
         "w": 28.0,
         "d": 24.0,
-        "h": 18.0
+        "h": 27.5
       },
       "fit": "w",
       "variants": [
@@ -162,7 +162,7 @@
       ],
       "footprint": {
         "w": 20.0,
-        "d": 16.0,
+        "d": 17.0,
         "h": 8.0
       },
       "fit": "w",
@@ -187,7 +187,7 @@
       "footprint": {
         "w": 22.0,
         "d": 14.0,
-        "h": 10.0
+        "h": 12.0
       },
       "fit": "w",
       "variants": [
@@ -212,7 +212,7 @@
       "footprint": {
         "w": 30.0,
         "d": 14.0,
-        "h": 16.0
+        "h": 21.2
       },
       "fit": "w",
       "variants": [
@@ -236,7 +236,7 @@
       "footprint": {
         "w": 10.0,
         "d": 10.0,
-        "h": 14.0
+        "h": 17.5
       },
       "fit": "w",
       "variants": [
@@ -259,8 +259,8 @@
       ],
       "footprint": {
         "w": 12.0,
-        "d": 12.0,
-        "h": 11.0
+        "d": 15.0,
+        "h": 12.2
       },
       "fit": "w",
       "variants": [
@@ -282,8 +282,8 @@
         "manutention"
       ],
       "footprint": {
-        "w": 1.2,
-        "d": 0.8,
+        "w": 1.5,
+        "d": 1.0,
         "h": 1.14
       },
       "fit": "max",
@@ -308,8 +308,8 @@
         "emplacement"
       ],
       "footprint": {
-        "w": 5.4,
-        "d": 1.1,
+        "w": 5.5,
+        "d": 1.5,
         "h": 5.1
       },
       "fit": "w",
@@ -334,8 +334,8 @@
         "zone_de_stockage"
       ],
       "footprint": {
-        "w": 3.6,
-        "d": 2.4,
+        "w": 4.0,
+        "d": 2.0,
         "h": 2.3
       },
       "fit": "max",
@@ -381,7 +381,7 @@
       "footprint": {
         "w": 1.0,
         "d": 1.0,
-        "h": 0.4
+        "h": 0.5
       },
       "fit": "max",
       "variants": [],
@@ -401,8 +401,8 @@
         "expedition"
       ],
       "footprint": {
-        "w": 0.8,
-        "d": 0.6,
+        "w": 1.0,
+        "d": 1.0,
         "h": 0.6
       },
       "fit": "max",
@@ -424,8 +424,8 @@
       ],
       "footprint": {
         "w": 0.4,
-        "d": 0.3,
-        "h": 0.3
+        "d": 0.35,
+        "h": 0.4
       },
       "fit": "max",
       "variants": [],
@@ -447,8 +447,8 @@
       ],
       "footprint": {
         "w": 3.0,
-        "d": 2.5,
-        "h": 2.5
+        "d": 3.0,
+        "h": 2.6
       },
       "fit": "max",
       "variants": [],
@@ -492,7 +492,7 @@
       ],
       "footprint": {
         "w": 2.0,
-        "d": 1.0,
+        "d": 4.0,
         "h": 2.6
       },
       "fit": "h",
@@ -514,8 +514,8 @@
         "signal"
       ],
       "footprint": {
-        "w": 0.3,
-        "d": 0.3,
+        "w": 0.5,
+        "d": 0.5,
         "h": 1.8
       },
       "fit": "h",
@@ -536,8 +536,8 @@
         "production"
       ],
       "footprint": {
-        "w": 2.0,
-        "d": 2.0,
+        "w": 2.5,
+        "d": 2.5,
         "h": 2.2
       },
       "fit": "h",
@@ -559,9 +559,9 @@
         "international"
       ],
       "footprint": {
-        "w": 2.44,
-        "d": 6.06,
-        "h": 2.59
+        "w": 3.0,
+        "d": 6.5,
+        "h": 2.8
       },
       "fit": "max",
       "variants": [],
@@ -581,9 +581,9 @@
         "transport"
       ],
       "footprint": {
-        "w": 2.44,
-        "d": 6.06,
-        "h": 2.59
+        "w": 3.0,
+        "d": 6.5,
+        "h": 2.8
       },
       "fit": "max",
       "variants": [],
@@ -603,8 +603,8 @@
         "vrac"
       ],
       "footprint": {
-        "w": 5.0,
-        "d": 5.0,
+        "w": 9.5,
+        "d": 10.5,
         "h": 6.0
       },
       "fit": "h",
@@ -625,8 +625,8 @@
         "score"
       ],
       "footprint": {
-        "w": 3.1,
-        "d": 0.6,
+        "w": 3.5,
+        "d": 1.0,
         "h": 3.2
       },
       "fit": "w",
@@ -652,8 +652,8 @@
         "atelier"
       ],
       "footprint": {
-        "w": 2.7,
-        "d": 2.7,
+        "w": 3.0,
+        "d": 3.0,
         "h": 2.4
       },
       "fit": "w",
@@ -679,7 +679,7 @@
       ],
       "footprint": {
         "w": 3.5,
-        "d": 3.2,
+        "d": 3.5,
         "h": 2.9
       },
       "fit": "w",
@@ -703,8 +703,8 @@
         "entrepot"
       ],
       "footprint": {
-        "w": 1.15,
-        "d": 3.6,
+        "w": 1.5,
+        "d": 3.5,
         "h": 2.6
       },
       "fit": "max",
@@ -728,9 +728,9 @@
         "fournisseur"
       ],
       "footprint": {
-        "w": 2.5,
+        "w": 4.0,
         "d": 8.0,
-        "h": 3.6
+        "h": 4.1
       },
       "fit": "max",
       "variants": [],
@@ -750,9 +750,9 @@
         "materiaux"
       ],
       "footprint": {
-        "w": 2.5,
+        "w": 4.0,
         "d": 8.0,
-        "h": 3.0
+        "h": 3.3
       },
       "fit": "max",
       "variants": [],
@@ -772,9 +772,9 @@
         "urgence"
       ],
       "footprint": {
-        "w": 2.0,
+        "w": 3.0,
         "d": 5.5,
-        "h": 2.5
+        "h": 2.7
       },
       "fit": "max",
       "variants": [],
@@ -793,9 +793,9 @@
         "travail"
       ],
       "footprint": {
-        "w": 1.4,
-        "d": 0.7,
-        "h": 0.75
+        "w": 1.5,
+        "d": 1.0,
+        "h": 0.8
       },
       "fit": "max",
       "variants": [],
@@ -813,8 +813,8 @@
         "bureau"
       ],
       "footprint": {
-        "w": 0.6,
-        "d": 0.6,
+        "w": 1.0,
+        "d": 1.0,
         "h": 1.0
       },
       "fit": "h",
@@ -834,9 +834,9 @@
         "informatique"
       ],
       "footprint": {
-        "w": 0.6,
-        "d": 0.2,
-        "h": 0.45
+        "w": 0.5,
+        "d": 0.15,
+        "h": 0.4
       },
       "fit": "max",
       "variants": [],
@@ -854,9 +854,9 @@
         "reunion"
       ],
       "footprint": {
-        "w": 2.4,
-        "d": 1.2,
-        "h": 0.75
+        "w": 2.5,
+        "d": 1.5,
+        "h": 1.0
       },
       "fit": "max",
       "variants": [],
@@ -895,8 +895,8 @@
         "rangement"
       ],
       "footprint": {
-        "w": 1.2,
-        "d": 0.4,
+        "w": 2.5,
+        "d": 1.0,
         "h": 2.0
       },
       "fit": "h",
@@ -937,9 +937,9 @@
         "informatique"
       ],
       "footprint": {
-        "w": 1.4,
-        "d": 1.3,
-        "h": 1.2
+        "w": 1.5,
+        "d": 1.5,
+        "h": 1.5
       },
       "fit": "max",
       "variants": [],
@@ -959,9 +959,9 @@
         "equipe"
       ],
       "footprint": {
-        "w": 2.4,
-        "d": 2.6,
-        "h": 0.9
+        "w": 2.5,
+        "d": 2.5,
+        "h": 1.0
       },
       "fit": "max",
       "variants": [],
@@ -1335,7 +1335,7 @@
       ],
       "footprint": {
         "w": 1.0,
-        "d": 2.0,
+        "d": 2.5,
         "h": 6.0
       },
       "fit": "h",
@@ -1383,8 +1383,8 @@
         "usine"
       ],
       "footprint": {
-        "w": 1.7,
-        "d": 2.1,
+        "w": 2.0,
+        "d": 2.5,
         "h": 2.3
       },
       "fit": "d",
@@ -1411,8 +1411,8 @@
         "pieces"
       ],
       "footprint": {
-        "w": 1.6,
-        "d": 0.9,
+        "w": 2.0,
+        "d": 1.0,
         "h": 0.65
       },
       "fit": "w",
@@ -1497,8 +1497,8 @@
         "magasinier"
       ],
       "footprint": {
-        "w": 0.55,
-        "d": 1.55,
+        "w": 1.0,
+        "d": 2.0,
         "h": 1.2
       },
       "fit": "d",
@@ -1525,8 +1525,8 @@
         "rebut"
       ],
       "footprint": {
-        "w": 1.8,
-        "d": 0.9,
+        "w": 2.0,
+        "d": 1.0,
         "h": 1.4
       },
       "fit": "w",
@@ -1549,8 +1549,8 @@
         "quarantaine"
       ],
       "footprint": {
-        "w": 0.85,
-        "d": 0.65,
+        "w": 1.0,
+        "d": 1.0,
         "h": 0.8
       },
       "fit": "w",
@@ -1577,7 +1577,7 @@
       ],
       "footprint": {
         "w": 2.0,
-        "d": 0.9,
+        "d": 1.0,
         "h": 1.25
       },
       "fit": "w",
@@ -1601,8 +1601,8 @@
         "mat"
       ],
       "footprint": {
-        "w": 1.9,
-        "d": 2.2,
+        "w": 2.0,
+        "d": 2.5,
         "h": 2.4
       },
       "fit": "h",
@@ -1626,9 +1626,9 @@
         "depannage"
       ],
       "footprint": {
-        "w": 2.6,
-        "d": 0.8,
-        "h": 1.05
+        "w": 3.0,
+        "d": 1.0,
+        "h": 1.1
       },
       "fit": "w",
       "variants": [],
@@ -1651,7 +1651,7 @@
         "ligne"
       ],
       "footprint": {
-        "w": 1.8,
+        "w": 2.0,
         "d": 0.5,
         "h": 1.85
       },
@@ -1661,6 +1661,187 @@
         "lignes"
       ],
       "scene": "res://assets/interactive/prop_wall_board/prop_wall_board.tscn",
+      "source_path": null,
+      "sign": false,
+      "license": "propriété du projet"
+    },
+    {
+      "id": "prop_part_token",
+      "name": "Pièce symbolique",
+      "category": "industrial",
+      "tags": [
+        "piece",
+        "produit",
+        "etat",
+        "jeton",
+        "flux",
+        "conforme",
+        "rebut",
+        "suivi"
+      ],
+      "footprint": {
+        "w": 0.4,
+        "d": 0.4,
+        "h": 0.3
+      },
+      "fit": "max",
+      "variants": [
+        "etat_produit"
+      ],
+      "scene": "res://assets/industrial/prop_part_token/prop_part_token.tscn",
+      "source_path": null,
+      "sign": false,
+      "license": "propriété du projet"
+    },
+    {
+      "id": "prop_bin_shelf",
+      "name": "Étagère à bacs",
+      "category": "industrial",
+      "tags": [
+        "etagere",
+        "bacs",
+        "pieces_de_rechange",
+        "pdr",
+        "petites_pieces",
+        "maintenance",
+        "rangement"
+      ],
+      "footprint": {
+        "w": 1.5,
+        "d": 0.5,
+        "h": 1.9
+      },
+      "fit": "h",
+      "variants": [],
+      "scene": "res://assets/industrial/prop_bin_shelf/prop_bin_shelf.tscn",
+      "source_path": null,
+      "sign": false,
+      "license": "propriété du projet"
+    },
+    {
+      "id": "prop_safety_cabinet",
+      "name": "Armoire de sécurité",
+      "category": "industrial",
+      "tags": [
+        "armoire",
+        "securite",
+        "produits_inflammables",
+        "stockage",
+        "maintenance",
+        "epi"
+      ],
+      "footprint": {
+        "w": 1.5,
+        "d": 1.0,
+        "h": 1.9
+      },
+      "fit": "h",
+      "variants": [],
+      "scene": "res://assets/industrial/prop_safety_cabinet/prop_safety_cabinet.tscn",
+      "source_path": null,
+      "sign": false,
+      "license": "propriété du projet"
+    },
+    {
+      "id": "bld_site_supplier",
+      "name": "Site fournisseur",
+      "category": "building",
+      "tags": [
+        "fournisseur",
+        "usine",
+        "site",
+        "reseau",
+        "approvisionnement",
+        "matieres_premieres"
+      ],
+      "footprint": {
+        "w": 24.0,
+        "d": 16.0,
+        "h": 12.5
+      },
+      "fit": "w",
+      "variants": [
+        "enseigne"
+      ],
+      "scene": "res://assets/building/bld_site_supplier/bld_site_supplier.tscn",
+      "source_path": null,
+      "sign": true,
+      "license": "propriété du projet"
+    },
+    {
+      "id": "bld_site_client",
+      "name": "Site client",
+      "category": "building",
+      "tags": [
+        "client",
+        "magasin",
+        "distribution",
+        "site",
+        "reseau",
+        "livraison"
+      ],
+      "footprint": {
+        "w": 20.0,
+        "d": 16.0,
+        "h": 8.5
+      },
+      "fit": "w",
+      "variants": [
+        "enseigne"
+      ],
+      "scene": "res://assets/building/bld_site_client/bld_site_client.tscn",
+      "source_path": null,
+      "sign": true,
+      "license": "propriété du projet"
+    },
+    {
+      "id": "bld_site_warehouse",
+      "name": "Entrepôt externe",
+      "category": "building",
+      "tags": [
+        "entrepot",
+        "stockage",
+        "site",
+        "reseau",
+        "externe",
+        "logistique"
+      ],
+      "footprint": {
+        "w": 24.0,
+        "d": 16.0,
+        "h": 8.0
+      },
+      "fit": "w",
+      "variants": [
+        "enseigne"
+      ],
+      "scene": "res://assets/building/bld_site_warehouse/bld_site_warehouse.tscn",
+      "source_path": null,
+      "sign": true,
+      "license": "propriété du projet"
+    },
+    {
+      "id": "veh_semi_truck",
+      "name": "Semi-remorque",
+      "category": "vehicle",
+      "tags": [
+        "camion",
+        "semi_remorque",
+        "transport",
+        "livraison",
+        "lien",
+        "reseau",
+        "fournisseur",
+        "client"
+      ],
+      "footprint": {
+        "w": 2.5,
+        "d": 12.5,
+        "h": 3.6
+      },
+      "fit": "max",
+      "variants": [],
+      "scene": "res://assets/vehicle/veh_semi_truck/veh_semi_truck.tscn",
       "source_path": null,
       "sign": false,
       "license": "propriété du projet"

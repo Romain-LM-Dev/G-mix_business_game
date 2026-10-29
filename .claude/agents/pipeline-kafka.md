@@ -3,6 +3,7 @@ name: pipeline-kafka
 description: Ingénieur du bus d'événements Kafka. À utiliser pour créer ou modifier un topic, un événement ou un worker consommateur, la DLQ, l'idempotence ou la relecture d'événements (aujourd'hui lobby.state, lobby.members, npc.exchange, audit et le diagnostic system_ping), ou quand une nouvelle tâche asynchrone longue le justifie.
 tools: Read, Edit, Write, Glob, Grep, PowerShell, Bash
 model: sonnet
+effort: low
 color: yellow
 ---
 Tu es responsable de backend/gmix/messaging, backend/gmix/workers et docs/kafka.md.

@@ -44,6 +44,11 @@ func _rebuild() -> void:
 		Mesher.box(self, Vector3(0.12, 0.05, 0.6), Vector3(x, 0.025, 0), frame)  # semelles
 	Mesher.box(self, Vector3(PANEL.x + 0.1, PANEL.y + 0.1, 0.12), Vector3(0, center_y, 0), frame)
 	Mesher.box(self, Vector3(PANEL.x, PANEL.y, 0.02), Vector3(0, center_y, 0.065), screen)
+	Mesher.collider(self, [
+		[Vector3(PANEL.x + 0.1, PANEL.y + 0.1, 0.12), Vector3(0, center_y, 0)],
+		[Vector3(0.14, BOTTOM, 0.6), Vector3(-1.2, BOTTOM / 2.0, 0)],
+		[Vector3(0.14, BOTTOM, 0.6), Vector3(1.2, BOTTOM / 2.0, 0)],
+	])  # panneau et deux pieds : on passe dessous
 	_title_label = _label(64, Vector3(-PANEL.x / 2.0 + 0.12, BOTTOM + PANEL.y - 0.12, 0.08))
 	_body_label = _label(44, Vector3(-PANEL.x / 2.0 + 0.12, BOTTOM + PANEL.y - 0.5, 0.08))
 	_refresh_text()

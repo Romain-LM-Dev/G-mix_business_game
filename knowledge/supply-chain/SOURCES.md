@@ -53,6 +53,9 @@ dans ce tableau avec une licence ou un droit d'usage.
 | wikipedia-fr-disponibilite.md | Disponibilité | Contributeurs de Wikipédia (fr) | rév. 240442167 | CC BY-SA 4.0 (attribution : contributeurs de Wikipédia) | 2026-10-28 |
 | wikipedia-fr-theorie-des-contraintes.md | Théorie des contraintes | Contributeurs de Wikipédia (fr) | rév. 237231287 | CC BY-SA 4.0 (attribution : contributeurs de Wikipédia) | 2026-10-28 |
 | wikipedia-fr-theorie-des-files-d-attente.md | Théorie des files d'attente | Contributeurs de Wikipédia (fr) | rév. 239910708 | CC BY-SA 4.0 (attribution : contributeurs de Wikipédia) | 2026-10-28 |
+| reglement-ce-561-2006-temps-de-conduite.md | Temps de conduite et pauses des conducteurs routiers (règlement (CE) n° 561/2006, art. 6 et 7) | Parlement européen et Conseil ; reproduction OPPBTP | 2006-03-15 (reproduction du 2022-06-01) | Texte réglementaire UE ; synthèse interne, citations courtes |  |
+| inrs-allees-chariots-et-pietons.md | Allées de chariots et séparation piétons / engins (INRS ED 949, ED 6350) | INRS | ED 949 réimpr. 2013 ; ED 6350 oct. 2019 | Publications INRS ; synthèse interne, citations courtes |  |
+| inrs-implantation-plateformes-logistiques.md | Implantation d'une plate-forme logistique (INRS ED 6350) | INRS | oct. 2019 | Publication INRS ; synthèse interne, citations courtes |  |
 
 ## Statut du corpus
 
@@ -116,3 +119,19 @@ Précautions de lecture :
 - Normes payantes, non lues, jamais ingérées : NF E60-182 (TRS), NF EN 13306 (terminologie de la maintenance),
   NF ISO 2859-1 (échantillonnage pour acceptation), ISO 7870-2 (cartes de contrôle de Shewhart). La norme SAE JA1011,
   citée par wikipedia-en-reliability-centered-maintenance, n'est pas lue non plus.
+
+## Réseau logistique et implantation (ADR 0009) : ajouts du 2026-10-29
+
+Fiches de synthèse rédigées en interne à partir de textes lus en entier pour les passages cités (consultés le
+2026-10-29). Chaque fiche porte son en-tête `> Source :` (URL, article ou page).
+
+- reglement-ce-561-2006-temps-de-conduite.md : art. 6 et 7 lus dans la reproduction OPPBTP (mise à jour du 2022-06-01) ;
+  EUR-Lex bloque les robots (contrôle anti-robot), texte consolidé non vérifié ; art. 8 et suivants non lus.
+- inrs-allees-chariots-et-pietons.md : INRS ED 949 (§ 2.2.2) et ED 6350 (annexe 3), lus dans les PDF.
+- inrs-implantation-plateformes-logistiques.md : INRS ED 6350 (chapitre 4), lu dans le PDF. Ne contient ni « marche en
+  avant » ni règle de quarantaine.
+
+Non sourcé, règles qui restent `calibre` ou `exemple` : quarantaine / produits non conformes (NF EN ISO 9001 § 8.7,
+norme payante, aucun texte lisible trouvé : seuls des sites de formation la résument, non retenus) ; ordre de la marche
+en avant (réception -> stock MP -> production -> contrôle -> emballage -> entrepôt PF -> quai) ; vitesse moyenne des
+camions.

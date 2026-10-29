@@ -3,7 +3,7 @@
 [ext_resource type="Script" path="res://assets/character.gd" id="1_tqbge"]
 [ext_resource type="PackedScene" path="res://assets/_sources/kenney-mini-characters/character-male-e.glb" id="2_nbinf"]
 
-[node name="char_worker_m" type="Node3D" unique_id=1699942179]
+[node name="char_worker_m" type="Node3D" unique_id=631080782]
 script = ExtResource("1_tqbge")
 asset_id = "char_worker_m"
 

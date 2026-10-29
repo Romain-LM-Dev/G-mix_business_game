@@ -3,7 +3,7 @@
 [ext_resource type="Script" path="res://assets/character.gd" id="1_t28ae"]
 [ext_resource type="PackedScene" path="res://assets/_sources/kenney-mini-characters/character-female-f.glb" id="2_yjur0"]
 
-[node name="char_worker_f" type="Node3D" unique_id=1648002333]
+[node name="char_worker_f" type="Node3D" unique_id=10777868]
 script = ExtResource("1_t28ae")
 asset_id = "char_worker_f"
 

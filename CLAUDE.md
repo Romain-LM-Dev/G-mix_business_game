@@ -91,6 +91,7 @@ Règles d'organisation :
 - Avant de rendre la main : `.\scripts\test.ps1` (ou `-Fast` si Godot n'est pas touché).
 
 ## Documentation
+docs/prompt-projet.md : vision, attendus majeurs et prompt de session, à lire en premier
 docs/architecture.md · docs/ai-runtime.md · docs/kafka.md · docs/roles.md · docs/game-design.md ·
 docs/decisions/ (ADR) · docs/blocages.md (points bloquants et décisions en attente) · docs/equipe/ (évaluation de
 l'équipe) · godot/README.md · ai/evals/README.md (évaluations des agents IA)

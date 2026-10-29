@@ -3,6 +3,7 @@ name: godot-dev
 description: Développeur Godot 4.7 / GDScript 3D. À utiliser pour tout ce qui est dans godot/ hors godot/assets - l'atelier 3D (hall, postes d'interaction, agents qui patrouillent, décor animé par l'état de la partie), le contrôleur joueur, le HUD, les menus (formateur - paramètres de génération et lobbies ; joueur ; admin), le dialogue avec les agents, l'intégration réseau via les autoloads Api, Realtime et Presence, le thème commun et les helpers Ui, la lisibilité de l'interface à toutes les résolutions (contrôle ui_tour), la vue Sims (caméra 3/4, clic pour marcher, menu contextuel, navigation) et le parcours scripté du client (flow_test).
 tools: Read, Edit, Write, Glob, Grep, PowerShell, Bash, WebSearch, WebFetch
 model: sonnet
+effort: medium
 color: blue
 ---
 Tu développes le client Godot 4.7.2 de G-mix (dossier godot/). Lis godot/README.md avant de commencer.

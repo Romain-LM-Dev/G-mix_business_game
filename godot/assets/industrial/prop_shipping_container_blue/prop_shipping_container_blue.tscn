@@ -4,17 +4,17 @@
 [ext_resource type="PackedScene" path="res://assets/_sources/kenney-city-kit-industrial/shipping-container-b.glb" id="2_8eqyj"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_x1boc"]
-size = Vector3(2.7449024, 2.564265, 6.06)
+size = Vector3(2.9442022, 2.7504494, 6.5)
 
-[node name="prop_shipping_container_blue" type="Node3D" unique_id=325084770]
+[node name="prop_shipping_container_blue" type="Node3D" unique_id=270716767]
 script = ExtResource("1_djuq4")
 asset_id = "prop_shipping_container_blue"
 
 [node name="Model" type="Node3D" parent="." unique_id=944174617 instance=ExtResource("2_8eqyj")]
-transform = Transform3D(7.3668847, 0, 0, 0, 7.3668847, 0, 0, 0, 7.3668847, 8.782011e-07, -5.051697e-09, 0)
+transform = Transform3D(7.9017744, 0, 0, 0, 7.9017744, 0, 0, 0, 7.9017744, 9.419649e-07, -5.418487e-09, 0)
 
-[node name="Collision" type="StaticBody3D" parent="." unique_id=44346831]
+[node name="Collision" type="StaticBody3D" parent="." unique_id=1932867488]
 
-[node name="Shape" type="CollisionShape3D" parent="Collision" unique_id=425635983]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2821325, 0)
+[node name="Shape" type="CollisionShape3D" parent="Collision" unique_id=280840981]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.3752247, 0)
 shape = SubResource("BoxShape3D_x1boc")

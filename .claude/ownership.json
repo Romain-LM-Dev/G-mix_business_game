@@ -53,7 +53,8 @@
       "backend/tests/test_llm_service.py",
       "backend/tests/test_ollama_client.py",
       "backend/tests/test_eval_contamination.py",
-      "backend/tests/test_eval_dialogue.py"
+      "backend/tests/test_eval_dialogue.py",
+      "backend/tests/test_eval_design_cases.py"
     ],
     "rag-knowledge": [
       "backend/gmix/rag/**",

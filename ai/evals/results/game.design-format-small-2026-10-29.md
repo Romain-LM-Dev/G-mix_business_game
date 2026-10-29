@@ -4,6 +4,29 @@ Modèle : qwen2.5:3b (alias `small`), Ollama 0.40.4, température 0,4, num_predi
 
 JSON valide = se lit et respecte le schéma de la sonde ; Contrainte violée = parmi les JSON valides, au moins un défaut (chiffre de toute écriture, texte trop court ou trop long, nombre d'éléments).
 
+## Conclusion (rédigée à la main, à refaire si l'on rejoue l'outil)
+
+Question : Ollama applique-t-il ensemble `pattern` et `maxLength` ? **Non : avec `pattern`, `maxLength` est ignoré**
+(sonde « liste blanche + maxLength 40 » : les 2 sorties lisibles dépassent 40 caractères, 4 sur 6 sont tronquées à
+400 tokens). Seul, `maxLength` est appliqué, comme `minLength`, `minItems`, `maxItems` et `enum` (0 violation sur
+6 graines chacun). Une répétition `{min,max}` placée dans le `pattern` est appliquée.
+
+- **Pour borner un texte : `pattern` de la forme `^[classe]{min,max}$`**, jamais `pattern` + `maxLength` (et pas de
+  `*` : un motif non borné laisse le modèle boucler jusqu'à `num_predict` ou jusqu'à l'erreur HTTP 500 « token repeat
+  limit reached », que `LLMService.structured` laisse remonter en `OllamaError`).
+- **Liste blanche, pas liste noire.** `^[^0-9]*$` est contourné par qwen2.5:3b avec des chiffres pleine chasse
+  (`１４`), arabes-indiens (`۱۴`), en indice (`₁₂`) ou en exposant : 6/6 sorties en infraction avec un prompt hostile,
+  3 sur 4 lisibles avec un prompt réaliste. Exclure aussi `０-９` ne suffit pas (autres écritures). La liste blanche
+  `[A-Za-zÀ-ÖØ-öø-ÿŒœ ,.;:!?'’«»()–-]` : 0 chiffre sur 24 sorties lisibles, longueurs respectées, y compris au gabarit
+  du concept (`{20,700}`, `{40,500}`, 2 à 4 objectifs `{10,140}`). Le `-` est placé en dernier, littéral : GBNF
+  refuse `\-`.
+- **Validateur** : `FORBIDDEN_IN_TEXT = \d|https?://` attrape les chiffres décimaux Unicode (pleine chasse, arabes-indiens)
+  mais pas les indices, exposants ni chiffres cerclés (`₁₂`, `¹`, `①`) : un contrôle `str.isnumeric()` les couvre.
+  À traiter par moteur-jeu / architecte (spec.py, design.py).
+- Limites : un seul modèle (qwen2.5:3b), 6 graines, des sondes volontairement hostiles ; qwen2.5:7b non mesuré. Le
+  décodage contraint pousse le modèle hors de sa distribution quand le prompt réclame des chiffres (« illsigne »,
+  répétitions) : les prompts `game.design.*` interdisent les chiffres plutôt que de les réclamer.
+
 | Sonde | JSON valide | Tronqué | Erreur Ollama | Illisible | Contrainte violée | Violations |
 |---|---|---|---|---|---|---|
 | pattern seul [^0-9] (prompt hostile) | 6/6 | 0 | 0 | 0 | 6 | chiffre |

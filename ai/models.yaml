@@ -131,7 +131,7 @@ tasks:
     output: json
     cache: true
     options: { num_predict: 1500, temperature: 0.4 }
-    max_input_tokens: 3800
+    max_input_tokens: 4500  # (29/10) + catalogue réseau (ADR 0009) ; 4500 + 1500 <= num_ctx 6144 (testé)
   game.design.cast:
     description: "Personnages du jeu (nom, caractère du pack, présentation) ; JSON contraint, aucun chiffre libre."
     model: small

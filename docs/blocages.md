@@ -65,6 +65,32 @@ Mis à jour le 2026-10-23 (points ouverts de la séance du 22 au 23/10). À teni
 | Mesures IA à refaire ou à confirmer | Latences du 3b des rapports `t03` et `v4` perturbées (Godot sur le GPU), à rejouer ; gains du filtre `player.intent` optimistes (réglés sur la série F qui les mesure). | ia-runtime |
 | Outils Godot non suivis par git | `godot/scenes/tools/flow_test` et `ui_tour` ne sont pas versionnés ; c'est aussi le cas de `godot/scenes/world/sims_view.gd` et de la plupart des fichiers de la séance (un seul commit, 5a5d288 : `git status`). | utilisateur (commit), devops |
 
+## Décisions par défaut du 29/10 (à confirmer par l'utilisateur)
+
+ADR 0008 et ADR 0009 : acceptés (29/10, à confirmer).
+
+| Sujet | Décision par défaut | Trace |
+|---|---|---|
+| Sites purement décoratifs | Interdits à l'IA (la 3D ne montre que ce qui est calculé) | ADR 0009 question 1 |
+| Trajet de camion | Rejoué en 30 minutes simulées, étiquette pour un transit de plusieurs jours | ADR 0009 question 2 |
+| Pack non couvert en assets | Fermé, sauf pour l'admin (audit `forced`) | ADR 0009 question 3, d.7 |
+| Comparaison de modèles | Installer `qwen3.5:4b` (~3,3 Go) pour la mesurer (voir la ligne « `qwen3.5:4b` non mesuré ») | ADR 0008 |
+| Modification d'un jeu | 409 pendant un lobby en cours | ADR 0009 critère 0009-11 |
+| Panneaux d'atelier | Hors tranche 1 | ADR 0008 |
+| Éditeur de grille | Retouches limitées aux rôles `decor` et `affichage` et au déplacement/rotation dans le bloc ; la topologie passe par les paramètres | ADR 0009 d.8 |
+
+Risques associés :
+
+| Risque | Détail | À prévenir |
+|---|---|---|
+| Mémoire des agents partagée | Entre joueurs d'un même lobby ; risque accepté par l'utilisateur | utilisateur, moteur-jeu |
+| Sources à vérifier | Vitesses et heures de conduite : rag-knowledge livre les fiches en parallèle, elles ne sont pas encore citées | rag-knowledge, game-designer |
+| Règles `calibre` sans source | Règles de placement dont la provenance est `calibre` | game-designer |
+| Usine proposée sous condition | Seulement quand tous ses assets sont `importe` | assets-3d |
+| Premier prompt `concept` | Peut dépasser 4100 tokens ; à mesurer | ia-runtime |
+| Retouches `dropped` | Retouches retirées après un changement de paramètres (listées, non rejouées) | godot-dev, backend-api |
+| Fantôme Godot et API | Écart possible entre le fantôme du client et le verdict de l'API (`check_placement`) | godot-dev, backend-api |
+
 ## Contraintes connues (non bloquantes)
 
 - Jeu en salle : autoriser dans le pare-feu Windows de l'hôte le port TCP 8000 (API) et les ports UDP

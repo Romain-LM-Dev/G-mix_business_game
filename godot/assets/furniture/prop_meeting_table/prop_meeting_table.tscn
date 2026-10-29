@@ -6,3 +6,4 @@
 script = ExtResource("1_script")
 asset_id = "prop_meeting_table"
 parts = [["res://assets/furniture/furn_table/furn_table.tscn", Vector3(0, 0, 0), 0.0], ["res://assets/furniture/furn_chair/furn_chair.tscn", Vector3(-0.8, 0, -0.85), 0.0], ["res://assets/furniture/furn_chair/furn_chair.tscn", Vector3(0, 0, -0.85), 0.0], ["res://assets/furniture/furn_chair/furn_chair.tscn", Vector3(0.8, 0, -0.85), 0.0], ["res://assets/furniture/furn_chair/furn_chair.tscn", Vector3(-0.8, 0, 0.85), 180.0], ["res://assets/furniture/furn_chair/furn_chair.tscn", Vector3(0, 0, 0.85), 180.0], ["res://assets/furniture/furn_chair/furn_chair.tscn", Vector3(0.8, 0, 0.85), 180.0]]
+solid_box = Vector3(2.4, 0.95, 2.1)

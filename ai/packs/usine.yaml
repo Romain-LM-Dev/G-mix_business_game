@@ -71,6 +71,120 @@ world:
   size: [48, 30]
   spawn: [0, 20]
 
+# --- Monde sur grilles et réseau logistique (ADR 0009) -------------------------------------------------------------
+# Vocabulaire générique (blocs, sites, liens, règles), valeurs propres à l'usine. Le placeur (gmix.game.layout) pose
+# les objets sur ces grilles sans hasard ; l'IA ne choisit que dans ces listes.
+grid:
+  site_cell_m: 0.5          # les `area` internes sont des multiples de 0,5 m
+
+# Bandes d'allée en cellules de 0,5 m : 5 cellules = 2,5 m (règle allees_chariot). `decor` = palette de l'éditeur
+# du formateur (assets `importe`, rôles decor ou affichage, hors couverture). Aucun décor ne figure un stock (palettes,
+# cartons pleins) que le moteur ne simule pas.
+block_types:
+  bord:
+    label: Zone de travail le long d'une allée
+    pattern: edge
+    cell_m: 0.5
+    front_aisle_cells: 5
+    row_aisle_cells: 0
+    decor: [furn_plant, furn_bookcase, furn_chair, furn_office_chair, furn_table, prop_box_small, prop_wall_board]
+  racks:
+    label: Stockage en rangées de racks
+    pattern: rows
+    cell_m: 0.5
+    front_aisle_cells: 5
+    row_aisle_cells: 5        # allée de cariste entre deux rangées
+    decor: [prop_traffic_cone, furn_bookcase, prop_wall_board]
+  ligne:
+    label: Lignes de machines en série
+    pattern: line
+    cell_m: 0.5
+    front_aisle_cells: 0      # les allées de 3 m entre zones bordent déjà le bloc
+    row_aisle_cells: 5        # 3 lignes x 2,1 m + 2 x 2,5 m = 11,3 m dans les 11,5 m de la zone
+    decor: [prop_traffic_cone, prop_wall_board, furn_bookcase]
+  site:
+    label: Site extérieur (bâtiment et abords)
+    pattern: single
+    cell_m: 2
+    front_aisle_cells: 0
+    row_aisle_cells: 0
+    decor: [nat_tree, nat_tree_oak, nat_tree_pine, nat_bush, nat_rock, prop_street_light, prop_traffic_cone]
+
+# Sites et routes. Délai d'un fournisseur = préparation + arrondi au-dessus (km / vitesse / heures de conduite par
+# jour), borné 1 à 8 ; valeurs et provenance : values reseau.* (classes par défaut : 1, 3 et 5 jours, ceux des
+# profils). `map` ne fait que la mise en page de la carte (60 m par anneau, routes à 5 m des bâtiments).
+network:
+  map: {cell_m: 60, road_offset_m: 5}
+  driving_h_per_day: 9
+  distance_classes:
+    proche: {label: Proche (250 km), km: 250, ring: 1}
+    national: {label: National (800 km), km: 800, ring: 2}
+    import: {label: Import (1 300 km), km: 1300, ring: 3}
+  link_types:
+    route: {label: Route, speed_kmh: 70, vehicle: veh_box_truck}
+  sites:
+    fournisseur_rapide: {kind: fournisseur, side: ouest, link: route, distances: [proche], default: proche, prep_days: 0, supplier_profile: rapide, building: bld_warehouse}
+    fournisseur_standard: {kind: fournisseur, side: ouest, link: route, distances: [proche, national], default: proche, prep_days: 2, supplier_profile: standard, building: bld_factory_plant}
+    fournisseur_economique: {kind: fournisseur, side: ouest, link: route, distances: [national, import], default: national, prep_days: 3, supplier_profile: economique, building: bld_warehouse_hangar}
+    client: {kind: client, side: est, link: route, distances: [proche], default: proche, prep_days: 0, building: bld_distribution_center}
+
+# Règles de placement contrôlées par check_placement. Provenance obligatoire : `source` (citation lue dans une fiche
+# du corpus), `calibre` (la note dit pourquoi c'est plausible) ou `exemple` (cahier, non sourcé). Non exprimables
+# avec ces 6 types, donc non déclarées : protections fixées au sol entre postes de travail et flux de chariots, flux
+# VL et PL dissociés (INRS ED 6350 § 4.4 et § 4.1, fiche inrs-implantation-plateformes-logistiques).
+placement_rules:
+  - id: allee_chariot_inrs
+    kind: aisle_min
+    min_m: 2.15
+    status: source
+    citation: >-
+      INRS ED 949, § 2.2.2, p. 19-20, et ED 6350, annexe 3, p. 38 (fiche inrs-allees-chariots-et-pietons) : allée à
+      sens unique = largeur du chariot (ou de sa charge) + 1 m ; double sens = largeur des deux + 1,40 m ; passage
+      piéton d'au moins 0,80 m séparé par un garde-corps.
+    note: "2,15 m = largeur du chariot veh_forklift (1,15 m, ai/assets.yaml) + 1 m, sens unique."
+  - id: allees_chariot
+    kind: aisle_min
+    min_m: 2.5
+    status: calibre
+    note: >-
+      2,5 m n'est pas dans la source : c'est 5 cellules, la plus petite allée du plan, au-dessus des 2,15 m de la règle
+      INRS à sens unique. Le double sens (2 chariots : 3,70 m ; chariot et transpalette : 3,10 m) et le passage piéton
+      séparé ne sont pas garantis : allées à sens unique, à vérifier avant d'y voir un plan réel.
+  - id: marche_en_avant
+    kind: flow
+    blocks: [reception, stock_mp, production, qualite, emballage, entrepot_pf, quai]
+    status: exemple
+    note: "Ordre du cahier (plan en U) ; l'expression et l'ordre ne sont pas dans INRS ED 6350 (fiche inrs-implantation-plateformes-logistiques, « Ce que la source NE dit pas »)."
+  - id: quai_reception
+    kind: adjacent
+    a: reception
+    b: quai
+    status: exemple
+    note: "Cahier : quai partagé réception et expédition ; contiguïté non énoncée par la source lue (INRS ED 6350)."
+  - id: quai_entrepot_pf
+    kind: adjacent
+    a: entrepot_pf
+    b: quai
+    status: exemple
+    note: "Cahier : l'entrepôt PF charge le camion du client au quai partagé ; non énoncé par la source lue."
+  - id: quarantaine_separee
+    kind: separated
+    a: quarantine
+    b: mp
+    min_m: 2.5
+    status: calibre
+    note: >-
+      Quarantaine des palettes non conformes (ref quarantine) à une allée au moins des racks MP (ref mp), pour qu'une
+      palette bloquée ne soit pas rangée ni consommée par erreur. Maîtrise des éléments de sortie non conformes : ISO
+      9001, § 8.7, non lue (à vérifier) ; 2,5 m = une allée du plan.
+  - id: ecran_indicateurs
+    kind: facing
+    block: pilotage
+    role: affichage
+    toward: front
+    status: calibre
+    note: "Mise en scène : un écran se lit de face, depuis l'allée où l'on passe ; aucune source, n'entre dans aucun calcul."
+
 clock:
   days_per_turn: 5
   minutes_per_day: 480
@@ -130,15 +244,16 @@ difficulties:
 # Réglages que la conception par l'IA peut choisir (ADR 0008, annexe §2) : une clé de profil prend la valeur d'un
 # autre profil de `difficulties`, jamais un nombre nouveau ; provenance dans `values` (liste ci-dessus).
 # `cash_weeks` n'est pas réglable : aucune notion du pack ne porte sur la trésorerie (pas de module finance).
+# `value` : clé de `values` qui porte la provenance du réglage (arbitrage e).
 tunables:
-  mtbf_factor: {label: Fréquence des pannes, teaches: [disponibilite, pannes_par_usure, maintenance_preventive]}
-  defect_factor: {label: Défauts des machines, teaches: [rendement_en_cascade, capacite_et_trs]}
-  load: {label: Charge de l'usine, teaches: [charge_et_attente, goulot, loi_de_little]}
-  promised_days: {label: Délai promis au client, teaches: [otif, loi_de_little]}
-  demand_variability: {label: Variabilité de la demande, teaches: [stock_de_securite, charge_et_attente]}
-  reliability_shift: {label: Fiabilité des fournisseurs, teaches: [delai_et_fiabilite, stock_de_securite]}
-  mp_stock_days: {label: Stock de matière au départ, teaches: [point_de_commande, stock_de_securite]}
-  pf_stock_days: {label: Stock de produits finis au départ, teaches: [otif, stock_de_securite]}
+  mtbf_factor: {label: Fréquence des pannes, value: machine.facteur_mtbf, teaches: [disponibilite, pannes_par_usure, maintenance_preventive]}
+  defect_factor: {label: Défauts des machines, value: qualite.facteur_defauts, teaches: [rendement_en_cascade, capacite_et_trs]}
+  load: {label: Charge de l'usine, value: client.charge, teaches: [charge_et_attente, goulot, loi_de_little]}
+  promised_days: {label: Délai promis au client, value: client.delai_promis_jours, teaches: [otif, loi_de_little]}
+  demand_variability: {label: Variabilité de la demande, value: client.variabilite, teaches: [stock_de_securite, charge_et_attente]}
+  reliability_shift: {label: Fiabilité des fournisseurs, value: fournisseur.ecart_fiabilite, teaches: [delai_et_fiabilite, stock_de_securite]}
+  mp_stock_days: {label: Stock de matière au départ, value: stock_mp.stock_initial_jours, teaches: [point_de_commande, stock_de_securite]}
+  pf_stock_days: {label: Stock de produits finis au départ, value: entrepot_pf.stock_initial_jours, teaches: [otif, stock_de_securite]}
 
 targets:
   otif: 95            # % de commandes livrées complètes au plus tard le jour promis
@@ -338,6 +453,29 @@ values:
   pilotage.effets_aleas: {status: calibre, note: "Ampleur des effets des aléas (events) : indicative, non sourcée."}
   interface.seuils_attention: {status: calibre, note: "panels[].columns[].warn : 5 points sous la cible (OTIF 90 pour 95, TRS 75 pour 80), écart de l'exemple de l'annexe 0008 §2. Aide à lire la pastille ; n'entre dans aucun calcul, objectif ni verdict."}
 
+  # --- Réseau logistique (ADR 0009, section `network`) ----------------------------------------------------
+  # Délai de transport = préparation + arrondi au-dessus (km / vitesse / heures de conduite par jour), borné 1 à 8 :
+  # dérivation du jeu, pas une citation. Classes par défaut : rapide 0 + 1 = 1 j, standard 2 + 1 = 3 j, économique
+  # 3 + 2 = 5 j, soit les délais de fournisseur.profils.
+  reseau.conduite_h_jour:
+    value: 9
+    unit: heure de conduite par jour
+    status: source
+    source: reglement-ce-561-2006-temps-de-conduite
+    note: >-
+      Règlement (CE) n° 561/2006, art. 6 § 1 : conduite journalière de 9 h au plus (10 h au plus deux fois par
+      semaine) ; art. 6 § 2 : 56 h par semaine ; art. 7 : pause d'au moins 45 min après 4 h 30 de conduite. Texte lu
+      dans la reproduction de l'OPPBTP (mise à jour du 1er juin 2022), EUR-Lex non ouvert : à vérifier avant
+      publication. Le passage des kilomètres aux jours est une dérivation du jeu.
+  reseau.vitesse.route: {value: 70, unit: km/h moyens, status: calibre, note: "Vitesse moyenne d'un camion porteur sur la journée de conduite (autoroute, nationale, traversées) : ordre de grandeur indicatif. Le règlement 561/2006 ne donne aucune vitesse ; limites du Code de la route pour les poids lourds : à vérifier."}
+  reseau.distance.proche: {value: 250, unit: km, status: calibre, note: "Fournisseur de la région ou d'une région voisine : 250 / 70 = 3,6 h de conduite, 1 jour. Indicatif."}
+  reseau.distance.national: {value: 800, unit: km, status: calibre, note: "Autre bout du pays : 800 / 70 = 11,4 h, au-delà des 9 h de l'art. 6 du règlement 561/2006, donc 2 jours. Indicatif."}
+  reseau.distance.import: {value: 1300, unit: km, status: calibre, note: "Pays voisin d'Europe : 1 300 / 70 = 18,6 h, 3 jours à 9 h par jour. Indicatif."}
+  reseau.preparation.fournisseur_rapide: {value: 0, unit: jour, status: calibre, note: "Expédition le jour de la commande : avec la classe proche, 0 + 1 = 1 jour, délai du profil rapide."}
+  reseau.preparation.fournisseur_standard: {value: 2, unit: jour, status: calibre, note: "Préparation et chargement : avec la classe proche, 2 + 1 = 3 jours, délai du fournisseur du cahier (exemple). Classe national : 4 jours."}
+  reseau.preparation.fournisseur_economique: {value: 3, unit: jour, status: calibre, note: "Commandes groupées par 4 palettes : avec la classe national, 3 + 2 = 5 jours, délai du profil économique. Classe import : 6 jours."}
+  reseau.preparation.client: {value: 0, unit: jour, status: calibre, note: "Le client enlève lui-même (client.pickup_window_min) : la distance du client ne change aucun calcul du moteur, elle place seulement son site sur la carte."}
+
 # Archétypes de machine : les 4 machines de l'exemple du cahier (§5.2). L'opération affichée vient du produit.
 machine_types:
   m1:
@@ -512,11 +650,11 @@ departments:
   - id: fournisseur
     label: Fournisseur de matière première
     external: true
-    area: [-42, 24, -28, 36]
+    block: site
+    site: fournisseur_standard   # agent parlant du fournisseur standard ; les sites rapide et économique n'en ont pas
     stations: []
-    elements:
-      - {asset: bld_factory_plant, label: Usine du fournisseur}
-      - {asset: prop_pallet_stack, label: Palettes prêtes, count: 2}
+    elements:   # le bâtiment est celui du site (network.sites.*.building)
+      - {asset: prop_pallet_stack, label: Palettes prêtes, role: decor, count: 2}
     agent:
       name: Paul
       job: Commercial du fournisseur
@@ -529,12 +667,14 @@ departments:
   - id: reception
     label: Réception
     area: [-24, 6, -8.5, 15]
+    block: bord
+    front: nord
     stations: [{kind: poste_reception, label: Poste de contrôle de la réception}]
     elements:
-      - {asset: prop_floor_zone, label: Zone de dépose (6 palettes)}
-      - {asset: prop_floor_zone, label: Quarantaine (2 palettes), ref: quarantine}
-      - {asset: prop_desk_computer, label: "Poste de contrôle : PC, lecteur, imprimante d'étiquettes"}
-      - {asset: veh_pallet_jack, label: Transpalette (2 000 kg)}
+      - {asset: prop_floor_zone, label: Zone de dépose (6 palettes), role: tampon}
+      - {asset: prop_floor_zone, label: Quarantaine (2 palettes), ref: quarantine, role: stockage}
+      - {asset: prop_desk_computer, label: "Poste de contrôle : PC, lecteur, imprimante d'étiquettes", role: poste}
+      - {asset: veh_pallet_jack, label: Transpalette (2 000 kg), role: engin}
     agent:
       name: Noah
       job: Réceptionnaire
@@ -547,11 +687,15 @@ departments:
   - id: stock_mp
     label: Stock de matière première
     area: [-24, -15, -14, 3]
+    block: racks
+    front: est
+    capacity: mp_capacity_pallets   # ⌈24 / 6⌉ = 4 racks
     stations: [{kind: magasin_mp, label: Bureau du magasin MP}]
     elements:
-      - {asset: prop_pallet_rack, label: Racks à palettes (24 emplacements), ref: mp, count: 4}
-      - {asset: prop_floor_zone, label: Préparation des kits}
-      - {asset: veh_forklift, label: Chariot élévateur (1 200 kg)}
+      # 6 places par rack : 2 travées de 3 palettes Europe, un niveau montré ; indicatif (calibre)
+      - {asset: prop_pallet_rack, label: Racks à palettes (24 emplacements), ref: mp, role: stockage, per: places, places: 6}
+      - {asset: prop_floor_zone, label: Préparation des kits, role: tampon}
+      - {asset: veh_forklift, label: Chariot élévateur (1 200 kg), role: engin}
     agent:
       name: Inès
       job: Magasinière-cariste
@@ -564,10 +708,14 @@ departments:
   - id: production
     label: Production
     area: [-11, -8.5, 11, 3]
+    block: ligne
+    front: sud
     stations: [{kind: tableau_ligne, label: Tableau de ligne}]   # postes `machine` : un par machine, créés par la génération
     elements:
-      - {asset: prop_wall_board, label: "Tableau de ligne : OF en cours, cadence, arrêts"}
-      - {asset: prop_andon_light, label: Andon des lignes}
+      - {asset: prop_machine, label: Machine, role: machine, per: machine}
+      - {asset: prop_buffer_table, label: Table d'attente (10 produits), role: tampon, per: machine}
+      - {asset: prop_wall_board, label: "Tableau de ligne : OF en cours, cadence, arrêts", role: affichage}
+      - {asset: prop_andon_light, label: Andon de la ligne, role: affichage, per: line}
     agent:
       name: Idriss
       job: Chef de ligne
@@ -581,12 +729,14 @@ departments:
   - id: qualite
     label: Contrôle qualité
     area: [14, -15, 24, -4.5]
+    block: bord
+    front: ouest
     stations: [{kind: poste_qualite, label: Table de contrôle}]
     elements:
-      - {asset: prop_inspection_table, label: Table de contrôle et instruments, ref: quality}
-      - {asset: prop_floor_zone, label: Zone conforme}
-      - {asset: prop_floor_zone, label: Zone à retoucher}
-      - {asset: prop_scrap_bin, label: Bac à rebut, ref: scrap}
+      - {asset: prop_inspection_table, label: Table de contrôle et instruments, ref: quality, role: poste}
+      - {asset: prop_floor_zone, label: Zone conforme, role: tampon}
+      - {asset: prop_floor_zone, label: Zone à retoucher, role: tampon}
+      - {asset: prop_scrap_bin, label: Bac à rebut, ref: scrap, role: stockage}
     agent:
       name: Léa
       job: Contrôleuse qualité
@@ -599,11 +749,13 @@ departments:
   - id: emballage
     label: Emballage
     area: [14, -2, 24, 5]
+    block: bord
+    front: ouest
     stations: [{kind: poste_emballage, label: Table d'emballage}]
     elements:
-      - {asset: prop_packing_table, label: "Table d'emballage : cartons, ruban, balance"}
-      - {asset: prop_pallet_wrapper, label: Filmeuse de palettes}
-      - {asset: prop_pallet, label: Palette en cours}
+      - {asset: prop_packing_table, label: "Table d'emballage : cartons, ruban, balance", role: poste}
+      - {asset: prop_pallet_wrapper, label: Filmeuse de palettes, role: machine}
+      - {asset: prop_pallet, label: Palette en cours, role: tampon}
     agent:
       name: Malik
       job: Emballeur
@@ -616,10 +768,12 @@ departments:
   - id: maintenance
     label: Maintenance et pièces de rechange
     area: [-11, -15, -1, -11.5]
+    block: bord
+    front: sud
     stations: [{kind: maintenance, label: Établi de maintenance}]
     elements:
-      - {asset: prop_workbench, label: Établi et servante d'outils}
-      - {asset: prop_wall_board, label: Tableau des interventions}
+      - {asset: prop_workbench, label: Établi et servante d'outils, role: poste}
+      - {asset: prop_wall_board, label: Tableau des interventions, role: affichage}
     agent:
       name: Karim
       job: Technicien de maintenance
@@ -633,11 +787,13 @@ departments:
       notions: [disponibilite, pannes_par_usure, maintenance_preventive]
   - id: pilotage
     label: Pilotage
-    area: [1.5, -15, 11, -11.5]
+    area: [1.5, -15, 11, -11]   # 1,3 m de bureau + 2,5 m de bande d'allée ; reste 2,5 m jusqu'à la production
+    block: bord
+    front: sud
     stations: [{kind: pilotage, label: Bureau du pilotage}]
     elements:
-      - {asset: prop_desk_computer, label: "Bureau : stocks, OF, commandes"}
-      - {asset: prop_kpi_screen, label: Écran des indicateurs, ref: kpi}
+      - {asset: prop_desk_computer, label: "Bureau : stocks, OF, commandes", role: poste}
+      - {asset: prop_kpi_screen, label: Écran des indicateurs, ref: kpi, role: affichage}
     agent:
       name: Sophie
       job: Responsable de production
@@ -651,18 +807,23 @@ departments:
   - id: quai
     label: Quai partagé (réception et expédition)
     area: [-6, 8.5, 6, 15]
+    block: bord
+    front: nord   # allée côté hall ; la porte est sur le mur du fond (z = 15)
     stations: []
     elements:
       # posée sur le mur avant (z = 15), centrée sur la zone ; Godot ouvre le mur à son emprise
-      - {asset: prop_dock_door, label: Porte de quai, ref: dock}
-      - {asset: veh_pallet_jack, label: Transpalette du quai}
+      - {asset: prop_dock_door, label: Porte de quai, ref: dock, role: porte}
+      - {asset: veh_pallet_jack, label: Transpalette du quai, role: engin}
   - id: entrepot_pf
     label: Entrepôt de produits finis
     area: [8.5, 7.5, 24, 15]
+    block: racks
+    front: ouest
+    capacity: pf_capacity_pallets   # ⌈20 / 6⌉ = 4 racks
     stations: [{kind: entrepot_pf, label: Bureau de l'entrepôt}]
     elements:
-      - {asset: prop_pallet_rack, label: Racks PF (20 palettes), ref: pf, count: 3}
-      - {asset: prop_floor_zone, label: Préparation des commandes}
+      - {asset: prop_pallet_rack, label: Racks PF (20 palettes), ref: pf, role: stockage, per: places, places: 6}
+      - {asset: prop_floor_zone, label: Préparation des commandes, role: tampon}
     agent:
       name: Maya
       job: Magasinière PF
@@ -675,10 +836,10 @@ departments:
   - id: client
     label: Client
     external: true
-    area: [28, 24, 42, 36]
+    block: site
+    site: client
     stations: []
-    elements:
-      - {asset: bld_distribution_center, label: Entrepôt du client}
+    elements: []   # le bâtiment est celui du site (network.sites.client.building)
     agent:
       name: Mme Durand
       job: Acheteuse du client
@@ -1071,19 +1232,89 @@ panels:
       - {key: good_share, label: Part de bons, format: pct}
     min: 80
     max: 100
+  # Supervision du formateur (ADR 0009) : mêmes données que le joueur, aucune nouvelle source ni nouveau calcul.
+  - id: sup_indicateurs
+    type: kpis
+    title: Indicateurs de la partie
+    placement: supervision
+    audience: formateur
+    source: kpis
+    columns:
+      - {key: otif, label: OTIF, format: pct, target: targets.otif, warn: 90}
+      - {key: trs, label: TRS, format: pct, target: targets.trs, warn: 75}
+      - {key: stockouts, label: Jours-ligne sans MP, format: int, target: targets.stockouts, better: lower}
+      - {key: good_share, label: Part de bons, format: pct}
+      - {key: cash, label: Trésorerie, format: money, target: targets.cash_final}
+  - id: sup_lignes
+    type: table
+    title: Lignes et goulots
+    placement: supervision
+    audience: formateur
+    source: factory.lines
+    columns:
+      - {key: name, label: Ligne}
+      - {key: bottleneck_id, label: Goulot}
+      - {key: expected_h, label: Bons attendus (/ h), format: dec1}
+      - {key: real_h, label: Bons mesurés (/ h), format: dec1}
+      - {key: production_rate, label: Réalisation du plan, format: pct}
+      - {key: wip, label: Encours, format: int}
+  - id: sup_machines
+    type: table
+    title: Machines
+    placement: supervision
+    audience: formateur
+    source: factory.machines
+    columns: *machine_columns
+  - id: sup_historique
+    type: chart
+    title: OTIF et TRS par semaine
+    placement: supervision
+    audience: formateur
+    source: history
+    columns:
+      - {key: otif, label: OTIF, format: pct, target: targets.otif}
+      - {key: trs, label: TRS, format: pct, target: targets.trs}
+  - id: sup_commandes
+    type: table
+    title: Commandes client
+    placement: supervision
+    audience: formateur
+    source: factory.orders.customer
+    columns:
+      - {key: id, label: Commande}
+      - {key: quantity, label: Produits, format: int}
+      - {key: due_day, label: Jour promis, format: int}
+      - {key: shipped, label: Expédiés, format: int}
+      - {key: status, label: État, format: state, labels: {ouverte: Ouverte, livree: Livrée, en_retard: En retard}}
 
 # Barre d'actions (ADR 0008, annexe §1 `Tool`, §2) : une entrée par action de module au plus, touche = rang + 1.
 # Tableau de bord et aide d'abord (mêmes touches dans toutes les parties) ; l'ordre des réparations, réglage rare,
-# et la caméra en dernier. Libellés : interface, aucune affirmation métier.
+# et la caméra en dernier ; `generate` garde 6 outils de barre par public (arbitrage a), une action hors barre reste
+# dans le menu de son poste. `menu` (ADR 0009, point 9) : cibles du clic (station:<kind>, agent:*, site:<kind>),
+# 6 entrées au plus par cible et par public ; `bar: false` = menu seulement. Libellés : interface, aucune affirmation
+# métier. Outils du formateur : routes Staff existantes (démarrer, semaine suivante, rejeu, mémoire, débrief).
 tools:
   - {id: tableau, label: Tableau de bord, kind: tableau_de_bord}
   - {id: aide, label: Aide, kind: aide}
-  - {id: lancement, label: Lancer des OF, kind: action, action_id: lancer_of}
-  - {id: commande, label: Commande MP, kind: action, action_id: commander_mp}
-  - {id: protection, label: Protéger goulot, kind: action, action_id: proteger_goulot}
-  - {id: preventif, label: Préventif, kind: action, action_id: preventif}
-  - {id: reparations, label: Réparations, kind: action, action_id: priorite_reparation}
+  - {id: lancement, label: Lancer des OF, kind: action, action_id: lancer_of, menu: ["station:pilotage"]}
+  - {id: commande, label: Commande MP, kind: action, action_id: commander_mp, menu: ["station:pilotage", "site:fournisseur"]}
+  - {id: protection, label: Protéger goulot, kind: action, action_id: proteger_goulot, menu: ["station:tableau_ligne", "station:machine"]}
+  - {id: preventif, label: Préventif, kind: action, action_id: preventif, menu: ["station:maintenance", "station:machine"]}
+  - {id: reparations, label: Réparations, kind: action, action_id: priorite_reparation, menu: ["station:maintenance", "station:machine"]}
   - {id: camera, label: Caméra, kind: camera}
+  - {id: parler, label: Parler, kind: parler, bar: false, menu: ["agent:*"]}
+  - id: fiche
+    label: Fiche
+    kind: fiche
+    bar: false
+    menu: ["station:poste_reception", "station:magasin_mp", "station:tableau_ligne", "station:machine", "station:poste_qualite",
+           "station:poste_emballage", "station:maintenance", "station:pilotage", "station:entrepot_pf", "agent:*",
+           "site:fournisseur", "site:client"]
+  - {id: demarrer, label: Démarrer, kind: demarrer, audience: formateur}
+  - {id: avancer, label: Semaine suivante, kind: avancer, audience: formateur}
+  - {id: rejeu, label: Rejeu, kind: rejeu, audience: formateur}
+  - {id: memoire, label: Mémoire agents, kind: memoire, audience: formateur, menu: ["agent:*"]}
+  - {id: debrief, label: Débrief, kind: debrief, audience: formateur}
 
 # Didacticiel par défaut (jeu par paramètres, repli de la section journey). Sans chiffre. Ancres du pack :
 # panneau bandeau, postes machine, département production, outils. Provenance : colonnes des panneaux bandeau,

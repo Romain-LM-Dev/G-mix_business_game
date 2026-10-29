@@ -1,7 +1,7 @@
 ---
 task: game.design.concept
 version: 1
-variables: [domain_name, pack_label, pack_description, audience_label, brief, fixed, limits, themes, modules, extra_agents, difficulties, tunables, events, events_levels, notions, indicators]
+variables: [domain_name, pack_label, pack_description, audience_label, brief, fixed, limits, themes, modules, extra_agents, difficulties, tunables, events, events_levels, notions, indicators, network]
 ---
 ## system
 Tu conçois un business game de $domain_name pour un formateur. Tu choisis dans les catalogues et tu rédiges les textes ; le moteur de simulation calcule tout le reste.
@@ -41,6 +41,8 @@ Notions :
 $notions
 Indicateurs :
 $indicators
+Sites du réseau (pour chaque site, choisis une classe de distance parmi celles permises, selon la demande (proches ou lointains), le défaut sans indice ; « network » reste vide s'il n'y a rien à choisir) :
+$network
 
 Conçois le jeu.
 ## repair

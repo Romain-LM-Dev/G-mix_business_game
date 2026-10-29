@@ -1,7 +1,7 @@
 @tool
 extends GmixAsset
 ## Palette Europe EPAL : 1 200 x 800 x 144 mm (3 semelles, 9 dés, 3 traverses, 5 planches de plateau),
-## vide ou chargée de colis filmés. Variantes : chargee, hauteur_charge.
+## vide ou chargée de colis filmés. Variantes : chargee, hauteur_charge. Collision : un bloc.
 
 const LENGTH := 1.2
 const WIDTH := 0.8
@@ -11,6 +11,8 @@ const HEIGHT := 0.144
 	set(value):
 		loaded = value
 		_rebuild()
+## Faux quand la palette fait partie d'un assemblage qui porte sa propre collision (stock de palettes).
+var solid := true
 @export_range(0.2, 1.6, 0.05) var load_height := 1.0:
 	set(value):
 		load_height = value
@@ -40,3 +42,6 @@ func _rebuild() -> void:
 		batch.box(Vector3(LENGTH - 0.04, load_height, WIDTH - 0.04), Vector3(0, HEIGHT + load_height / 2.0, 0), Palette.CARDBOARD)
 		batch.box(Vector3(LENGTH - 0.02, 0.04, WIDTH - 0.02), Vector3(0, HEIGHT + load_height, 0), Palette.FILM)  # film
 	batch.build(self)
+	if solid:
+		var top := HEIGHT + (load_height + 0.04 if loaded else 0.0)
+		Mesher.collider(self, [[Vector3(LENGTH + 0.04, top, WIDTH), Vector3(0, top / 2.0, 0)]])

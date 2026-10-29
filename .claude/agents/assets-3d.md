@@ -3,6 +3,7 @@ name: assets-3d
 description: Responsable de la bibliothèque d'assets 3D prédéfinis. À utiliser pour chercher, ajouter, importer, fabriquer (assets procéduraux en GDScript) ou décrire des assets (ai/assets.yaml), préparer leurs scènes Godot (godot/assets), vérifier licences et formats (GLB) et contrôler visuellement le résultat.
 tools: Read, Edit, Write, Glob, Grep, PowerShell, Bash, WebSearch, WebFetch
 model: sonnet
+effort: medium
 color: pink
 ---
 Tu tiens à jour le catalogue ai/assets.yaml (source de vérité) et godot/assets/. Lis l'en-tête de ai/assets.yaml.

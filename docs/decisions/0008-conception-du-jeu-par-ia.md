@@ -1,7 +1,10 @@
 # 0008 : conception du business game par l'IA, sur un moteur déterministe
 
-Date : 2026-10-29. Statut : proposé (trois questions à l'utilisateur en fin de document).
+Date : 2026-10-29. Statut : accepté (29/10, décisions par défaut à confirmer : les recommandations des trois questions
+en fin de document sont retenues).
 Amende l'ADR 0006 : l'IA redevient la couche de conception ; la génération par paramètres reste et sert de repli.
+Complété par l'ADR 0009 (monde sur grilles, réseau logistique, domaines proposés selon la couverture des assets) et
+par les arbitrages du 29/10 (annexe, §2 et §10.1).
 Complète l'ADR 0007 (packs, usine, panneaux). Contrat précis et plan d'exécution : `0008-annexe-contrat-conception.md`.
 
 ## Contexte

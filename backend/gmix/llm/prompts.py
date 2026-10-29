@@ -13,7 +13,11 @@ from typing import Any
 
 import yaml
 
+from gmix.llm.tokens import estimate_tokens
 from gmix.settings import get_settings
+
+REPAIR_MAX_TOKENS = 400  # message de réparation entier (consigne + erreurs)
+_OMITTED = "- (autres erreurs omises)"
 
 _SECTION = re.compile(r"^##\s+(system|user|repair)\s*$", re.MULTILINE | re.IGNORECASE)
 
@@ -37,14 +41,22 @@ class PromptTemplate:
         messages.append({"role": "user", "content": Template(self.user).substitute(values)})
         return messages
 
-    def render_repair(self, messages: list[dict[str, str]], raw: str, errors: str) -> list[dict[str, str]]:
-        """Réparation : [system, user, assistant(sortie fautive), user(erreurs à corriger)]."""
+    def render_repair(self, messages: list[dict[str, str]], errors: str) -> list[dict[str, str]]:
+        """Réparation : [system, user, user(erreurs à corriger)], sans la sortie fautive (économie de contexte).
+
+        La liste d'erreurs est tronquée à REPAIR_MAX_TOKENS (lignes entières, les premières erreurs d'abord).
+        """
         if not self.repair:
             raise KeyError(f"Prompt {self.task} v{self.version} : pas de section « ## repair »")
+        kept: list[str] = []
+        for line in errors.splitlines():
+            if estimate_tokens("\n".join([*kept, line, _OMITTED, self.repair])) > REPAIR_MAX_TOKENS:
+                kept.append(_OMITTED)
+                break
+            kept.append(line)
         return [
             *messages,
-            {"role": "assistant", "content": raw},
-            {"role": "user", "content": Template(self.repair).substitute(errors=errors)},
+            {"role": "user", "content": Template(self.repair).substitute(errors="\n".join(kept))},
         ]
 
 

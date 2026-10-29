@@ -31,6 +31,8 @@ Write-Step 'Construction des scènes Godot'
 & $console --headless --path $GodotDir --script 'res://tools/build_asset_scenes.gd'
 if ($LASTEXITCODE -ne 0) { throw 'Construction des scènes en échec' }
 & $console --headless --path $GodotDir --import | Out-Null
+& $console --headless --path $GodotDir --script 'res://tools/check_footprints.gd'
+if ($LASTEXITCODE -ne 0) { throw 'Emprises incohérentes avec les scènes (voir godot/tools/check_footprints.gd)' }
 & (Join-Path $PSScriptRoot 'godot.ps1') -Check
 if ($LASTEXITCODE -ne 0) { throw 'Projet Godot invalide après construction' }
 

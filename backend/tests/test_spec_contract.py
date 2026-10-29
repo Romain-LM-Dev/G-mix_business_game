@@ -13,7 +13,7 @@ from gmix.game import engine
 from gmix.game.spec import (
     COUNTERS,
     EVENT_DATA,
-    FORBIDDEN_IN_TEXT,
+    INDICATORS,
     PUBLIC_ROOTS,
     UI_LIMITS,
     Clock,
@@ -24,6 +24,7 @@ from gmix.game.spec import (
     EventKind,
     Factory,
     GameParams,
+    LayoutEdit,
     MachineState,
     Panel,
     PanelColumn,
@@ -32,6 +33,7 @@ from gmix.game.spec import (
     Timeline,
     Tool,
     default_params,
+    forbidden_in_text,
     frame_times,
     load_pack,
     load_sim_catalog,
@@ -566,7 +568,7 @@ def test_real_pack_tutorials_carry_no_digit_and_no_link() -> None:
     """Le didacticiel par défaut d'un pack est copié dans la spec : un chiffre le ferait refuser."""
     for pack_id in ("atelier", "usine"):
         for step_ in load_pack(pack_id).get("tutorial", []):
-            assert not FORBIDDEN_IN_TEXT.search(step_["title"] + " " + step_["text"]), (pack_id, step_["id"])
+            assert not forbidden_in_text(step_["title"] + " " + step_["text"]), (pack_id, step_["id"])
 
 
 def test_real_packs_give_valid_default_params() -> None:
@@ -983,6 +985,420 @@ def test_designed_spec_refuses_each_rule(usine_pack, mutation, words: tuple[str,
     refused(designed(mutation), *words)
 
 
-def test_forbidden_in_text_matches_digits_and_links_only() -> None:
-    assert FORBIDDEN_IN_TEXT.search("3 lignes") and FORBIDDEN_IN_TEXT.search("voir http://x") is not None
-    assert FORBIDDEN_IN_TEXT.search("Le goulot fixe le débit de la ligne ; l'OTIF suit.") is None
+@pytest.mark.parametrize(
+    "text", ["₁₂ lignes", "m¹", "étape ①", "½ journée", "Ⅻ", "٣ lignes", "3 lignes", "voir http://x"]
+)
+def test_forbidden_in_text_matches_every_digit_and_links(text: str) -> None:
+    assert forbidden_in_text(text)
+
+
+def test_forbidden_in_text_lets_french_prose_through() -> None:
+    assert not forbidden_in_text("Le goulot fixe le débit de la ligne ; l'OTIF suit. « Œuvre » (à l'œil) – ça va ?")
+
+
+def test_indicators_and_event_kinds(usine_pack) -> None:
+    assert INDICATORS["factory"][:4] == INDICATORS["weekly"] and "good_share" in INDICATORS["factory"]
+    assert set(EVENT_DATA) == set(get_args(EventKind)) and EVENT_DATA["camion_part"] == {"site_id"}
+    ok = timeline(events=[[10, "camion_arrive", "po-1", {"site_id": "fourn_a"}]])
+    assert Timeline.model_validate(ok).events[0][1] == "camion_arrive"
+    with pytest.raises(ValidationError):
+        Timeline.model_validate(timeline(events=[[10, "camion_part", "po-1", {}]]))
+
+
+# --- Monde sur grilles (ADR 0009) ---------------------------------------------------------------------------------
+
+
+def with_sites(spec: dict[str, Any]) -> None:
+    """Usine puis fournisseur s1, disjoints dans les bornes, reliés par une route à angles droits."""
+    spec["world"]["sites"] = [
+        {"id": "usine", "kind": "usine", "label": "Usine", "external": False, "area": (-24, -15, 24, 15),
+         "gate": (0, 15)},
+        {"id": "fourn_a", "kind": "fournisseur", "label": "Fonderie Test", "external": True,
+         "area": (-60, 20, -40, 36), "gate": (-50, 20), "supplier_id": "s1", "distance_class": "regional",
+         "km": 150.0, "travel_h": 3.0, "transit_days": 1},
+    ]  # fmt: skip
+    spec["world"]["links"] = [{"id": "route_a", "type": "route", "from_site": "fourn_a", "to_site": "usine",
+                               "points": [(-50, 20), (-50, 17), (0, 17), (0, 15)]}]  # fmt: skip
+    spec["world"]["bounds"] = (-70, -20, 30, 40)
+
+
+def test_world_with_sites_is_valid_and_old_worlds_stay_empty(usine_pack) -> None:
+    spec = SimSpec.model_validate(designed(with_sites))
+    assert [s.id for s in spec.world.sites] == ["usine", "fourn_a"] and spec.world.links[0].vehicle is None
+    assert SimSpec.model_validate(spec.model_dump(mode="json")) == spec
+    old = SimSpec.model_validate(factory_spec())
+    assert (old.world.sites, old.world.links, old.world.bounds, old.layout_edits) == ([], [], None, [])
+    assert (old.departments[0].block, old.departments[0].site_id, old.departments[0].grid) == (None, None, None)
+
+
+def client_site(**changes: Any) -> dict[str, Any]:
+    return {"id": "client_a", "kind": "client", "label": "Client", "external": True, "area": (30, 20, 40, 30),
+            "gate": (30, 25)} | changes  # fmt: skip
+
+
+def duplicate_objects(spec: dict[str, Any]) -> None:
+    spec["world"]["objects"] += [{"asset": "prop_plant", "position": (1, 1), "id": "production.decor.1"}] * 2
+
+
+@pytest.mark.parametrize(
+    ("mutation", "words"),
+    [
+        (lambda s: s["world"]["sites"].append(client_site(id="usine")), ("identifiants de site en double",)),
+        (lambda s: s["world"]["sites"].reverse(), ("un seul site principal",)),
+        (lambda s: s["world"]["sites"].append(client_site(external=False)), ("un seul site principal",)),
+        (lambda s: s["world"]["sites"].append(client_site(area=(-55, 25, -45, 30))), ("fourn_a", "chevauchent")),
+        (lambda s: s["world"]["sites"].append(client_site(area=(30, 20, 99, 30))), ("client_a", "hors de")),
+        (lambda s: s["world"].update(bounds=None), ("world.bounds est absent",)),
+        (lambda s: s["world"]["links"][0].update(to_site="absent"), ("lien route_a", "site inconnu")),
+        (lambda s: s["world"]["links"][0].update(points=[(-50, 20), (0, 15)]), ("lien route_a", "ni horizontal")),
+        (lambda s: s["world"]["links"][0].update(points=[(0, 0)]), ("points",)),
+        (lambda s: s["world"]["sites"][1].update(supplier_id="s9"), ("site fournisseur inconnu s9", "fournisseur s1")),
+        (lambda s: s["world"]["sites"][1].update(supplier_id=None), ("fournisseur s1 sans site",)),
+        (lambda s: s["departments"][2].update(site_id="absent"), ("département fournisseur", "site inconnu absent")),
+        (duplicate_objects, ("identifiants d'objet en double",)),
+    ],
+)  # fmt: skip
+def test_world_with_sites_refuses_broken_networks(usine_pack, mutation, words: tuple[str, ...]) -> None:
+    def build(spec: dict[str, Any]) -> None:
+        with_sites(spec)
+        mutation(spec)
+
+    refused(designed(build), *words)
+
+
+def test_department_site_and_block_fields_are_accepted(usine_pack) -> None:
+    def build(spec: dict[str, Any]) -> None:
+        with_sites(spec)
+        spec["departments"][2] |= {"site_id": "fourn_a"}
+        spec["departments"][0] |= {"block": "stockage", "grid": {
+            "origin": (-11, -9), "cell_m": 0.5, "cols": 44, "rows": 26, "reserved": [(0, 0)],
+            "palette": {"prop_plant": (2, 2)}}}  # fmt: skip
+
+    spec = SimSpec.model_validate(designed(build))
+    assert spec.departments[2].site_id == "fourn_a" and spec.departments[0].grid.palette == {"prop_plant": (2, 2)}
+
+
+def with_objects(spec: dict[str, Any]) -> None:
+    spec["world"]["objects"] += [
+        {"asset": "prop_pallet_rack", "position": (-3, -2), "id": "production.stockage.1", "role": "stockage",
+         "department_id": "production", "cell": (2, 2), "cells": (2, 4), "ref": "pf"},
+        {"asset": "prop_plant", "position": (-10, -2), "id": "production.decor.1", "role": "decor",
+         "department_id": "production", "cell": (10, 12), "cells": (2, 2)},
+        {"asset": "prop_screen", "position": (-9, -2), "id": "production.affichage.1", "role": "affichage",
+         "department_id": "production", "cell": (12, 12), "cells": (1, 1), "ref": "dock"},
+    ]  # fmt: skip
+
+
+def edited(*edits: dict[str, Any]):
+    def build(spec: dict[str, Any]) -> None:
+        with_objects(spec)
+        spec["layout_edits"] = list(edits)
+
+    return build
+
+
+def test_layout_edits_accepted_forms(usine_pack) -> None:
+    spec = SimSpec.model_validate(designed(edited(
+        {"op": "move", "object_id": "production.stockage.1", "cell": (4, 2), "rot": 90},
+        {"op": "remove", "object_id": "production.decor.1"},
+        {"op": "add", "department_id": "production", "asset": "prop_plant", "cell": (3, 3)},
+        {"op": "move", "object_id": "production.ajout.3", "cell": (5, 5)},  # objet posé par une retouche précédente
+    )))  # fmt: skip
+    assert [e.op for e in spec.layout_edits] == ["move", "remove", "add", "move"] and spec.layout_edits[2].rot == 0
+
+
+@pytest.mark.parametrize(
+    "edit",
+    [
+        {"op": "move", "object_id": "x"},  # cellule absente
+        {"op": "move", "cell": (1, 1)},  # objet absent
+        {"op": "move", "object_id": "x", "cell": (1, 1), "asset": "a"},  # champ en trop
+        {"op": "remove", "object_id": "x", "cell": (1, 1)},
+        {"op": "remove", "object_id": "x", "rot": 90},
+        {"op": "add", "department_id": "d", "asset": "a"},  # cellule absente
+        {"op": "add", "department_id": "d", "asset": "a", "cell": (1, 1), "object_id": "x"},
+        {"op": "add", "department_id": "d", "cell": (1, 1)},
+        {"op": "move", "object_id": "x", "cell": (-1, 0)},
+        {"op": "move", "object_id": "x", "cell": (0, 0), "rot": 45},
+        {"op": "teleport", "object_id": "x"},
+    ],
+)
+def test_layout_edit_refuses_a_wrong_shape(edit: dict[str, Any]) -> None:
+    with pytest.raises(ValidationError):
+        LayoutEdit(**edit)
+
+
+@pytest.mark.parametrize(
+    ("edit", "words"),
+    [
+        ({"op": "move", "object_id": "inconnu.decor.9", "cell": (1, 1)}, ("retouche 1", "objet inconnu")),
+        ({"op": "move", "object_id": "absent.ajout.1", "cell": (1, 1)}, ("retouche 1", "objet inconnu")),
+        ({"op": "add", "department_id": "absent", "asset": "a", "cell": (1, 1)}, ("retouche 1", "département inconnu")),
+        ({"op": "remove", "object_id": "production.stockage.1"}, ("retouche 1", "simulé")),
+        ({"op": "remove", "object_id": "production.affichage.1"}, ("retouche 1", "simulé")),  # affichage avec ref
+    ],
+)  # fmt: skip
+def test_layout_edits_target_known_and_editable_objects(
+    usine_pack, edit: dict[str, Any], words: tuple[str, ...]
+) -> None:
+    refused(designed(edited(edit)), *words)
+
+
+def test_layout_edits_are_limited_to_200(usine_pack) -> None:
+    move = {"op": "move", "object_id": "production.decor.1", "cell": (1, 1)}
+    SimSpec.model_validate(designed(edited(*[move] * 200)))
+    refused(designed(edited(*[move] * 201)), "layout_edits")
+
+
+# --- Menus, publics et supervision --------------------------------------------------------------------------------
+
+
+def menu_tool(tool_id: str = "parler_a", **extra: Any) -> dict[str, Any]:
+    return {"id": tool_id, "label": "Parler", "kind": "parler", "menu": ["agent:*"], "bar": False} | extra
+
+
+def test_tool_and_panel_audience_defaults_and_menu_kinds() -> None:
+    tool = Tool(id="aide", label="Aide", kind="aide")
+    assert (tool.audience, tool.menu, tool.bar) == ("joueur", [], True)
+    assert Tool(**menu_tool(menu=["agent:agent_pilotage", "agent:*"])).kind == "parler"
+    assert Tool(id="fiches", label="Fiches", kind="fiche", menu=["station:pilotage", "site:fournisseur"]).bar
+    assert Tool(id="avancer", label="Avancer", kind="avancer", audience="formateur").audience == "formateur"
+    for bad in (
+        menu_tool(menu=["station:pilotage"]),  # parler ne vise qu'un agent
+        menu_tool(menu=["site:fournisseur"]),
+        menu_tool(menu=["robot:x"]),
+        menu_tool(menu=["Station:x"]),
+        {"id": "avancer", "label": "Avancer", "kind": "avancer"},  # formateur seul
+        {"id": "x_y", "label": "Cde", "kind": "action", "action_id": "a", "audience": "formateur"},  # joueur seul
+    ):
+        with pytest.raises(ValidationError):
+            Tool(**bad)
+    panel = {"id": "suivi", "type": "kpis", "title": "Suivi", "placement": "supervision", "source": "kpis"}
+    assert Panel(**panel | {"audience": "formateur"}).placement == "supervision"
+    assert Panel(**panel | {"audience": "tous"}).audience == "tous"
+    with pytest.raises(ValidationError):
+        Panel(**panel)  # public joueur par défaut : la supervision l'exclut
+    assert Panel(**panel | {"placement": "bandeau"}).audience == "joueur"
+
+
+def with_menu(*tools: dict[str, Any]):
+    def build(spec: dict[str, Any]) -> None:
+        spec["tools"] += list(tools)
+
+    return build
+
+
+def aide(tool_id: str, **extra: Any) -> dict[str, Any]:
+    return {"id": tool_id, "label": "Aide", "kind": "aide"} | extra
+
+
+def test_menus_accepted_and_not_counted_in_the_bar(usine_pack) -> None:
+    def build(spec: dict[str, Any]) -> None:
+        with_sites(spec)
+        spec["tools"] += [
+            menu_tool("parler_a", menu=["agent:agent_pilotage"]),
+            menu_tool("fiche_p", kind="fiche", menu=["station:pilotage", "site:fournisseur"]),
+            {"id": "lancer", "label": "Lancer", "kind": "action", "action_id": "lancer_of",
+             "menu": ["station:pilotage"],
+             "bar": False},
+        ]  # fmt: skip
+        spec["tools"] += [aide(f"t_{c}") for c in "abcd"]  # 2 + 4 = 6 dans la barre joueur
+
+    assert len(SimSpec.model_validate(designed(build)).tools) == 9
+
+
+@pytest.mark.parametrize(
+    ("mutation", "words"),
+    [
+        (with_menu(menu_tool(menu=["agent:inconnu"])), ("outil parler_a", "cible inconnue agent:inconnu")),
+        (with_menu(menu_tool(menu=["station:hangar"], kind="fiche")), ("cible inconnue station:hangar",)),
+        (with_menu(menu_tool(menu=["site:fournisseur"], kind="fiche")), ("cible inconnue site:fournisseur",)),
+        (with_menu({"id": "entretien", "label": "Entretien", "kind": "action", "action_id": "preventif",
+                    "menu": ["station:pilotage"], "bar": False}),
+         ("outil entretien", "n'appartient à aucun module du poste pilotage")),
+        (with_menu(*[menu_tool(f"p_{c}", menu=["agent:*"]) for c in "abcdefg"]),
+         ("menu agent:* (joueur)", "6 entrées au plus (7)")),
+        (with_menu(*[aide(f"t_{c}") for c in "abcde"]), ("outils : 6 au plus",)),
+        (with_menu(*[aide(f"t_{c}", audience="formateur", kind="avancer") for c in "abcdefg"]),
+         ("outils formateur : 6 au plus",)),
+    ],
+)  # fmt: skip
+def test_menus_refused(usine_pack, mutation, words: tuple[str, ...]) -> None:
+    refused(designed(mutation), *words)
+
+
+def test_menu_limit_is_counted_per_audience(usine_pack) -> None:
+    staff = [menu_tool(f"s_{c}", kind="fiche", menu=["agent:*"], audience="formateur") for c in "abcdef"]
+    player = [menu_tool(f"p_{c}", menu=["agent:*"]) for c in "abcdef"]
+    assert len(SimSpec.model_validate(designed(with_menu(*staff, *player))).tools) == 14
+
+
+def test_supervision_panels_are_limited(usine_pack) -> None:
+    def supervision(count: int):
+        def build(spec: dict[str, Any]) -> None:
+            spec["panels"] += [
+                ui_panel(f"sup_{chr(97 + i)}", "kpis", "supervision", 2, audience="formateur") for i in range(count)
+            ]
+
+        return build
+
+    assert SimSpec.model_validate(designed(supervision(6)))
+    refused(designed(supervision(7)), "supervision : 6 panneaux au plus (7)")
+
+
+# --- Clés de monde des packs (ADR 0009) ---------------------------------------------------------------------------
+
+PROV = {"status": "calibre", "note": "essai"}
+WORLD = {
+    "grid": {"site_cell_m": 0.5},
+    "block_types": {
+        "stockage": {"label": "Stock", "pattern": "rows", "cell_m": 0.5, "front_aisle_cells": 5, "row_aisle_cells": 5,
+                     "decor": ["prop_plant"]},
+        "quai": {"label": "Quai", "pattern": "single", "cell_m": 1},
+    },
+    "network": {
+        "map": {"cell_m": 40, "road_offset_m": 6},
+        "distance_classes": {"regional": {"label": "Régional", "km": 150, "ring": 1},
+                             "national": {"label": "National", "km": 500, "ring": 2}},
+        "link_types": {"route": {"label": "Route", "speed_kmh": 60, "vehicle": "veh_box_truck"}},
+        "driving_h_per_day": 9,
+        "sites": {"fournisseur_1": {"kind": "fournisseur", "side": "ouest", "link": "route",
+                                    "distances": ["regional", "national"], "default": "regional", "prep_days": 1,
+                                    "building": "bld_factory_plant"}},
+    },
+    "values": {"reseau.distance.regional": PROV, "reseau.distance.national": PROV, "reseau.vitesse.route": PROV,
+               "reseau.conduite_h_jour": PROV, "reseau.preparation.fournisseur_1": PROV, "charge": PROV},
+    "placement_rules": [
+        {"id": "marche_en_avant", "kind": "flow", "status": "exemple", "note": "cahier",
+         "blocks": ["reception", "stock"]},
+        {"id": "quai_contigu", "kind": "adjacent", "status": "exemple", "note": "cahier",
+         "a": "reception", "b": "quai"},
+        {"id": "quarantaine", "kind": "separated", "status": "calibre", "note": "ISO 9001", "a": "quarantine",
+         "b": "stock", "min_m": 2},
+        {"id": "allees", "kind": "aisle_min", "status": "source", "citation": "INRS ED 6128", "min_m": 2.5},
+        {"id": "ecran", "kind": "facing", "status": "exemple", "note": "cahier", "block": "stock", "role": "affichage",
+         "toward": "front"},
+        {"id": "proche", "kind": "near", "status": "calibre", "note": "essai", "a": "stock", "b": "quai", "max_m": 20},
+    ],
+    "departments": [
+        {"id": "reception", "area": [-24, 6, -8.5, 15], "block": "stockage", "front": "sud", "stations": []},
+        {"id": "stock", "area": [-24, -15, -8, 0], "block": "stockage", "front": "est", "stations": [],
+         "capacity": "mp_capacity_pallets", "elements": [
+             {"asset": "prop_pallet_rack", "role": "stockage", "per": "places", "places": 4},
+             {"asset": "prop_plant", "role": "decor", "count": 2},
+             {"asset": "prop_machine", "role": "machine", "per": "machine"}]},
+        {"id": "quai", "area": [0, 6, 6, 15], "block": "quai", "stations": []},
+        {"id": "fournisseur", "external": True, "stations": []},
+    ],
+    "tunables": {"load": {"label": "Charge", "value": "charge", "teaches": ["goulot"]}},
+}  # fmt: skip
+
+
+def pack_with(mutation=None, tmp_path=None):
+    pack = copy.deepcopy(WORLD)
+    if mutation:
+        mutation(pack)
+    write_pack(tmp_path, **pack)
+    return pack
+
+
+def test_pack_world_keys_load_and_old_packs_without_them_stay_valid(usine_pack, tmp_path) -> None:
+    pack_with(tmp_path=tmp_path)
+    assert load_pack("casse")["network"]["sites"]["fournisseur_1"]["default"] == "regional"
+    assert "network" not in load_pack("usine") and "grid" not in load_sim_catalog()
+
+
+@pytest.mark.parametrize(
+    ("mutation", "words"),
+    [
+        (lambda p: p["grid"].update(site_cell_m=0), ("grid.site_cell_m",)),
+        (lambda p: p["departments"][0].update(area=[-24, 6, -8.4, 15]), ("departments.reception.area", "multiple")),
+        (lambda p: p["block_types"]["quai"].update(pattern="spirale"), ("block_types.quai", "pattern")),
+        (lambda p: p["block_types"]["quai"].update(cell_m=-1), ("block_types.quai.cell_m",)),
+        (lambda p: p["block_types"]["stockage"].update(front_aisle_cells=1.5), ("front_aisle_cells",)),
+        (lambda p: p["block_types"]["stockage"].update(decor="prop_plant"), ("decor",)),
+        (lambda p: p["departments"][0].update(block="inconnu"), ("departments.reception.block", "inconnu")),
+        (lambda p: p["departments"][0].update(front="haut"), ("front",)),
+        (lambda p: p["departments"][1].update(capacity="autre"), ("capacity",)),
+        (lambda p: p["departments"][1]["elements"][0].update(role="meuble"), ("role inconnu meuble",)),
+        (lambda p: p["departments"][1]["elements"][1].update(per="line"), ("count ou per",)),
+        (lambda p: p["departments"][1]["elements"][1].update(count=-1), ("count",)),
+        (lambda p: p["departments"][1]["elements"][2].update(per="jour"), ("per vaut",)),
+        (lambda p: p["departments"][1]["elements"][0].pop("places"), ("per places exige places",)),
+        (lambda p: p["network"]["map"].update(cell_m=0), ("network.map",)),
+        (lambda p: p["network"].update(driving_h_per_day=0), ("driving_h_per_day",)),
+        (lambda p: p["network"]["distance_classes"]["regional"].update(km=0), ("distance_classes.regional",)),
+        (lambda p: p["network"]["link_types"]["route"].pop("vehicle"), ("link_types.route",)),
+        (lambda p: p["network"]["sites"]["fournisseur_1"].update(side="nord"), ("sites.fournisseur_1", "side")),
+        (lambda p: p["network"]["sites"]["fournisseur_1"].update(link="rail"), ("sites.fournisseur_1", "link")),
+        (lambda p: p["network"]["sites"]["fournisseur_1"].update(distances=["mars"]), ("distances",)),
+        (lambda p: p["network"]["sites"]["fournisseur_1"].update(default="national", distances=["regional"]),
+         ("default",)),
+        (lambda p: p["network"]["sites"]["fournisseur_1"].update(prep_days=-1), ("prep_days",)),
+        (lambda p: p["values"].pop("reseau.distance.national"), ("provenance absente", "reseau.distance.national")),
+        (lambda p: p["values"].pop("reseau.vitesse.route"), ("reseau.vitesse.route",)),
+        (lambda p: p["values"].pop("reseau.conduite_h_jour"), ("reseau.conduite_h_jour",)),
+        (lambda p: p["values"].pop("reseau.preparation.fournisseur_1"), ("reseau.preparation.fournisseur_1",)),
+        (lambda p: p["placement_rules"].append(dict(p["placement_rules"][0])), ("identifiant en double",)),
+        (lambda p: p["placement_rules"][0].update(kind="magie"), ("placement_rules.marche_en_avant", "kind")),
+        (lambda p: p["placement_rules"][0].update(status="rumeur"), ("status",)),
+        (lambda p: p["placement_rules"][0].pop("note"), ("note manquante",)),
+        (lambda p: p["placement_rules"][3].pop("citation"), ("citation manquante",)),
+        (lambda p: p["placement_rules"][1].pop("b"), ("paramètres manquants b",)),
+        (lambda p: p["placement_rules"][0].update(blocks=["reception"]), ("au moins deux blocs",)),
+        (lambda p: p["placement_rules"][0].update(blocks=["reception", "salle_x"]), ("bloc inconnu salle_x",)),
+        (lambda p: p["placement_rules"][2].update(min_m=0), ("min_m et max_m",)),
+        (lambda p: p["placement_rules"][4].update(toward="haut"), ("toward",)),
+        (lambda p: p["placement_rules"][4].update(role="meuble"), ("role",)),
+        (lambda p: p["tunables"]["load"].update(value="absente"), ("tunables.load.value",)),
+    ],
+)  # fmt: skip
+def test_pack_world_keys_are_refused_when_malformed(usine_pack, tmp_path, mutation, words: tuple[str, ...]) -> None:
+    pack_with(mutation, tmp_path)
+    with pytest.raises(ValueError) as caught:
+        load_pack("casse")
+    assert str(caught.value).startswith("pack casse") and all(w in str(caught.value) for w in words), str(caught.value)
+
+
+def test_pack_notion_indicators_follow_the_engine(usine_pack, tmp_path) -> None:
+    def notion(indicator: str, engine: str) -> None:
+        write_pack(tmp_path, engine=engine, notions={**PACK["notions"], "goulot": {
+            **PACK["notions"]["goulot"], "indicators": [indicator]}})  # fmt: skip
+
+    notion("bonheur", "factory")
+    with pytest.raises(ValueError, match="inconnus du moteur"):
+        load_pack("casse")
+    notion("good_share", "weekly")
+    with pytest.raises(ValueError, match="good_share"):  # 4 indicateurs seulement hors usine
+        load_pack("casse")
+    notion("good_share", "factory")
+    assert load_pack("casse")["engine"] == "factory"
+
+
+def test_game_params_network_follows_the_pack(usine_pack, tmp_path) -> None:
+    pack = PACK | WORLD
+    (tmp_path / "packs" / "usine.yaml").write_text(yaml.safe_dump(pack, allow_unicode=True), encoding="utf-8")
+    load_pack.cache_clear()
+    assert GameParams(**params(network={"fournisseur_1": "national"})).network == {"fournisseur_1": "national"}
+    assert GameParams(**params()).network == {}
+    for bad, words in (({"fournisseur_9": "national"}, "site inconnu"), ({"fournisseur_1": "mars"}, "non permise")):
+        with pytest.raises(ValidationError, match=words):
+            GameParams(**params(network=bad))
+
+
+def test_game_params_network_needs_a_pack_with_a_network(usine_pack) -> None:
+    with pytest.raises(ValidationError, match="site inconnu"):
+        GameParams(**params(network={"fournisseur_1": "regional"}))
+
+
+# --- Vrais packs : dernier, clés de pack livrées en parallèle par game-designer -----------------------------------
+
+
+@pytest.mark.parametrize("pack_id", ["atelier", "usine"])
+def test_real_packs_pass_the_world_checks(pack_id: str) -> None:
+    """Le chargeur contrôle les clés de monde, de réseau et de règles : atelier n'en a aucune, usine celles livrées."""
+    load_pack.cache_clear()
+    try:
+        assert load_pack(pack_id)["modules"], pack_id
+    finally:
+        load_pack.cache_clear()

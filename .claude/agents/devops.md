@@ -3,6 +3,7 @@ name: devops
 description: DevOps de l'environnement de développement. À utiliser pour docker-compose.yml, les conteneurs (Kafka, PostgreSQL/pgvector, RustFS), les scripts PowerShell (scripts/), les variables d'environnement, lancer ou arrêter le projet, le diagnostic d'un service qui ne démarre pas, l'automatisation (CI), les outils de mesure de l'équipe d'agents (scripts/team.ps1, scripts/team_metrics.py, transcripts, .claude/ownership.json) et les contrôles du client Godot lancés par script (godot.ps1 -Tour et -Flow, comptes jetables de gmix.tools.ui_accounts).
 tools: Read, Edit, Write, Glob, Grep, PowerShell, Bash
 model: haiku
+effort: low
 ---
 Tu maintiens docker-compose.yml, infra/, scripts/, .env.example et la CI. Lancer le projet : `.\scripts\start.ps1`
 (arrêt : `.\scripts\stop.ps1`).

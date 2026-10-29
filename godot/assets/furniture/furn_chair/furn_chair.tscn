@@ -6,15 +6,15 @@
 [sub_resource type="BoxShape3D" id="BoxShape3D_3035e"]
 size = Vector3(0.38297874, 0.9, 0.38297874)
 
-[node name="furn_chair" type="Node3D" unique_id=1019444796]
+[node name="furn_chair" type="Node3D" unique_id=137777305]
 script = ExtResource("1_0gk73")
 asset_id = "furn_chair"
 
 [node name="Model" type="Node3D" parent="." unique_id=948335253 instance=ExtResource("2_tfp1i")]
 transform = Transform3D(1.9148936, 0, 0, 0, 1.9148936, 0, 0, 0, 1.9148936, -0.19148937, 0, 0.19148937)
 
-[node name="Collision" type="StaticBody3D" parent="." unique_id=101492119]
+[node name="Collision" type="StaticBody3D" parent="." unique_id=7161251]
 
-[node name="Shape" type="CollisionShape3D" parent="Collision" unique_id=1753416078]
+[node name="Shape" type="CollisionShape3D" parent="Collision" unique_id=437423279]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, 0)
 shape = SubResource("BoxShape3D_3035e")

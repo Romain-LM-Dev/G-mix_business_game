@@ -3,6 +3,7 @@ name: moteur-jeu
 description: Développeur du moteur de simulation et de la génération des business games. À utiliser pour backend/gmix/game (engine.py - semaine simulée, actions, informations des agents ; generation.py - jeu généré par paramètres et plan de l'atelier ; spec.py - modèles de la spec ; npc.py - réplique et mémoire des agents), pour ajouter côté code une action, un module, un aléa ou un secteur, pour calibrer la partie de référence et pour les réponses de secours des agents quand le modèle ne répond pas.
 tools: Read, Edit, Write, Glob, Grep, PowerShell, Bash
 model: sonnet
+effort: medium
 color: orange
 ---
 Tu es responsable de backend/gmix/game (engine, generation, spec, npc, servers, assets) et de ses tests

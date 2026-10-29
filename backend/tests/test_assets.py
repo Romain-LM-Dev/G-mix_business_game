@@ -13,6 +13,9 @@ FACTORY_ASSETS = (
     "prop_inspection_table", "prop_scrap_bin", "prop_packing_table", "prop_pallet_wrapper", "prop_workbench",
     "prop_wall_board", "prop_part_token", "prop_bin_shelf", "prop_safety_cabinet",
 )  # fmt: skip
+# ADR 0009 : bâtiments de site et semi-remorque du réseau logistique, fabriqués (procéduraux) avec collision.
+NETWORK_ASSETS = ("bld_site_supplier", "bld_site_client", "bld_site_warehouse", "veh_semi_truck")
+NO_COLLISION = ("prop_floor_zone", "prop_part_token")  # marquage plat et jeton : jamais des obstacles
 
 
 def test_catalog_is_valid() -> None:
@@ -33,7 +36,7 @@ def test_factory_slice_one_scenes_are_clean_and_have_their_own_collision() -> No
     """Tranche 1 (étape 5b) : fabriquée, sans dérivation du jeu de référence, collision propre, source CC0 créditée."""
     catalog = load_assets_catalog()
     credited = {a.source.pack for a in catalog.shipped()}  # packs listés dans CREDITS.md
-    for asset_id in FACTORY_ASSETS[:11]:
+    for asset_id in (*FACTORY_ASSETS, *NETWORK_ASSETS):
         asset = catalog.by_id()[asset_id]
         assert asset.status == "importe" and asset.procedural, asset_id
         scene = (GODOT_ASSETS_DIR / asset.category / asset_id / f"{asset_id}.tscn").read_text(encoding="utf-8")
@@ -41,13 +44,22 @@ def test_factory_slice_one_scenes_are_clean_and_have_their_own_collision() -> No
         assert script_path, f"{asset_id} : script introuvable dans la scène"
         code = (GODOT_ASSETS_DIR.parent / script_path.group(1)).read_text(encoding="utf-8")
         assert "production_line" not in code and "site_office" not in code, f"{asset_id} dérive du jeu de référence"
-        # prop_floor_zone : marquage plat, jamais un obstacle ; tous les autres ont un StaticBody3D « Collision »
-        assert ("Mesher.collider" in code) == (asset_id != "prop_floor_zone"), asset_id
+        assert ("Mesher.collider" in code) == (asset_id not in NO_COLLISION), asset_id
         for pack, name in re.findall(r"res://assets/_sources/([\w-]+)/([\w.-]+)", code):  # modèle libre embarqué
             assert pack in credited and catalog.packs[pack].license.startswith("CC0"), (
                 f"{asset_id} : {pack} non crédité"
             )
             assert (SOURCES_DIR / pack / name).exists() and (SOURCES_DIR / pack / "License.txt").exists(), asset_id
+
+
+def test_footprints_follow_the_half_meter_site_grid() -> None:
+    """ADR 0009 : le placeur compte en cellules de 0,5 m ; w et d valent au plus 0,5 ou un multiple de 0,5.
+    (Que la scène tienne dans l'emprise est mesuré par godot/tools/check_footprints.gd, lancé par assets.ps1.)"""
+    for asset in load_assets_catalog().assets:
+        if asset.category in ("character", "nature"):
+            continue
+        for side in (asset.footprint.w, asset.footprint.d):
+            assert side <= 0.5 or abs(side / 0.5 - round(side / 0.5)) < 1e-9, f"{asset.id} : {side} m hors grille"
 
 
 def test_godot_catalog_is_up_to_date() -> None:

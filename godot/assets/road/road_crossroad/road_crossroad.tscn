@@ -6,15 +6,15 @@
 [sub_resource type="BoxShape3D" id="BoxShape3D_ea7lk"]
 size = Vector3(10, 0.19999999, 10)
 
-[node name="road_crossroad" type="Node3D" unique_id=1619697106]
+[node name="road_crossroad" type="Node3D" unique_id=1552793994]
 script = ExtResource("1_4vgfo")
 asset_id = "road_crossroad"
 
 [node name="Model" type="Node3D" parent="." unique_id=715324607 instance=ExtResource("2_1xx0r")]
 transform = Transform3D(10, 0, 0, 0, 10, 0, 0, 0, 10, 0, 0, 0)
 
-[node name="Collision" type="StaticBody3D" parent="." unique_id=1018667953]
+[node name="Collision" type="StaticBody3D" parent="." unique_id=675387213]
 
-[node name="Shape" type="CollisionShape3D" parent="Collision" unique_id=1467733282]
+[node name="Shape" type="CollisionShape3D" parent="Collision" unique_id=101890929]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.099999994, 0)
 shape = SubResource("BoxShape3D_ea7lk")

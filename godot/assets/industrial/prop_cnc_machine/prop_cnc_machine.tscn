@@ -6,15 +6,15 @@
 [sub_resource type="BoxShape3D" id="BoxShape3D_kenrx"]
 size = Vector3(2.4, 2.5995038, 3)
 
-[node name="prop_cnc_machine" type="Node3D" unique_id=1177773009]
+[node name="prop_cnc_machine" type="Node3D" unique_id=2074450934]
 script = ExtResource("1_ly33m")
 asset_id = "prop_cnc_machine"
 
 [node name="Model" type="Node3D" parent="." unique_id=946929673 instance=ExtResource("2_72sp0")]
 transform = Transform3D(2, 0, 0, 0, 2, 0, 0, 0, 2, 0, 8.213497e-10, 0)
 
-[node name="Collision" type="StaticBody3D" parent="." unique_id=1452260646]
+[node name="Collision" type="StaticBody3D" parent="." unique_id=1620346114]
 
-[node name="Shape" type="CollisionShape3D" parent="Collision" unique_id=1716415085]
+[node name="Shape" type="CollisionShape3D" parent="Collision" unique_id=618375359]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2997519, 0)
 shape = SubResource("BoxShape3D_kenrx")

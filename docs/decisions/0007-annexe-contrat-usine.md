@@ -552,6 +552,13 @@ armoire de sécurité. **Tranche 4** : pack `atelier` migré au format pack avec
 
 ## 7. Plan d'exécution (tranche 1)
 
+(29/10) Ajouts de l'ADR 0009 :
+- Étape 6 : le placement du monde (« 6b ») suit `gmix.game.layout` (grilles, sites, routes). Les délais d'offre
+  viennent du réseau. La chronologie gagne `camion_arrive` et `camion_part`.
+- Étape 8 : Godot construit aussi les sites, les routes et les camions.
+
+Le détail est dans l'ADR 0009 et dans l'annexe 0008, §10.1.
+
 | # | Agent | Fichiers | Contrat | Fin | Après |
 |---|---|---|---|---|---|
 | 1 | documentaliste | .claude/ownership.json, CLAUDE.md (tableau) | `ai/packs/**` -> game-designer | `.\scripts\team.ps1 -CheckOwners` OK | - |
